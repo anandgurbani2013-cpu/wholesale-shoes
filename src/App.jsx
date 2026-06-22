@@ -181,7 +181,7 @@ const DEFAULT_STEPS = [
 ];
 
 const DEFAULT_BUSINESS = {
-  name: '[Your Business Name]', tagline: 'Premium Wholesale Men\'s Footwear', logoText: '[L]',
+  name: '[Your Business Name]', tagline: 'Premium Wholesale Men\'s Footwear', logoText: '[L]', logoImage: '',
   phone: '+91 XXXXX XXXXX', whatsapp: '91XXXXXXXXXX', email: 'contact@yourbusiness.com',
   address: '[Your Business Address, City, State, PIN]', hours: 'Mon - Sat: 9:00 AM - 7:00 PM',
   years: 'XX', retailers: 'XXX+', cities: 'XX+', skus: 'XXX+',
@@ -925,6 +925,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Business Name</label><input value={editBiz.name || ''} onChange={e => setEditBiz({...editBiz, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Tagline</label><input value={editBiz.tagline || ''} onChange={e => setEditBiz({...editBiz, tagline: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Logo Text</label><input value={editBiz.logoText || ''} onChange={e => setEditBiz({...editBiz, logoText: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Logo Image URL (optional)</label><input value={editBiz.logoImage || ''} onChange={e => setEditBiz({...editBiz, logoImage: e.target.value})} placeholder="https://... (leave blank to use logo text)" className="w-full px-3 py-2 border rounded-lg" />{editBiz.logoImage && <img src={editBiz.logoImage} alt="logo preview" className="mt-2 w-16 h-16 rounded-lg object-cover border" />}<div className="text-xs text-slate-500 mt-1">If set, this image replaces the text logo in the header & footer.</div></div>
                 </div>
               </div>
               <div>
@@ -1208,7 +1209,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             {history.length > 0 && <button onClick={goBack} className="px-2 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
             <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">{business.logoText}</div>
+              {business.logoImage ? <img src={business.logoImage} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">{business.logoText}</div>}
               <div><div className="text-lg font-bold text-slate-900 leading-tight">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block">{business.tagline}</div></div>
             </div>
           </div>
@@ -1243,6 +1244,15 @@ export default function App() {
                   <div className="aspect-square bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl shadow-2xl overflow-hidden"><SafeImage src={IMG_URLS[0]} alt="Premium shoes" className="w-full h-full object-cover mix-blend-overlay opacity-90" /></div>
                   <div className="absolute -bottom-6 -left-6 bg-white text-slate-900 p-6 rounded-xl shadow-2xl"><div className="text-3xl font-bold text-amber-600">{business.skus}</div><div className="text-sm text-slate-600">Active SKUs</div></div>
                 </div>
+              </div>
+            </section>
+
+            <section className="bg-amber-500 text-white py-3">
+              <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center items-center gap-x-8 gap-y-2 text-sm font-medium">
+                <span className="flex items-center gap-1.5"><CheckCircle size={16} /> GST Registered</span>
+                <span className="flex items-center gap-1.5"><Truck size={16} /> {business.shippingCoverage} Delivery</span>
+                <span className="flex items-center gap-1.5"><Users size={16} /> {business.retailers} Retailers Served</span>
+                <span className="flex items-center gap-1.5"><Package size={16} /> Low MOQ</span>
               </div>
             </section>
 
@@ -1406,7 +1416,7 @@ export default function App() {
       <footer className="bg-slate-900 text-white py-12 mt-16">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
           <div>
-            <div className="flex items-center gap-2 mb-4"><div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold">{business.logoText}</div><div className="font-bold">{business.name}</div></div>
+            <div className="flex items-center gap-2 mb-4">{business.logoImage ? <img src={business.logoImage} alt={business.name} className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold">{business.logoText}</div>}<div className="font-bold">{business.name}</div></div>
             <p className="text-sm text-slate-400 mb-4">{business.tagline}</p>
             <div className="flex gap-3"><a href={business.facebook} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Facebook size={16} /></a><a href={business.instagram} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Instagram size={16} /></a><a href={business.linkedin} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Linkedin size={16} /></a></div>
           </div>
@@ -1447,7 +1457,7 @@ export default function App() {
           </div>
           <div className="w-16 h-16 bg-green-500 hover:bg-green-600 rounded-full shadow-2xl flex items-center justify-center text-white transition-all hover:scale-110 relative">
             <MessageCircle size={28} />
-         
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold animate-pulse">!</span>
           </div>
         </a>
       </div>
