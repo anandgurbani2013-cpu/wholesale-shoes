@@ -1457,7 +1457,7 @@ export default function App() {
           </div>
           <div className="w-16 h-16 bg-green-500 hover:bg-green-600 rounded-full shadow-2xl flex items-center justify-center text-white transition-all hover:scale-110 relative">
             <MessageCircle size={28} />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold animate-pulse">!</span>
+           
           </div>
         </a>
       </div>
