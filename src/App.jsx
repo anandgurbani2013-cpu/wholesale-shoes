@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2 } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -1016,6 +1016,7 @@ export default function App() {
   const [loadError, setLoadError] = useState(null);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
+  const [dark, setDark] = useState(false);
 
   const [business, setBusiness] = useState(DEFAULT_BUSINESS);
   const [products, setProducts] = useState([]);
@@ -1187,7 +1188,27 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className={`min-h-screen bg-white${dark ? ' theme-dark' : ''}`}>
+      <style>{`
+        .theme-dark { background:#0f172a; }
+        .theme-dark .bg-white { background-color:#1e293b !important; }
+        .theme-dark .bg-slate-50 { background-color:#1e293b !important; }
+        .theme-dark .bg-slate-100 { background-color:#334155 !important; }
+        .theme-dark .bg-amber-50 { background-color:rgba(245,158,11,0.12) !important; }
+        .theme-dark .bg-green-50 { background-color:rgba(34,197,94,0.12) !important; }
+        .theme-dark .bg-blue-50 { background-color:rgba(59,130,246,0.12) !important; }
+        .theme-dark .bg-red-50 { background-color:rgba(239,68,68,0.12) !important; }
+        .theme-dark .bg-amber-100 { background-color:rgba(245,158,11,0.18) !important; }
+        .theme-dark .text-slate-900 { color:#f1f5f9 !important; }
+        .theme-dark .text-slate-800 { color:#e2e8f0 !important; }
+        .theme-dark .text-slate-700 { color:#cbd5e1 !important; }
+        .theme-dark .text-slate-600 { color:#94a3b8 !important; }
+        .theme-dark .text-slate-500 { color:#94a3b8 !important; }
+        .theme-dark .border, .theme-dark .border-b, .theme-dark .border-t, .theme-dark .border-gray-100, .theme-dark .border-slate-200, .theme-dark .border-slate-300 { border-color:#334155 !important; }
+        .theme-dark input, .theme-dark textarea, .theme-dark select { background-color:#0f172a !important; color:#f1f5f9 !important; border-color:#334155 !important; }
+        .theme-dark input::placeholder, .theme-dark textarea::placeholder { color:#64748b !important; }
+        .theme-dark .shadow-sm, .theme-dark .shadow-xl, .theme-dark .shadow-2xl, .theme-dark .shadow-md { box-shadow:0 1px 3px rgba(0,0,0,0.5) !important; }
+      `}</style>
       {loadError && <div className="bg-amber-100 border-b border-amber-300 text-amber-800 text-xs px-4 py-2 text-center">⚠️ {loadError}</div>}
       <div className="bg-slate-900 text-white text-xs py-2 px-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -1217,6 +1238,7 @@ export default function App() {
             {NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`text-sm font-medium transition-colors ${page === item.id ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>{item.label}</button>)}
           </nav>
           <div className="flex items-center gap-2">
+            <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => setShowInquiry(true)} className="relative p-2 hover:bg-amber-50 rounded-lg"><ShoppingBag size={22} className="text-slate-700" />{inquiryList.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{inquiryList.length}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
@@ -1457,7 +1479,6 @@ export default function App() {
           </div>
           <div className="w-16 h-16 bg-green-500 hover:bg-green-600 rounded-full shadow-2xl flex items-center justify-center text-white transition-all hover:scale-110 relative">
             <MessageCircle size={28} />
-           
           </div>
         </a>
       </div>
