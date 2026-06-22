@@ -1188,26 +1188,59 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-white${dark ? ' theme-dark' : ''}`}>
+    <div className={`min-h-screen bg-white app-root${dark ? ' theme-dark' : ''}`}>
       <style>{`
-        .theme-dark { background:#0f172a; }
-        .theme-dark .bg-white { background-color:#1e293b !important; }
-        .theme-dark .bg-slate-50 { background-color:#1e293b !important; }
-        .theme-dark .bg-slate-100 { background-color:#334155 !important; }
-        .theme-dark .bg-amber-50 { background-color:rgba(245,158,11,0.12) !important; }
-        .theme-dark .bg-green-50 { background-color:rgba(34,197,94,0.12) !important; }
-        .theme-dark .bg-blue-50 { background-color:rgba(59,130,246,0.12) !important; }
-        .theme-dark .bg-red-50 { background-color:rgba(239,68,68,0.12) !important; }
-        .theme-dark .bg-amber-100 { background-color:rgba(245,158,11,0.18) !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800;900&display=swap');
+
+        /* ---- Typography: friendly rounded headings, crisp body ---- */
+        .app-root, .app-root input, .app-root textarea, .app-root select, .app-root button, .app-root a { font-family:'Inter', system-ui, sans-serif; }
+        .app-root h1, .app-root h2, .app-root h3, .app-root h4 { font-family:'Nunito', system-ui, sans-serif; font-weight:800; letter-spacing:-0.01em; }
+
+        /* ===== NAVY & GOLD PALETTE (light / base) ===== */
+        /* gold accent */
+        .app-root .bg-amber-500 { background-color:#C6A15B !important; }
+        .app-root .bg-amber-600 { background-color:#A8843E !important; }
+        .app-root .hover\\:bg-amber-600:hover { background-color:#A8843E !important; }
+        .app-root .hover\\:bg-amber-500:hover { background-color:#C6A15B !important; }
+        .app-root .text-amber-600, .app-root .text-amber-700 { color:#9A7833 !important; }
+        .app-root .text-amber-500 { color:#C6A15B !important; }
+        .app-root .text-amber-400 { color:#D8BE82 !important; }
+        .app-root .hover\\:text-amber-600:hover, .app-root .hover\\:text-amber-400:hover { color:#A8843E !important; }
+        .app-root .bg-amber-50 { background-color:#FAF5E9 !important; }
+        .app-root .bg-amber-100 { background-color:#F1E6CB !important; }
+        .app-root .border-amber-200 { border-color:#E6D6AC !important; }
+        .app-root .border-amber-300 { border-color:#DCC78C !important; }
+        .app-root .bg-amber-500\\/20 { background-color:rgba(198,161,91,0.18) !important; }
+        .app-root .border-amber-500\\/30 { border-color:rgba(198,161,91,0.4) !important; }
+        /* navy for the deep surfaces + headings */
+        .app-root .bg-slate-900 { background-color:#102443 !important; }
+        .app-root .hover\\:bg-slate-800:hover { background-color:#1a335c !important; }
+        .app-root .text-slate-900 { color:#13294B !important; }
+        /* gradients (direct background-image override for reliability) */
+        .app-root .bg-gradient-to-br.from-slate-900 { background-image:linear-gradient(to bottom right,#102443,#0b1830,#102443) !important; }
+        .app-root .bg-gradient-to-br.from-amber-500 { background-image:linear-gradient(to bottom right,#D2B069,#A8843E) !important; }
+        .app-root .bg-gradient-to-br.from-amber-400 { background-image:linear-gradient(to bottom right,#E0C98C,#A8843E) !important; }
+        .app-root .bg-gradient-to-r.from-amber-500 { background-image:linear-gradient(to right,#C6A15B,#A8843E) !important; }
+
+        /* ===== DARK MODE (navy tones) — placed after base so it wins ties ===== */
+        .theme-dark { background:#0a1a33; }
+        .theme-dark .bg-white { background-color:#102443 !important; }
+        .theme-dark .bg-slate-50 { background-color:#102443 !important; }
+        .theme-dark .bg-slate-100 { background-color:#1c3a63 !important; }
+        .theme-dark .bg-amber-50 { background-color:rgba(198,161,91,0.14) !important; }
+        .theme-dark .bg-amber-100 { background-color:rgba(198,161,91,0.2) !important; }
+        .theme-dark .bg-green-50 { background-color:rgba(34,197,94,0.14) !important; }
+        .theme-dark .bg-blue-50 { background-color:rgba(59,130,246,0.14) !important; }
+        .theme-dark .bg-red-50 { background-color:rgba(239,68,68,0.14) !important; }
         .theme-dark .text-slate-900 { color:#f1f5f9 !important; }
         .theme-dark .text-slate-800 { color:#e2e8f0 !important; }
         .theme-dark .text-slate-700 { color:#cbd5e1 !important; }
-        .theme-dark .text-slate-600 { color:#94a3b8 !important; }
-        .theme-dark .text-slate-500 { color:#94a3b8 !important; }
-        .theme-dark .border, .theme-dark .border-b, .theme-dark .border-t, .theme-dark .border-gray-100, .theme-dark .border-slate-200, .theme-dark .border-slate-300 { border-color:#334155 !important; }
-        .theme-dark input, .theme-dark textarea, .theme-dark select { background-color:#0f172a !important; color:#f1f5f9 !important; border-color:#334155 !important; }
-        .theme-dark input::placeholder, .theme-dark textarea::placeholder { color:#64748b !important; }
-        .theme-dark .shadow-sm, .theme-dark .shadow-xl, .theme-dark .shadow-2xl, .theme-dark .shadow-md { box-shadow:0 1px 3px rgba(0,0,0,0.5) !important; }
+        .theme-dark .text-slate-600 { color:#9fb0c9 !important; }
+        .theme-dark .text-slate-500 { color:#8195b0 !important; }
+        .theme-dark .border, .theme-dark .border-b, .theme-dark .border-t, .theme-dark .border-gray-100, .theme-dark .border-slate-200, .theme-dark .border-slate-300 { border-color:#24406b !important; }
+        .theme-dark input, .theme-dark textarea, .theme-dark select { background-color:#0a1a33 !important; color:#f1f5f9 !important; border-color:#24406b !important; }
+        .theme-dark input::placeholder, .theme-dark textarea::placeholder { color:#6b7f9c !important; }
+        .theme-dark .shadow-sm, .theme-dark .shadow-xl, .theme-dark .shadow-2xl, .theme-dark .shadow-md { box-shadow:0 2px 8px rgba(0,0,0,0.55) !important; }
       `}</style>
       {loadError && <div className="bg-amber-100 border-b border-amber-300 text-amber-800 text-xs px-4 py-2 text-center">⚠️ {loadError}</div>}
       <div className="bg-slate-900 text-white text-xs py-2 px-4">
