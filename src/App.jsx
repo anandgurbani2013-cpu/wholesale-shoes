@@ -5,9 +5,7 @@ import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, Chevr
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmY25rbWJmdWd5cHJhdG1sYWh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMjUxMTEsImV4cCI6MjA5NzcwMTExMX0.phMz2gjcbLY17LfaRfMI0weuYOMKM4hXJVpvATk3Jl4';
 const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz79bSOmt6s31Byx8BL7h0qyVOz8Gv8Z8fNlyfFUsdFuvijNM7F7na86wzIdgHi5pvm/exec';
-const EMAILJS_SERVICE = 'service_kkvcq8c';
-const EMAILJS_TEMPLATE = 'template_evz7s7i';
-const EMAILJS_KEY = 'MLM40TspPjYvvhUaO';
+const WEB3FORMS_KEY = '28dbd52f-c661-42f5-b781-34ba0c7d0249';
 const ADMIN_EMAIL = 'anandgurbani2013@gmail.com';
 
 // ===== SUPABASE REST API HELPER =====
@@ -69,9 +67,33 @@ async function pushToGoogleSheets(inquiry) {
 }
 
 async function sendInquiryEmail(inquiry) {
-  // Email notifications removed - using Google Sheets for tracking instead
-  // To enable email later: set up Web3Forms (web3forms.com) and update this function
-  return null;
+  try {
+    const productsStr = inquiry.products?.map(p => `${p.code}-${p.name} (${p.quantity} pairs)`).join('; ') || 'None';
+    const r = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_KEY,
+        subject: `New Inquiry from ${inquiry.name}${inquiry.shop ? ' - ' + inquiry.shop : ''}`,
+        from_name: 'Wholesale Shoes Website',
+        name: inquiry.name,
+        shop: inquiry.shop || 'N/A',
+        city: inquiry.city || 'N/A',
+        phone: inquiry.phone,
+        email: inquiry.email || 'N/A',
+        message: inquiry.message || 'No message',
+        products: productsStr,
+        date: new Date(inquiry.date).toLocaleString('en-IN'),
+      }),
+    });
+    const data = await r.json();
+    if (data.success) return true;
+    console.error('Web3Forms error:', data);
+    return false;
+  } catch (e) {
+    console.error('Email send failed:', e.message);
+    return false;
+  }
 }
 
 async function askAI(messages, businessContext) {
@@ -770,12 +792,13 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                     tests.push('🟡 Google Sheets: Request sent (cannot verify - works on real deployment)');
                   } catch (e) { tests.push(`❌ Google Sheets: ${e.message} (blocked in artifact)`); }
                   
-                  // Test EmailJS
+                  // Test Web3Forms
                   try {
-                    const r = await fetch('https://api.emailjs.com/api/v1.0/email/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ service_id: EMAILJS_SERVICE, template_id: EMAILJS_TEMPLATE, user_id: EMAILJS_KEY, template_params: { test: true } }) });
-                    if (r.ok) tests.push('✅ EmailJS: Connected');
-                    else tests.push(`🟡 EmailJS: ${r.status} (likely blocked in artifact)`);
-                  } catch (e) { tests.push(`❌ EmailJS: ${e.message} (blocked in artifact)`); }
+                    const r = await fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ access_key: WEB3FORMS_KEY, subject: 'Connection Test', from_name: 'Website Test', name: 'Connection Test', message: 'Automated connection test from admin panel.' }) });
+                    const d = await r.json();
+                    if (d.success) tests.push('✅ Web3Forms Email: Connected (check inbox for test email)');
+                    else tests.push(`❌ Web3Forms: ${d.message}`);
+                  } catch (e) { tests.push(`❌ Web3Forms: ${e.message}`); }
                   
                   alert(tests.join('\n'));
                 }} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">🧪 Test All Connections</button>
