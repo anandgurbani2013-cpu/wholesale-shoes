@@ -196,6 +196,7 @@ const DEFAULT_BUSINESS = {
   years: 'XX', retailers: 'XXX+', cities: 'XX+', skus: 'XXX+', foundedYear: 2013,
   about: '[Your business story]', mission: '[Your mission statement]',
   paymentTerms: 'Advance / Net 30', leadTime: '7-15 business days', shippingCoverage: 'Pan India',
+  paymentNote: 'Payment via UPI / bank transfer on order confirmation. GST invoice provided.',
   heroTitle: "Premium Men's Footwear at Wholesale Prices",
   heroSubtitle: 'Your trusted partner for bulk men\'s shoe supply.',
   heroBadge: '{years} Years of Excellence',
@@ -804,6 +805,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
             {submitting ? <><Loader2 className="animate-spin" size={18} /> Submitting...</> : <><Send size={18} /> Submit Inquiry</>}
           </button>
           <div className="text-xs text-slate-500 mt-2 text-center">We'll review your inquiry and get back to you within 24 hours.</div>
+          {business.paymentNote && <div className="text-xs text-slate-500 mt-3 flex items-start gap-2 bg-slate-50 rounded-lg p-3"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
         </div>
         <div className="space-y-4">
           <div className="bg-slate-900 text-white rounded-2xl p-6">
@@ -1206,6 +1208,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Legal Business Name</label><input value={editBiz.legalName || ''} onChange={e => setEditBiz({...editBiz, legalName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">HSN Code</label><input value={editBiz.hsnCode || ''} onChange={e => setEditBiz({...editBiz, hsnCode: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 6403" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">GST Rate (%)</label><input type="number" value={editBiz.gstRate || ''} onChange={e => setEditBiz({...editBiz, gstRate: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 18" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Payment Note (shown to buyers)</label><input value={editBiz.paymentNote || ''} onChange={e => setEditBiz({...editBiz, paymentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Payment via UPI / bank transfer on order confirmation. GST invoice provided." /><div className="text-xs text-slate-500 mt-1">A short line shown on the inquiry cart and contact page. You can include your UPI ID here if you like.</div></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Invoice Prefix</label><input value={editBiz.invoicePrefix || ''} onChange={e => setEditBiz({...editBiz, invoicePrefix: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., INV-" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label><input value={editBiz.bankName || ''} onChange={e => setEditBiz({...editBiz, bankName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Account Number</label><input value={editBiz.accountNo || ''} onChange={e => setEditBiz({...editBiz, accountNo: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
@@ -1927,6 +1930,7 @@ export default function App() {
                   <button onClick={() => { setShowInquiry(false); navigate('contact'); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold mt-6">Submit Inquiry →</button>
                   <button onClick={() => { setShowInquiry(false); setShowProforma(true); }} className="w-full mt-3 border border-slate-300 hover:bg-slate-50 text-slate-700 py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><FileText size={18} /> Download Proforma Estimate</button>
                   <button onClick={() => setInquiryList([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear all items</button>
+                  {business.paymentNote && <div className="mt-3 text-xs text-slate-500 flex items-start gap-2"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
                 </>
               )}
             </div>
