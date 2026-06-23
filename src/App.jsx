@@ -503,10 +503,18 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
 
 // ===== CONTACT PAGE =====
 function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast }) {
-  const [form, setForm] = useState({ name: '', shop: '', city: '', phone: '', email: '', message: '' });
+  const [form, setForm] = useState(() => {
+    try { const s = localStorage.getItem('wsContactForm'); if (s) return { name: '', shop: '', city: '', phone: '', email: '', message: '', ...JSON.parse(s) }; } catch (e) {}
+    return { name: '', shop: '', city: '', phone: '', email: '', message: '' };
+  });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState({ db: null, sheets: null, email: null });
+
+  // Remember what's typed so a refresh doesn't lose it
+  useEffect(() => {
+    try { localStorage.setItem('wsContactForm', JSON.stringify(form)); } catch (e) {}
+  }, [form]);
 
   const submit = async () => {
     if (!form.name || !form.phone) { showToast('Please fill name and phone'); return; }
@@ -526,6 +534,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     setSubmitted(true);
     setInquiryList([]);
     setForm({ name: '', shop: '', city: '', phone: '', email: '', message: '' });
+    try { localStorage.removeItem('wsContactForm'); } catch (e) {}
   };
 
   if (submitted) {
