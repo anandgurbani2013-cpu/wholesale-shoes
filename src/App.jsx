@@ -66,7 +66,7 @@ const sb = {
 async function pushToGoogleSheets(inquiry) {
   try {
     const productsStr = inquiry.products?.map(p => `${p.code}-${p.name} (${p.quantity} pairs)`).join('; ') || '';
-    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr }) });
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, source: inquiry.source || 'Inquiry Form' }) });
     return true;
   } catch (e) { 
     console.warn('Google Sheets not available in this environment (will work after deployment):', e.message); 
@@ -82,8 +82,9 @@ async function sendInquiryEmail(inquiry) {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         access_key: WEB3FORMS_KEY,
-        subject: `New Inquiry from ${inquiry.name}${inquiry.shop ? ' - ' + inquiry.shop : ''}`,
+        subject: `${inquiry.source === 'Proforma Download' ? '📄 Proforma Estimate Lead' : 'New Inquiry'} from ${inquiry.name}${inquiry.shop ? ' - ' + inquiry.shop : ''}`,
         from_name: 'Wholesale Shoes Website',
+        source: inquiry.source || 'Inquiry Form',
         name: inquiry.name,
         shop: inquiry.shop || 'N/A',
         city: inquiry.city || 'N/A',
@@ -578,11 +579,12 @@ function tierRateForQty(item, qty) {
 }
 
 // ===== PROFORMA ESTIMATE (client-facing, NOT a tax invoice) =====
-function ProformaModal({ items, business, onClose }) {
+function ProformaModal({ items, business, onLog, onClose }) {
   const [step, setStep] = useState('select');
   const [buyer, setBuyer] = useState({ name: '', shop: '', city: '', phone: '' });
   const [selected, setSelected] = useState(() => items.map(it => it.id));
   const toggle = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const loggedRef = useRef(false);
 
   const gstRate = parseFloat(business.gstRate) || 18;
   const chosen = items.filter(it => selected.includes(it.id));
@@ -598,6 +600,16 @@ function ProformaModal({ items, business, onClose }) {
   const totals = chosen.reduce((a, it) => { const r = calcRow(it); return { subtotal: a.subtotal + r.subtotal, cgst: a.cgst + r.cgst, sgst: a.sgst + r.sgst, total: a.total + r.total }; }, { subtotal: 0, cgst: 0, sgst: 0, total: 0 });
   const number = `PI-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   const date = new Date().toLocaleDateString('en-IN');
+
+  const generate = () => {
+    if (!loggedRef.current) {
+      loggedRef.current = true;
+      try {
+        onLog && onLog({ name: buyer.name.trim(), shop: buyer.shop.trim(), city: buyer.city.trim(), phone: buyer.phone.trim(), products: chosen.map(it => ({ code: it.code, name: it.name, quantity: it.quantity || it.moq })) });
+      } catch (e) { console.warn('Proforma lead log failed:', e); }
+    }
+    setStep('view');
+  };
 
   if (step === 'select') {
     return (
@@ -617,7 +629,7 @@ function ProformaModal({ items, business, onClose }) {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Shop</label><input value={buyer.shop} onChange={e => setBuyer({...buyer, shop: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">City</label><input value={buyer.city} onChange={e => setBuyer({...buyer, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone</label><input value={buyer.phone} onChange={e => setBuyer({...buyer, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone *</label><input value={buyer.phone} onChange={e => setBuyer({...buyer, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div>
               <div className="text-sm font-medium text-slate-700 mb-2">Include these products:</div>
               <div className="space-y-2 max-h-60 overflow-auto">
@@ -630,7 +642,7 @@ function ProformaModal({ items, business, onClose }) {
                 ))}
               </div>
             </div>
-            <button onClick={() => setStep('view')} disabled={!buyer.name.trim() || chosen.length === 0} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><FileText size={18} /> Generate Proforma</button>
+            <button onClick={generate} disabled={!buyer.name.trim() || !buyer.phone.trim() || chosen.length === 0} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><FileText size={18} /> Generate Proforma</button>
           </div>
         </div>
       </div>
@@ -1149,7 +1161,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div key={i.id} className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
                     <div>
-                      <h3 className="font-bold text-slate-900">{i.name}</h3>
+                      <h3 className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">{i.name}{i.source === 'Proforma Download' && <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1"><FileText size={11} /> Proforma Lead</span>}</h3>
                       <div className="text-sm text-slate-600">{i.shop || 'No shop'} • {i.city || 'No city'}</div>
                       <div className="text-sm text-slate-500 mt-1">📞 {i.phone} {i.whatsapp && i.whatsapp !== i.phone && `• 💬 ${i.whatsapp}`} {i.email && `• ✉️ ${i.email}`}</div>
                     </div>
@@ -1410,6 +1422,26 @@ export default function App() {
       alert(`Database error: ${e.message}\n\nCheck console (F12) for details. Inquiry saved locally only.`);
       return false; 
     }
+  };
+
+  const logProforma = async (lead) => {
+    const inq = {
+      id: `pf_${Date.now()}`,
+      name: lead.name,
+      shop: lead.shop || '',
+      city: lead.city || '',
+      phone: lead.phone || '',
+      whatsapp: lead.phone || '',
+      email: '',
+      message: `Downloaded a proforma estimate (${lead.products.length} product${lead.products.length === 1 ? '' : 's'}).`,
+      products: lead.products,
+      date: new Date().toISOString(),
+      status: 'new',
+      source: 'Proforma Download',
+    };
+    await saveInquiry(inq);
+    pushToGoogleSheets(inq);
+    sendInquiryEmail(inq);
   };
 
   const saveInquiries = async (list) => {
@@ -1957,7 +1989,7 @@ export default function App() {
         </div>
       )}
 
-      {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} onClose={() => setShowProforma(false)} />}
+      {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} onLog={logProforma} onClose={() => setShowProforma(false)} />}
 
       {showAdminLogin && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowAdminLogin(false); setPwdError(''); setAdminPwd(''); }}>
