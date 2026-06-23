@@ -550,6 +550,150 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
   );
 }
 
+// ===== PROFORMA ESTIMATE (client-facing, NOT a tax invoice) =====
+function ProformaModal({ items, business, onClose }) {
+  const [step, setStep] = useState('select');
+  const [buyer, setBuyer] = useState({ name: '', shop: '', city: '', phone: '' });
+  const [selected, setSelected] = useState(() => items.map(it => it.id));
+  const toggle = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+
+  const gstRate = parseFloat(business.gstRate) || 18;
+  const chosen = items.filter(it => selected.includes(it.id));
+  const calcRow = (item) => {
+    const price = parseFloat(item.priceFrom) || 0;
+    const qty = item.quantity || item.moq || 0;
+    const subtotal = price * qty;
+    const cgst = subtotal * gstRate / 200;
+    const sgst = subtotal * gstRate / 200;
+    return { price, qty, subtotal, cgst, sgst, total: subtotal + cgst + sgst };
+  };
+  const totals = chosen.reduce((a, it) => { const r = calcRow(it); return { subtotal: a.subtotal + r.subtotal, cgst: a.cgst + r.cgst, sgst: a.sgst + r.sgst, total: a.total + r.total }; }, { subtotal: 0, cgst: 0, sgst: 0, total: 0 });
+  const number = `PI-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  const date = new Date().toLocaleDateString('en-IN');
+
+  if (step === 'select') {
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 overflow-auto p-4 flex items-start justify-center">
+        <div className="max-w-lg w-full bg-white rounded-2xl shadow-2xl my-8">
+          <div className="p-6 border-b flex justify-between items-center">
+            <h2 className="text-lg font-bold text-slate-900">Proforma Estimate</h2>
+            <button onClick={onClose}><X size={22} /></button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-slate-600">This is a proforma estimate for your planning — not a GST tax invoice. Prices are indicative; final pricing is confirmed when you place an order.</div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Your Name *</label>
+              <input value={buyer.name} onChange={e => setBuyer({...buyer, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Shop</label><input value={buyer.shop} onChange={e => setBuyer({...buyer, shop: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">City</label><input value={buyer.city} onChange={e => setBuyer({...buyer, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+            </div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone</label><input value={buyer.phone} onChange={e => setBuyer({...buyer, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+            <div>
+              <div className="text-sm font-medium text-slate-700 mb-2">Include these products:</div>
+              <div className="space-y-2 max-h-60 overflow-auto">
+                {items.map(it => (
+                  <label key={it.id} className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2 cursor-pointer">
+                    <input type="checkbox" checked={selected.includes(it.id)} onChange={() => toggle(it.id)} />
+                    <span className="flex-1 text-sm"><span className="font-medium">{it.name}</span> <span className="text-slate-500">({it.code})</span></span>
+                    <span className="text-xs text-slate-500">{it.quantity || it.moq} pairs</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => setStep('view')} disabled={!buyer.name.trim() || chosen.length === 0} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><FileText size={18} /> Generate Proforma</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 overflow-auto p-4 print:p-0 print:bg-white">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-2xl print:shadow-none print:rounded-none">
+        <div className="p-6 border-b flex justify-between items-center print:hidden">
+          <h2 className="text-xl font-bold">Proforma Preview</h2>
+          <div className="flex gap-2">
+            <button onClick={() => window.print()} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"><Printer size={18} /> Print / Save PDF</button>
+            <button onClick={() => setStep('select')} className="border px-4 py-2 rounded-lg">Back</button>
+            <button onClick={onClose} className="border px-4 py-2 rounded-lg">Close</button>
+          </div>
+        </div>
+        <div className="p-8 print:p-6">
+          <div className="text-center mb-4 pb-4 border-b-2 border-slate-900">
+            <h1 className="text-2xl font-bold text-slate-900">PROFORMA INVOICE</h1>
+            <div className="text-sm text-slate-600 mt-1">Estimate only — not a GST tax invoice</div>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-6 text-xs text-slate-700">This proforma is an indicative estimate for planning purposes. It is not a tax invoice and is not valid for GST/input-credit. Final pricing, taxes, and availability are confirmed by {business.legalName || business.name} when an order is placed.</div>
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div>
+              <div className="font-bold text-slate-900 mb-2">{business.legalName || business.name}</div>
+              <div className="text-sm text-slate-700 whitespace-pre-line">{business.address}</div>
+              <div className="text-sm text-slate-700 mt-2">📞 {business.phone}</div>
+              <div className="text-sm text-slate-700">✉️ {business.email}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm"><span className="font-semibold">Proforma No:</span> {number}</div>
+              <div className="text-sm mt-1"><span className="font-semibold">Date:</span> {date}</div>
+            </div>
+          </div>
+          <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+            <div className="font-bold text-slate-900 mb-1">Prepared For:</div>
+            <div className="text-sm">{buyer.name}</div>
+            {buyer.shop && <div className="text-sm">{buyer.shop}</div>}
+            {buyer.city && <div className="text-sm">{buyer.city}</div>}
+            {buyer.phone && <div className="text-sm">📞 {buyer.phone}</div>}
+          </div>
+          <table className="w-full mb-6 text-sm">
+            <thead className="bg-slate-900 text-white">
+              <tr>
+                <th className="p-2 text-left">#</th>
+                <th className="p-2 text-left">Product</th>
+                <th className="p-2 text-center">Qty</th>
+                <th className="p-2 text-right">Est. Rate</th>
+                <th className="p-2 text-right">Amount</th>
+                <th className="p-2 text-right">Est. GST</th>
+                <th className="p-2 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chosen.map((item, i) => {
+                const r = calcRow(item);
+                return (
+                  <tr key={i} className="border-b">
+                    <td className="p-2">{i + 1}</td>
+                    <td className="p-2"><div className="font-medium">{item.name}</div><div className="text-xs text-slate-500">{item.code}</div></td>
+                    <td className="p-2 text-center">{r.qty}</td>
+                    <td className="p-2 text-right">₹{r.price.toFixed(2)}</td>
+                    <td className="p-2 text-right">₹{r.subtotal.toFixed(2)}</td>
+                    <td className="p-2 text-right">₹{(r.cgst + r.sgst).toFixed(2)}</td>
+                    <td className="p-2 text-right font-semibold">₹{r.total.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-slate-100 font-bold">
+              <tr>
+                <td colSpan="4" className="p-2 text-right">Total (estimated):</td>
+                <td className="p-2 text-right">₹{totals.subtotal.toFixed(2)}</td>
+                <td className="p-2 text-right">₹{(totals.cgst + totals.sgst).toFixed(2)}</td>
+                <td className="p-2 text-right">₹{totals.total.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <div className="text-xs text-slate-600">
+            <div>• Estimated GST shown at {gstRate}% for reference only.</div>
+            <div>• Prices are indicative and subject to confirmation.</div>
+            <div>• This document does not constitute a tax invoice or a binding quotation.</div>
+          </div>
+        </div>
+      </div>
+      <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } .print\\:p-0 { padding: 0 !important; } .print\\:p-6 { padding: 1.5rem !important; } .print\\:shadow-none { box-shadow: none !important; } .print\\:rounded-none { border-radius: 0 !important; } .print\\:bg-white { background: white !important; } }`}</style>
+    </div>
+  );
+}
+
 // ===== CONTACT PAGE =====
 function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast }) {
   const [form, setForm] = useState(() => {
@@ -1118,6 +1262,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [dark, setDark] = useState(false);
+  const [showProforma, setShowProforma] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -1772,6 +1917,7 @@ export default function App() {
                     </div>
                   ))}
                   <button onClick={() => { setShowInquiry(false); navigate('contact'); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold mt-6">Submit Inquiry →</button>
+                  <button onClick={() => { setShowInquiry(false); setShowProforma(true); }} className="w-full mt-3 border border-slate-300 hover:bg-slate-50 text-slate-700 py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><FileText size={18} /> Download Proforma Estimate</button>
                   <button onClick={() => setInquiryList([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear all items</button>
                 </>
               )}
@@ -1779,6 +1925,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} onClose={() => setShowProforma(false)} />}
 
       {showAdminLogin && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowAdminLogin(false); setPwdError(''); setAdminPwd(''); }}>
