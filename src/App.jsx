@@ -1630,9 +1630,9 @@ export default function App() {
           <div><h4 className="font-bold mb-3">Categories</h4><ul className="space-y-2 text-sm text-slate-400">{categories.map(c => <li key={c.id}><button onClick={() => { setCatFilter(c.id); navigate('catalog'); }} className="hover:text-amber-400">{c.name}</button></li>)}</ul></div>
           <div><h4 className="font-bold mb-3">Contact</h4><ul className="space-y-2 text-sm text-slate-400"><li className="flex gap-2"><Phone size={14} className="mt-0.5 flex-shrink-0" />{business.phone}</li><li className="flex gap-2"><Mail size={14} className="mt-0.5 flex-shrink-0" />{business.email}</li><li className="flex gap-2"><MapPin size={14} className="mt-0.5 flex-shrink-0" />{business.address}</li><li className="flex gap-2"><Clock size={14} className="mt-0.5 flex-shrink-0" />{business.hours}</li></ul></div>
         </div>
-        <div className="max-w-7xl mx-auto px-4 mt-8 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between gap-4 text-sm text-slate-400">
+        <div className="max-w-7xl mx-auto px-4 mt-8 pt-8 border-t border-slate-800 flex flex-col md:flex-row md:items-center gap-3 md:gap-6 text-sm text-slate-400">
+          {adminAuth ? <button onClick={() => setPage('admin')} className="hover:text-amber-400 flex items-center gap-1 self-start"><Lock size={12} /> Admin Panel</button> : <button onClick={() => setShowAdminLogin(true)} className="hover:text-amber-400 flex items-center gap-1 self-start"><Lock size={12} /> Admin Login</button>}
           <div>© {new Date().getFullYear()} {business.name}. All rights reserved.</div>
-          {adminAuth ? <button onClick={() => setPage('admin')} className="hover:text-amber-400 flex items-center gap-1"><Lock size={12} /> Admin Panel</button> : <button onClick={() => setShowAdminLogin(true)} className="hover:text-amber-400 flex items-center gap-1"><Lock size={12} /> Admin Login</button>}
         </div>
       </footer>
 
