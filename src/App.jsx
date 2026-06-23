@@ -11,19 +11,6 @@ const ADMIN_EMAIL = 'anandgurbani2013@gmail.com';
 // ===== ADMIN LOGIN MODE =====
 // true  = use Supabase Auth — password is stored securely on Supabase, not in this code.
 //         You change/reset the password from the Supabase dashboard (no redeploy needed).
-// false = use the hardcoded password below (works without Supabaimport { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
-
-// ===== CONFIGURATION =====
-const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmY25rbWJmdWd5cHJhdG1sYWh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMjUxMTEsImV4cCI6MjA5NzcwMTExMX0.phMz2gjcbLY17LfaRfMI0weuYOMKM4hXJVpvATk3Jl4';
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz79bSOmt6s31Byx8BL7h0qyVOz8Gv8Z8fNlyfFUsdFuvijNM7F7na86wzIdgHi5pvm/exec';
-const WEB3FORMS_KEY = '28dbd52f-c661-42f5-b781-34ba0c7d0249';
-const ADMIN_EMAIL = 'anandgurbani2013@gmail.com';
-
-// ===== ADMIN LOGIN MODE =====
-// true  = use Supabase Auth — password is stored securely on Supabase, not in this code.
-//         You change/reset the password from the Supabase dashboard (no redeploy needed).
 // false = use the hardcoded password below (works without Supabase Auth; e.g. if Supabase ever charges).
 //         To switch, just change this one line to: false
 const USE_SUPABASE_AUTH = true;
