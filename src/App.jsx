@@ -66,7 +66,7 @@ const sb = {
 async function pushToGoogleSheets(inquiry) {
   try {
     const productsStr = inquiry.products?.map(p => `${p.code}-${p.name} (${p.quantity} pairs)`).join('; ') || '';
-    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, email: inquiry.email, message: inquiry.message, products: productsStr }) });
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr }) });
     return true;
   } catch (e) { 
     console.warn('Google Sheets not available in this environment (will work after deployment):', e.message); 
@@ -88,6 +88,7 @@ async function sendInquiryEmail(inquiry) {
         shop: inquiry.shop || 'N/A',
         city: inquiry.city || 'N/A',
         phone: inquiry.phone,
+        whatsapp: inquiry.whatsapp || inquiry.phone,
         email: inquiry.email || 'N/A',
         message: inquiry.message || 'No message',
         products: productsStr,
@@ -504,8 +505,8 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
 // ===== CONTACT PAGE =====
 function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast }) {
   const [form, setForm] = useState(() => {
-    try { const s = localStorage.getItem('wsContactForm'); if (s) return { name: '', shop: '', city: '', phone: '', email: '', message: '', ...JSON.parse(s) }; } catch (e) {}
-    return { name: '', shop: '', city: '', phone: '', email: '', message: '' };
+    try { const s = localStorage.getItem('wsContactForm'); if (s) return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '', ...JSON.parse(s) }; } catch (e) {}
+    return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' };
   });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -519,7 +520,8 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
   const submit = async () => {
     if (!form.name || !form.phone) { showToast('Please fill name and phone'); return; }
     setSubmitting(true);
-    const inq = { id: `inq_${Date.now()}`, ...form, products: [...inquiryList], date: new Date().toISOString(), status: 'new' };
+    const whatsappNumber = form.sameWhatsapp ? form.phone : (form.whatsapp || form.phone);
+    const inq = { id: `inq_${Date.now()}`, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new' };
     
     const dbOk = await saveInquiry(inq);
     setSubmissionStatus(s => ({ ...s, db: dbOk }));
@@ -533,7 +535,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     setSubmitting(false);
     setSubmitted(true);
     setInquiryList([]);
-    setForm({ name: '', shop: '', city: '', phone: '', email: '', message: '' });
+    setForm({ name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' });
     try { localStorage.removeItem('wsContactForm'); } catch (e) {}
   };
 
@@ -576,6 +578,19 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
             <div><label className="text-sm font-medium text-slate-700 block mb-1">Shop Name</label><input value={form.shop} onChange={e => setForm({...form, shop: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div><label className="text-sm font-medium text-slate-700 block mb-1">City</label><input value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone *</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+            <div className="md:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input type="checkbox" checked={form.sameWhatsapp} onChange={e => setForm({...form, sameWhatsapp: e.target.checked})} />
+                My phone number is also my WhatsApp
+              </label>
+              {!form.sameWhatsapp && (
+                <div className="mt-3">
+                  <label className="text-sm font-medium text-slate-700 block mb-1">WhatsApp Number</label>
+                  <input value={form.whatsapp} onChange={e => setForm({...form, whatsapp: e.target.value})} placeholder="e.g., +91 98765 43210" className="w-full px-3 py-2 border rounded-lg" />
+                  <div className="text-xs text-slate-500 mt-1">Include country code so we can reach you on WhatsApp.</div>
+                </div>
+              )}
+            </div>
             <div className="md:col-span-2"><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div className="md:col-span-2"><label className="text-sm font-medium text-slate-700 block mb-1">Message</label><textarea value={form.message} onChange={e => setForm({...form, message: e.target.value})} rows="4" placeholder="Tell us what you're looking for..." className="w-full px-3 py-2 border rounded-lg"></textarea></div>
           </div>
@@ -901,7 +916,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                     <div>
                       <h3 className="font-bold text-slate-900">{i.name}</h3>
                       <div className="text-sm text-slate-600">{i.shop || 'No shop'} • {i.city || 'No city'}</div>
-                      <div className="text-sm text-slate-500 mt-1">📞 {i.phone} {i.email && `• ✉️ ${i.email}`}</div>
+                      <div className="text-sm text-slate-500 mt-1">📞 {i.phone} {i.whatsapp && i.whatsapp !== i.phone && `• 💬 ${i.whatsapp}`} {i.email && `• ✉️ ${i.email}`}</div>
                     </div>
                     <div className="text-right">
                       <select value={i.status} onChange={e => saveInquiries(inquiries.map(x => x.id === i.id ? { ...x, status: e.target.value } : x))} className="text-sm border rounded-lg px-3 py-1 mb-2">
@@ -919,6 +934,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   )}
                   <div className="mt-4 flex gap-2 flex-wrap">
                     <a href={`tel:${i.phone}`} className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">📞 Call</a>
+                    {(i.whatsapp || i.phone) && <a href={`https://wa.me/${(i.whatsapp || i.phone + '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">💬 WhatsApp</a>}
                     {i.email && <a href={`mailto:${i.email}`} className="text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded hover:bg-blue-100">✉️ Email</a>}
                     {i.products && i.products.length > 0 && <button onClick={() => setInvoiceFor(i)} className="text-sm bg-amber-50 text-amber-700 px-3 py-1 rounded hover:bg-amber-100 flex items-center gap-1"><FileText size={14} /> Generate GST Invoice</button>}
                     <button onClick={() => { if (confirm('Delete?')) saveInquiries(inquiries.filter(x => x.id !== i.id)); }} className="text-sm bg-red-50 text-red-700 px-3 py-1 rounded hover:bg-red-100 ml-auto">Delete</button>
