@@ -11,6 +11,19 @@ const ADMIN_EMAIL = 'anandgurbani2013@gmail.com';
 // ===== ADMIN LOGIN MODE =====
 // true  = use Supabase Auth — password is stored securely on Supabase, not in this code.
 //         You change/reset the password from the Supabase dashboard (no redeploy needed).
+// false = use the hardcoded password below (works without Supabaimport { useState, useEffect, useRef } from 'react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
+
+// ===== CONFIGURATION =====
+const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmY25rbWJmdWd5cHJhdG1sYWh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMjUxMTEsImV4cCI6MjA5NzcwMTExMX0.phMz2gjcbLY17LfaRfMI0weuYOMKM4hXJVpvATk3Jl4';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz79bSOmt6s31Byx8BL7h0qyVOz8Gv8Z8fNlyfFUsdFuvijNM7F7na86wzIdgHi5pvm/exec';
+const WEB3FORMS_KEY = '28dbd52f-c661-42f5-b781-34ba0c7d0249';
+const ADMIN_EMAIL = 'anandgurbani2013@gmail.com';
+
+// ===== ADMIN LOGIN MODE =====
+// true  = use Supabase Auth — password is stored securely on Supabase, not in this code.
+//         You change/reset the password from the Supabase dashboard (no redeploy needed).
 // false = use the hardcoded password below (works without Supabase Auth; e.g. if Supabase ever charges).
 //         To switch, just change this one line to: false
 const USE_SUPABASE_AUTH = true;
@@ -66,7 +79,7 @@ const sb = {
 async function pushToGoogleSheets(inquiry) {
   try {
     const productsStr = inquiry.products?.map(p => `${p.code}-${p.name} (${p.quantity} pairs)`).join('; ') || '';
-    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, source: inquiry.source || 'Inquiry Form' }) });
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: inquiry.type || 'inquiry', name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, apptDate: inquiry.apptDate || '', apptTime: inquiry.apptTime || '', source: inquiry.source || 'Inquiry Form' }) });
     return true;
   } catch (e) { 
     console.warn('Google Sheets not available in this environment (will work after deployment):', e.message); 
@@ -198,6 +211,8 @@ const DEFAULT_BUSINESS = {
   about: '[Your business story]', mission: '[Your mission statement]',
   paymentTerms: 'Advance / Net 30', leadTime: '7-15 business days', shippingCoverage: 'Pan India',
   paymentNote: 'Payment via UPI / bank transfer on order confirmation. GST invoice provided.',
+  mapQuery: '', mapEmbedUrl: '',
+  appointmentsEnabled: true, appointmentNote: "Visits by appointment, Mon–Sat. We'll confirm your slot by phone/WhatsApp.",
   heroTitle: "Premium Men's Footwear at Wholesale Prices",
   heroSubtitle: 'Your trusted partner for bulk men\'s shoe supply.',
   heroBadge: '{years} Years of Excellence',
@@ -753,7 +768,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     if (!form.name || !form.phone) { showToast('Please fill name and phone'); return; }
     setSubmitting(true);
     const whatsappNumber = form.sameWhatsapp ? form.phone : (form.whatsapp || form.phone);
-    const inq = { id: `inq_${Date.now()}`, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new' };
+    const inq = { id: `inq_${Date.now()}`, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new', type: 'inquiry', source: 'Inquiry Form' };
     
     const dbOk = await saveInquiry(inq);
     setSubmissionStatus(s => ({ ...s, db: dbOk }));
@@ -770,6 +785,28 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     setForm({ name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' });
     try { localStorage.removeItem('wsContactForm'); } catch (e) {}
   };
+
+  const [appt, setAppt] = useState({ name: '', phone: '', date: '', time: '', note: '' });
+  const [apptSubmitting, setApptSubmitting] = useState(false);
+  const [apptSubmitted, setApptSubmitted] = useState(false);
+  const submitAppointment = async () => {
+    if (!appt.name.trim() || !appt.phone.trim() || !appt.date) { showToast('Please fill name, phone and date'); return; }
+    setApptSubmitting(true);
+    const rec = {
+      id: `apt_${Date.now()}`,
+      name: appt.name.trim(), shop: '', city: '', phone: appt.phone.trim(), whatsapp: appt.phone.trim(), email: '',
+      message: `Appointment request for ${appt.date}${appt.time ? ' at ' + appt.time : ''}.${appt.note ? ' Note: ' + appt.note.trim() : ''}`,
+      products: [], apptDate: appt.date, apptTime: appt.time,
+      date: new Date().toISOString(), status: 'new', type: 'appointment', source: 'Appointment',
+    };
+    await saveInquiry(rec);
+    pushToGoogleSheets(rec);
+    sendInquiryEmail(rec);
+    setApptSubmitting(false);
+    setApptSubmitted(true);
+    setAppt({ name: '', phone: '', date: '', time: '', note: '' });
+  };
+  const mapSrc = (business.mapEmbedUrl || '').trim() ? (business.mapEmbedUrl || '').trim() : ((business.mapQuery || '').trim() ? `https://maps.google.com/maps?q=${encodeURIComponent(business.mapQuery.trim())}&output=embed` : '');
 
   if (submitted) {
     const StatusItem = ({ status, label }) => {
@@ -853,8 +890,34 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
             <div className="font-bold">Chat on WhatsApp</div>
             <div className="text-sm opacity-90 mt-1">Quick responses to your queries</div>
           </a>
+          {mapSrc && (
+            <div className="bg-white rounded-2xl overflow-hidden border border-slate-200">
+              <iframe title="Our location" src={mapSrc} className="w-full" style={{ height: 220, border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
+              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.mapQuery || business.address || '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 text-sm text-amber-600 hover:bg-amber-50 py-3 font-medium"><MapPin size={16} /> Get Directions</a>
+            </div>
+          )}
         </div>
       </div>
+
+      {business.appointmentsEnabled && (
+        <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Clock size={20} className="text-amber-500" /> Book an Appointment to Visit</h2>
+          {business.appointmentNote && <p className="text-sm text-slate-500 mt-1">{business.appointmentNote}</p>}
+          {apptSubmitted ? (
+            <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">Thanks! Your appointment request has been sent. We'll confirm your slot by phone or WhatsApp.</div>
+          ) : (
+            <div className="mt-4 grid md:grid-cols-2 gap-4">
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Your Name *</label><input value={appt.name} onChange={e => setAppt({...appt, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone *</label><input value={appt.phone} onChange={e => setAppt({...appt, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Preferred Date *</label><input type="date" value={appt.date} onChange={e => setAppt({...appt, date: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Preferred Time</label><input type="time" value={appt.time} onChange={e => setAppt({...appt, time: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div className="md:col-span-2"><label className="text-sm font-medium text-slate-700 block mb-1">Note (optional)</label><input value={appt.note} onChange={e => setAppt({...appt, note: e.target.value})} placeholder="Anything we should know?" className="w-full px-3 py-2 border rounded-lg" /></div>
+              <button onClick={submitAppointment} disabled={apptSubmitting} className="md:col-span-2 bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2">{apptSubmitting ? <><Loader2 className="animate-spin" size={18} /> Sending...</> : <><Clock size={18} /> Request Appointment</>}</button>
+              <div className="md:col-span-2 text-xs text-slate-500 text-center">This is a request — we'll confirm the exact slot with you.</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1161,7 +1224,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div key={i.id} className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
                     <div>
-                      <h3 className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">{i.name}{i.source === 'Proforma Download' && <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1"><FileText size={11} /> Proforma Lead</span>}</h3>
+                      <h3 className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">{i.name}{i.source === 'Proforma Download' && <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1"><FileText size={11} /> Proforma Lead</span>}{i.type === 'appointment' && <span className="text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Clock size={11} /> Appointment</span>}</h3>
+                      {i.type === 'appointment' && (i.apptDate || i.apptTime) && <div className="text-sm text-purple-700 font-medium mt-1">📅 {i.apptDate}{i.apptTime ? ` at ${i.apptTime}` : ''}</div>}
                       <div className="text-sm text-slate-600">{i.shop || 'No shop'} • {i.city || 'No city'}</div>
                       <div className="text-sm text-slate-500 mt-1">📞 {i.phone} {i.whatsapp && i.whatsapp !== i.phone && `• 💬 ${i.whatsapp}`} {i.email && `• ✉️ ${i.email}`}</div>
                     </div>
@@ -1240,6 +1304,10 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">HSN Code</label><input value={editBiz.hsnCode || ''} onChange={e => setEditBiz({...editBiz, hsnCode: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 6403" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">GST Rate (%)</label><input type="number" value={editBiz.gstRate || ''} onChange={e => setEditBiz({...editBiz, gstRate: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 18" /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Payment Note (shown to buyers)</label><input value={editBiz.paymentNote || ''} onChange={e => setEditBiz({...editBiz, paymentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Payment via UPI / bank transfer on order confirmation. GST invoice provided." /><div className="text-xs text-slate-500 mt-1">A short line shown on the inquiry cart and contact page. You can include your UPI ID here if you like.</div></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps — Address or Coordinates</label><input value={editBiz.mapQuery || ''} onChange={e => setEditBiz({...editBiz, mapQuery: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 12 MG Road, Agra, UP 282001  (or  27.1767,78.0081)" /><div className="text-xs text-slate-500 mt-1">Shows a map on the contact page. For a precise pin, use the embed link field below instead.</div></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps Embed Link (optional, more precise)</label><input value={editBiz.mapEmbedUrl || ''} onChange={e => setEditBiz({...editBiz, mapEmbedUrl: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder='Paste the src link from Google Maps → Share → Embed a map' /><div className="text-xs text-slate-500 mt-1">In Google Maps: find your shop → Share → "Embed a map" → copy the link inside src="...". Overrides the address above.</div></div>
+                  <div className="md:col-span-2 flex items-center gap-2"><input type="checkbox" id="apptToggle" checked={editBiz.appointmentsEnabled !== false} onChange={e => setEditBiz({...editBiz, appointmentsEnabled: e.target.checked})} /><label htmlFor="apptToggle" className="text-sm font-medium text-slate-700">Enable "Book an Appointment" on the contact page</label></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Appointment Note (shown to visitors)</label><input value={editBiz.appointmentNote || ''} onChange={e => setEditBiz({...editBiz, appointmentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Visits Mon–Sat, 11am–7pm. We'll confirm your slot." /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Invoice Prefix</label><input value={editBiz.invoicePrefix || ''} onChange={e => setEditBiz({...editBiz, invoicePrefix: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., INV-" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label><input value={editBiz.bankName || ''} onChange={e => setEditBiz({...editBiz, bankName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Account Number</label><input value={editBiz.accountNo || ''} onChange={e => setEditBiz({...editBiz, accountNo: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
@@ -1437,6 +1505,7 @@ export default function App() {
       products: lead.products,
       date: new Date().toISOString(),
       status: 'new',
+      type: 'proforma',
       source: 'Proforma Download',
     };
     await saveInquiry(inq);
