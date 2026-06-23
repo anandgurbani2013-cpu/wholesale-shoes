@@ -13,7 +13,7 @@ const ADMIN_EMAIL = 'anandgurbani2013@gmail.com';
 //         You change/reset the password from the Supabase dashboard (no redeploy needed).
 // false = use the hardcoded password below (works without Supabase Auth; e.g. if Supabase ever charges).
 //         To switch, just change this one line to: false
-const USE_SUPABASE_AUTH = false;
+const USE_SUPABASE_AUTH = true;
 const ADMIN_PASSWORD_FALLBACK = 'admin123'; // only used when USE_SUPABASE_AUTH = false — change this to your own strong password
 
 // ===== SUPABASE REST API HELPER =====
