@@ -559,6 +559,24 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
   );
 }
 
+// Match a quantity to a product's pricing tier; returns {price, label} or null
+function tierRateForQty(item, qty) {
+  const tiers = Array.isArray(item.pricingTiers) ? item.pricingTiers : [];
+  for (const t of tiers) {
+    const label = (t.qty || '').toString();
+    const nums = label.match(/\d+/g);
+    if (!nums || !nums.length) continue;
+    const hasPlus = /\+|above|over|more|onwards|\&|plus/i.test(label);
+    const min = parseInt(nums[0], 10);
+    const max = nums.length >= 2 ? parseInt(nums[1], 10) : (hasPlus ? Infinity : Infinity);
+    if (qty >= min && qty <= max) {
+      const price = parseFloat((t.price || '').toString().replace(/[^0-9.]/g, ''));
+      if (!isNaN(price) && price > 0) return { price, label };
+    }
+  }
+  return null;
+}
+
 // ===== PROFORMA ESTIMATE (client-facing, NOT a tax invoice) =====
 function ProformaModal({ items, business, onClose }) {
   const [step, setStep] = useState('select');
@@ -569,12 +587,13 @@ function ProformaModal({ items, business, onClose }) {
   const gstRate = parseFloat(business.gstRate) || 18;
   const chosen = items.filter(it => selected.includes(it.id));
   const calcRow = (item) => {
-    const price = parseFloat(item.priceFrom) || 0;
     const qty = item.quantity || item.moq || 0;
+    const tier = tierRateForQty(item, qty);
+    const price = tier ? tier.price : (parseFloat(item.priceFrom) || 0);
     const subtotal = price * qty;
     const cgst = subtotal * gstRate / 200;
     const sgst = subtotal * gstRate / 200;
-    return { price, qty, subtotal, cgst, sgst, total: subtotal + cgst + sgst };
+    return { price, qty, subtotal, cgst, sgst, total: subtotal + cgst + sgst, tierLabel: tier ? tier.label : null };
   };
   const totals = chosen.reduce((a, it) => { const r = calcRow(it); return { subtotal: a.subtotal + r.subtotal, cgst: a.cgst + r.cgst, sgst: a.sgst + r.sgst, total: a.total + r.total }; }, { subtotal: 0, cgst: 0, sgst: 0, total: 0 });
   const number = `PI-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
@@ -672,7 +691,7 @@ function ProformaModal({ items, business, onClose }) {
                 return (
                   <tr key={i} className="border-b">
                     <td className="p-2">{i + 1}</td>
-                    <td className="p-2"><div className="font-medium">{item.name}</div><div className="text-xs text-slate-500">{item.code}</div></td>
+                    <td className="p-2"><div className="font-medium">{item.name}</div><div className="text-xs text-slate-500">{item.code}{r.tierLabel ? ` · ${r.tierLabel}` : ''}</div></td>
                     <td className="p-2 text-center">{r.qty}</td>
                     <td className="p-2 text-right">₹{r.price.toFixed(2)}</td>
                     <td className="p-2 text-right">₹{r.subtotal.toFixed(2)}</td>
