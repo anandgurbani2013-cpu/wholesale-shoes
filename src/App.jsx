@@ -794,7 +794,15 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     setApptSubmitted(true);
     setAppt({ name: '', phone: '', date: '', time: '', note: '' });
   };
-  const mapSrc = (business.mapEmbedUrl || '').trim() ? (business.mapEmbedUrl || '').trim() : ((business.mapQuery || '').trim() ? `https://maps.google.com/maps?q=${encodeURIComponent(business.mapQuery.trim())}&output=embed` : '');
+  const rawEmbed = (business.mapEmbedUrl || '').trim();
+  let mapSrc = '';
+  if (rawEmbed) {
+    const m = rawEmbed.match(/src\s*=\s*"([^"]+)"/i);
+    mapSrc = m ? m[1] : rawEmbed;
+  } else if ((business.mapQuery || '').trim()) {
+    mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(business.mapQuery.trim())}&output=embed`;
+  }
+  const validMap = /^https?:\/\//i.test(mapSrc);
 
   const apptDays = Array.isArray(business.apptDays) ? business.apptDays : [1, 2, 3, 4, 5, 6];
   const apptSlots = Array.isArray(business.apptSlots) ? business.apptSlots.filter(Boolean) : [];
@@ -896,7 +904,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
             <div className="font-bold">Chat on WhatsApp</div>
             <div className="text-sm opacity-90 mt-1">Quick responses to your queries</div>
           </a>
-          {mapSrc && (
+          {validMap && (
             <div className="bg-white rounded-2xl overflow-hidden border border-slate-200">
               <iframe title="Our location" src={mapSrc} className="w-full" style={{ height: 220, border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
               <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.mapQuery || business.address || '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 text-sm text-amber-600 hover:bg-amber-50 py-3 font-medium"><MapPin size={16} /> Get Directions</a>
