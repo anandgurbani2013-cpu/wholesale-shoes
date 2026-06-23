@@ -238,6 +238,7 @@ function getDefaultProducts() {
 // ===== UTILS =====
 function SafeImage({ src, alt, className }) {
   const [error, setError] = useState(false);
+  useEffect(() => { setError(false); }, [src]);
   return <img src={error || !src ? PLACEHOLDER_IMG : src} alt={alt} className={className} onError={() => setError(true)} />;
 }
 
