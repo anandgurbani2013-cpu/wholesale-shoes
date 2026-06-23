@@ -200,6 +200,7 @@ const DEFAULT_BUSINESS = {
   paymentNote: 'Payment via UPI / bank transfer on order confirmation. GST invoice provided.',
   mapQuery: '', mapEmbedUrl: '',
   appointmentsEnabled: true, appointmentNote: "Visits by appointment, Mon–Sat. We'll confirm your slot by phone/WhatsApp.",
+  apptDays: [1, 2, 3, 4, 5, 6], apptSlots: ['11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM'], apptDaysAhead: 30,
   heroTitle: "Premium Men's Footwear at Wholesale Prices",
   heroSubtitle: 'Your trusted partner for bulk men\'s shoe supply.',
   heroBadge: '{years} Years of Excellence',
@@ -777,7 +778,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
   const [apptSubmitting, setApptSubmitting] = useState(false);
   const [apptSubmitted, setApptSubmitted] = useState(false);
   const submitAppointment = async () => {
-    if (!appt.name.trim() || !appt.phone.trim() || !appt.date) { showToast('Please fill name, phone and date'); return; }
+    if (!appt.name.trim() || !appt.phone.trim() || !appt.date || !appt.time) { showToast('Please fill name, phone, date and time'); return; }
     setApptSubmitting(true);
     const rec = {
       id: `apt_${Date.now()}`,
@@ -794,6 +795,24 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     setAppt({ name: '', phone: '', date: '', time: '', note: '' });
   };
   const mapSrc = (business.mapEmbedUrl || '').trim() ? (business.mapEmbedUrl || '').trim() : ((business.mapQuery || '').trim() ? `https://maps.google.com/maps?q=${encodeURIComponent(business.mapQuery.trim())}&output=embed` : '');
+
+  const apptDays = Array.isArray(business.apptDays) ? business.apptDays : [1, 2, 3, 4, 5, 6];
+  const apptSlots = Array.isArray(business.apptSlots) ? business.apptSlots.filter(Boolean) : [];
+  const daysAhead = parseInt(business.apptDaysAhead) || 30;
+  const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const availableDates = [];
+  {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let i = 0; i <= daysAhead; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      if (apptDays.includes(d.getDay())) {
+        const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        availableDates.push({ value: val, label: `${weekdayNames[d.getDay()]}, ${d.getDate()} ${monthNames[d.getMonth()]}` });
+      }
+    }
+  }
+  const apptReady = availableDates.length > 0 && apptSlots.length > 0;
 
   if (submitted) {
     const StatusItem = ({ status, label }) => {
@@ -887,22 +906,43 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
       </div>
 
       {business.appointmentsEnabled && (
-        <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Clock size={20} className="text-amber-500" /> Book an Appointment to Visit</h2>
-          {business.appointmentNote && <p className="text-sm text-slate-500 mt-1">{business.appointmentNote}</p>}
-          {apptSubmitted ? (
-            <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">Thanks! Your appointment request has been sent. We'll confirm your slot by phone or WhatsApp.</div>
-          ) : (
-            <div className="mt-4 grid md:grid-cols-2 gap-4">
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Your Name *</label><input value={appt.name} onChange={e => setAppt({...appt, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone *</label><input value={appt.phone} onChange={e => setAppt({...appt, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Preferred Date *</label><input type="date" value={appt.date} onChange={e => setAppt({...appt, date: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Preferred Time</label><input type="time" value={appt.time} onChange={e => setAppt({...appt, time: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div className="md:col-span-2"><label className="text-sm font-medium text-slate-700 block mb-1">Note (optional)</label><input value={appt.note} onChange={e => setAppt({...appt, note: e.target.value})} placeholder="Anything we should know?" className="w-full px-3 py-2 border rounded-lg" /></div>
-              <button onClick={submitAppointment} disabled={apptSubmitting} className="md:col-span-2 bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2">{apptSubmitting ? <><Loader2 className="animate-spin" size={18} /> Sending...</> : <><Clock size={18} /> Request Appointment</>}</button>
-              <div className="md:col-span-2 text-xs text-slate-500 text-center">This is a request — we'll confirm the exact slot with you.</div>
+        <div className="max-w-2xl mx-auto mt-10 rounded-2xl overflow-hidden shadow-lg border border-slate-200">
+          <div className="bg-slate-900 px-6 py-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#C6A15B' }}><Clock size={20} className="text-white" /></div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Book an Appointment to Visit</h2>
+              {business.appointmentNote && <p className="text-xs text-slate-300 mt-0.5">{business.appointmentNote}</p>}
             </div>
-          )}
+          </div>
+          <div className="bg-white p-6">
+            {apptSubmitted ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 flex items-start gap-2"><CheckCircle size={18} className="flex-shrink-0 mt-0.5" /><span>Thanks! Your appointment request has been sent. We'll confirm your slot by phone or WhatsApp.</span></div>
+            ) : !apptReady ? (
+              <div className="text-sm text-slate-600">To arrange a visit, please <a href={`https://wa.me/${business.whatsapp}`} target="_blank" rel="noopener noreferrer" className="text-amber-600 font-medium underline">message us on WhatsApp</a> or call {business.phone}.</div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                <div><label className="text-sm font-medium text-slate-700 block mb-1">Your Name *</label><input value={appt.name} onChange={e => setAppt({...appt, name: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 outline-none" /></div>
+                <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone *</label><input value={appt.phone} onChange={e => setAppt({...appt, phone: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 outline-none" /></div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-1">Pick a Date *</label>
+                  <select value={appt.date} onChange={e => setAppt({...appt, date: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-400 outline-none">
+                    <option value="">Select a date…</option>
+                    {availableDates.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-1">Pick a Time *</label>
+                  <select value={appt.time} onChange={e => setAppt({...appt, time: e.target.value})} className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-400 outline-none">
+                    <option value="">Select a time…</option>
+                    {apptSlots.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-2"><label className="text-sm font-medium text-slate-700 block mb-1">Note (optional)</label><input value={appt.note} onChange={e => setAppt({...appt, note: e.target.value})} placeholder="Anything we should know?" className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 outline-none" /></div>
+                <button onClick={submitAppointment} disabled={apptSubmitting} className="md:col-span-2 bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors">{apptSubmitting ? <><Loader2 className="animate-spin" size={18} /> Sending…</> : <><Clock size={18} /> Request Appointment</>}</button>
+                <div className="md:col-span-2 text-xs text-slate-500 text-center">This is a request — we'll confirm the exact slot with you.</div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1295,6 +1335,19 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps Embed Link (optional, more precise)</label><input value={editBiz.mapEmbedUrl || ''} onChange={e => setEditBiz({...editBiz, mapEmbedUrl: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder='Paste the src link from Google Maps → Share → Embed a map' /><div className="text-xs text-slate-500 mt-1">In Google Maps: find your shop → Share → "Embed a map" → copy the link inside src="...". Overrides the address above.</div></div>
                   <div className="md:col-span-2 flex items-center gap-2"><input type="checkbox" id="apptToggle" checked={editBiz.appointmentsEnabled !== false} onChange={e => setEditBiz({...editBiz, appointmentsEnabled: e.target.checked})} /><label htmlFor="apptToggle" className="text-sm font-medium text-slate-700">Enable "Book an Appointment" on the contact page</label></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Appointment Note (shown to visitors)</label><input value={editBiz.appointmentNote || ''} onChange={e => setEditBiz({...editBiz, appointmentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Visits Mon–Sat, 11am–7pm. We'll confirm your slot." /></div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Available Days</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, idx) => {
+                        const days = Array.isArray(editBiz.apptDays) ? editBiz.apptDays : [1,2,3,4,5,6];
+                        const on = days.includes(idx);
+                        return <button key={idx} type="button" onClick={() => { const next = on ? days.filter(x => x !== idx) : [...days, idx].sort(); setEditBiz({...editBiz, apptDays: next}); }} className={`px-3 py-1.5 rounded-lg text-sm border ${on ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-300'}`}>{d}</button>;
+                      })}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">Visitors can only pick these weekdays.</div>
+                  </div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Bookable up to (days ahead)</label><input type="number" value={editBiz.apptDaysAhead || ''} onChange={e => setEditBiz({...editBiz, apptDaysAhead: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 30" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Time Slots (comma separated)</label><input value={(Array.isArray(editBiz.apptSlots) ? editBiz.apptSlots : []).join(', ')} onChange={e => setEditBiz({...editBiz, apptSlots: e.target.value.split(',').map(s => s.trim()).filter(Boolean)})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 11:00 AM, 12:00 PM, 1:00 PM, 4:00 PM" /><div className="text-xs text-slate-500 mt-1">These are the only times a visitor can choose.</div></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Invoice Prefix</label><input value={editBiz.invoicePrefix || ''} onChange={e => setEditBiz({...editBiz, invoicePrefix: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., INV-" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label><input value={editBiz.bankName || ''} onChange={e => setEditBiz({...editBiz, bankName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Account Number</label><input value={editBiz.accountNo || ''} onChange={e => setEditBiz({...editBiz, accountNo: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
