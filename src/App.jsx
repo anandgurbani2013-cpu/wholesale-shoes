@@ -192,12 +192,12 @@ const DEFAULT_BUSINESS = {
   name: '[Your Business Name]', tagline: 'Premium Wholesale Men\'s Footwear', logoText: '[L]', logoImage: '',
   phone: '+91 XXXXX XXXXX', whatsapp: '91XXXXXXXXXX', email: 'contact@yourbusiness.com',
   address: '[Your Business Address, City, State, PIN]', hours: 'Mon - Sat: 9:00 AM - 7:00 PM',
-  years: 'XX', retailers: 'XXX+', cities: 'XX+', skus: 'XXX+',
+  years: 'XX', retailers: 'XXX+', cities: 'XX+', skus: 'XXX+', foundedYear: 2013,
   about: '[Your business story]', mission: '[Your mission statement]',
   paymentTerms: 'Advance / Net 30', leadTime: '7-15 business days', shippingCoverage: 'Pan India',
   heroTitle: "Premium Men's Footwear at Wholesale Prices",
   heroSubtitle: 'Your trusted partner for bulk men\'s shoe supply.',
-  heroBadge: 'XX Years of Excellence',
+  heroBadge: '{years} Years of Excellence',
   facebook: '#', instagram: '#', linkedin: '#',
   gstin: '[YOUR GSTIN]', legalName: '[Legal Business Name]', hsnCode: '6403', gstRate: 18,
   bankName: '[Bank Name]', accountNo: '[Account Number]', ifsc: '[IFSC Code]', invoicePrefix: 'INV-',
@@ -941,7 +941,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Hero Title</label><input value={editBiz.heroTitle || ''} onChange={e => setEditBiz({...editBiz, heroTitle: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Hero Subtitle</label><textarea value={editBiz.heroSubtitle || ''} onChange={e => setEditBiz({...editBiz, heroSubtitle: e.target.value})} rows="2" className="w-full px-3 py-2 border rounded-lg" /></div>
-                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Hero Badge Text</label><input value={editBiz.heroBadge || ''} onChange={e => setEditBiz({...editBiz, heroBadge: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Hero Badge Text</label><input value={editBiz.heroBadge || ''} onChange={e => setEditBiz({...editBiz, heroBadge: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /><div className="text-xs text-slate-500 mt-1">Tip: type {'{years}'} anywhere and it auto-fills the calculated number (e.g. "{'{years}'} Years of Excellence").</div></div>
                 </div>
               </div>
               <div>
@@ -970,7 +970,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
               <div>
                 <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><BarChart3 size={18} /> Stats</h3>
                 <div className="grid md:grid-cols-4 gap-4">
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Years</label><input value={editBiz.years || ''} onChange={e => setEditBiz({...editBiz, years: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Founded Year</label><input type="number" value={editBiz.foundedYear || ''} onChange={e => setEditBiz({...editBiz, foundedYear: parseInt(e.target.value) || 0})} placeholder="e.g., 2013" className="w-full px-3 py-2 border rounded-lg" /><div className="text-xs text-slate-500 mt-1">"Years in Business" auto-calculates from this.</div></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Retailers</label><input value={editBiz.retailers || ''} onChange={e => setEditBiz({...editBiz, retailers: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Cities</label><input value={editBiz.cities || ''} onChange={e => setEditBiz({...editBiz, cities: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">SKUs</label><input value={editBiz.skus || ''} onChange={e => setEditBiz({...editBiz, skus: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
@@ -1143,6 +1143,8 @@ export default function App() {
       if (list.length > 0) await sb.upsert('inquiries', list.map(i => ({ id: i.id, data: i, status: i.status })));
     } catch (e) { console.error(e); }
   };
+
+  const yearsInBusiness = Math.max(0, new Date().getFullYear() - (parseInt(business.foundedYear) || 2013));
 
   const filtered = products
     .filter(p => catFilter === 'all' || p.category === catFilter)
@@ -1318,7 +1320,7 @@ export default function App() {
               <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 25% 25%, #f59e0b 0%, transparent 50%), radial-gradient(circle at 75% 75%, #f59e0b 0%, transparent 50%)' }}></div>
               <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
                 <div>
-                  <div className="inline-block px-4 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-amber-400 text-sm font-medium mb-6">⭐ {business.heroBadge}</div>
+                  <div className="inline-block px-4 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-amber-400 text-sm font-medium mb-6">⭐ {(business.heroBadge || '{years} Years of Excellence').replace('{years}', yearsInBusiness)}</div>
                   <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">{business.heroTitle}</h1>
                   <p className="text-lg text-slate-300 mb-8">{business.heroSubtitle}</p>
                   <div className="flex flex-wrap gap-4">
@@ -1344,7 +1346,7 @@ export default function App() {
 
             <section className="bg-white py-12 border-b">
               <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6">
-                {[{ icon: Award, value: business.years, label: 'Years in Business' }, { icon: Users, value: business.retailers, label: 'Retailers Served' }, { icon: MapPin, value: business.cities, label: 'Cities Covered' }, { icon: Package, value: business.skus, label: 'Products in Stock' }].map((s, i) => (
+                {[{ icon: Award, value: yearsInBusiness, label: 'Years in Business' }, { icon: Users, value: business.retailers, label: 'Retailers Served' }, { icon: MapPin, value: business.cities, label: 'Cities Covered' }, { icon: Package, value: business.skus, label: 'Products in Stock' }].map((s, i) => (
                   <div key={i} className="text-center"><s.icon className="text-amber-500 mx-auto mb-3" size={32} /><div className="text-3xl md:text-4xl font-bold text-slate-900">{s.value}</div><div className="text-sm text-slate-600 mt-1">{s.label}</div></div>
                 ))}
               </div>
