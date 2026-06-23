@@ -305,6 +305,7 @@ function ProductCard({ product, categories, onView, onAddToInquiry }) {
         <SafeImage src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
         {product.isNew && <span className="absolute top-3 left-3 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">NEW</span>}
         {product.isBestseller && <span className="absolute top-3 left-3 bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-semibold">★ BEST</span>}
+        {product.outOfStock && <span className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">Out of Stock</span>}
       </div>
       <div className="p-4">
         <div className="text-xs text-slate-500 font-mono mb-1">{product.code}</div>
@@ -314,7 +315,9 @@ function ProductCard({ product, categories, onView, onAddToInquiry }) {
           <div><div className="text-xs text-slate-500">From</div><div className="text-lg font-bold text-amber-600">₹{product.priceFrom}</div></div>
           <div className="text-right"><div className="text-xs text-slate-500">MOQ</div><div className="text-sm font-semibold text-slate-700">{product.moq} pairs</div></div>
         </div>
-        <button onClick={(e) => { e.stopPropagation(); onAddToInquiry(product); }} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2 rounded-lg text-sm font-semibold transition-colors">Add to Inquiry</button>
+        {product.outOfStock
+          ? <button disabled className="w-full bg-slate-200 text-slate-500 py-2 rounded-lg text-sm font-semibold cursor-not-allowed">Out of Stock</button>
+          : <button onClick={(e) => { e.stopPropagation(); onAddToInquiry(product); }} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2 rounded-lg text-sm font-semibold transition-colors">Add to Inquiry</button>}
       </div>
     </div>
   );
@@ -757,7 +760,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [editingProduct, setEditingProduct] = useState(null);
   const [editBiz, setEditBiz] = useState(business);
   const [invoiceFor, setInvoiceFor] = useState(null);
-  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', moq: 50, priceFrom: '', isNew: false, isBestseller: false, description: '', pricingTiers: [{qty:'50-99 pairs',price:''},{qty:'100-499 pairs',price:''},{qty:'500+ pairs',price:''}] };
+  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', moq: 50, priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, description: '', pricingTiers: [{qty:'50-99 pairs',price:''},{qty:'100-499 pairs',price:''},{qty:'500+ pairs',price:''}] };
   const [pForm, setPForm] = useState(blankProduct);
 
   useEffect(() => { setEditBiz(business); }, [business]);
@@ -915,7 +918,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                         <td className="p-4 text-sm font-mono">{p.code}</td><td className="p-4 text-sm font-medium">{p.name}</td>
                         <td className="p-4 text-sm">{categories.find(c => c.id === p.category)?.name || 'None'}</td>
                         <td className="p-4 text-sm">{p.moq}</td>
-                        <td className="p-4"><div className="flex gap-1">{p.isNew && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">New</span>}{p.isBestseller && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">Best</span>}</div></td>
+                        <td className="p-4"><div className="flex gap-1 flex-wrap">{p.isNew && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">New</span>}{p.isBestseller && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">Best</span>}{p.active === false && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Hidden</span>}{p.outOfStock && <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Out of stock</span>}</div></td>
                         <td className="p-4"><div className="flex gap-2"><button onClick={() => editProduct(p)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><Edit size={16} /></button><button onClick={() => deleteProduct(p.id)} className="text-red-600 hover:bg-red-50 p-2 rounded"><Trash2 size={16} /></button></div></td>
                       </tr>
                     ))}
@@ -954,7 +957,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Material</label><input value={pForm.material} onChange={e => setPForm({...pForm, material: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Description</label><textarea value={pForm.description} onChange={e => setPForm({...pForm, description: e.target.value})} rows="3" className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-2">Pricing Tiers</label>{pForm.pricingTiers.map((t, i) => (<div key={i} className="flex gap-2 mb-2"><input value={t.qty} onChange={e => { const tiers = [...pForm.pricingTiers]; tiers[i] = {...tiers[i], qty: e.target.value}; setPForm({...pForm, pricingTiers: tiers}); }} placeholder="Quantity range" className="flex-1 px-3 py-2 border rounded-lg" /><input value={t.price} onChange={e => { const tiers = [...pForm.pricingTiers]; tiers[i] = {...tiers[i], price: e.target.value}; setPForm({...pForm, pricingTiers: tiers}); }} placeholder="Price" className="flex-1 px-3 py-2 border rounded-lg" /></div>))}</div>
-                <div className="flex gap-4 md:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isNew} onChange={e => setPForm({...pForm, isNew: e.target.checked})} /> New Arrival</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isBestseller} onChange={e => setPForm({...pForm, isBestseller: e.target.checked})} /> Bestseller</label></div>
+                <div className="flex gap-4 flex-wrap md:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isNew} onChange={e => setPForm({...pForm, isNew: e.target.checked})} /> New Arrival</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isBestseller} onChange={e => setPForm({...pForm, isBestseller: e.target.checked})} /> Bestseller</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.active !== false} onChange={e => setPForm({...pForm, active: e.target.checked})} /> Active (show on site)</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!pForm.outOfStock} onChange={e => setPForm({...pForm, outOfStock: e.target.checked})} /> Out of stock</label></div>
               </div>
               <div className="flex gap-3 mt-6 pt-6 border-t"><button onClick={saveProduct} className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg flex items-center gap-2"><Save size={18} /> Save Product</button><button onClick={() => setTab('products')} className="border px-6 py-2 rounded-lg">Cancel</button></div>
             </div>
@@ -1242,7 +1245,9 @@ export default function App() {
 
   const yearsInBusiness = Math.max(0, new Date().getFullYear() - (parseInt(business.foundedYear) || 2013));
 
-  const filtered = products
+  const visibleProducts = products.filter(p => p.active !== false);
+
+  const filtered = visibleProducts
     .filter(p => catFilter === 'all' || p.category === catFilter)
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => { if (sort === 'newest') return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0); if (sort === 'bestsellers') return (b.isBestseller ? 1 : 0) - (a.isBestseller ? 1 : 0); return 0; });
@@ -1532,26 +1537,26 @@ export default function App() {
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">Shop by Category</h2></div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    {categories.map(c => <button key={c.id} onClick={() => { setCatFilter(c.id); navigate('catalog'); }} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg border transition-all hover:-translate-y-1 group"><div className="text-4xl mb-3">{c.icon}</div><div className="font-semibold text-slate-900 group-hover:text-amber-600">{c.name}</div><div className="text-xs text-slate-500 mt-1">{products.filter(p => p.category === c.id).length} products</div></button>)}
+                    {categories.map(c => <button key={c.id} onClick={() => { setCatFilter(c.id); navigate('catalog'); }} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg border transition-all hover:-translate-y-1 group"><div className="text-4xl mb-3">{c.icon}</div><div className="font-semibold text-slate-900 group-hover:text-amber-600">{c.name}</div><div className="text-xs text-slate-500 mt-1">{visibleProducts.filter(p => p.category === c.id).length} products</div></button>)}
                   </div>
                 </div>
               </section>
             )}
 
-            {products.filter(p => p.isNew).length > 0 && (
+            {visibleProducts.filter(p => p.isNew).length > 0 && (
               <section className="py-16 bg-white">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-end mb-8"><div><span className="text-amber-600 font-semibold text-sm uppercase">Just In</span><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">New Arrivals</h2></div><button onClick={() => navigate('catalog')} className="text-amber-600 font-medium flex items-center gap-1 hover:underline">View All <ChevronRight size={18} /></button></div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{products.filter(p => p.isNew).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isNew).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
                 </div>
               </section>
             )}
 
-            {products.filter(p => p.isBestseller).length > 0 && (
+            {visibleProducts.filter(p => p.isBestseller).length > 0 && (
               <section className="py-16 bg-slate-50">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-end mb-8"><div><span className="text-amber-600 font-semibold text-sm uppercase">Customer Favorites</span><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">Bestsellers</h2></div><button onClick={() => navigate('catalog')} className="text-amber-600 font-medium flex items-center gap-1 hover:underline">View All <ChevronRight size={18} /></button></div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{products.filter(p => p.isBestseller).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isBestseller).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
                 </div>
               </section>
             )}
@@ -1604,7 +1609,7 @@ export default function App() {
                 <select value={sort} onChange={e => setSort(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="newest">Newest</option><option value="bestsellers">Bestsellers</option></select>
               </div>
             </div>
-            <div className="text-sm text-slate-600 mb-4">Showing {filtered.length} of {products.length} products</div>
+            <div className="text-sm text-slate-600 mb-4">Showing {filtered.length} of {visibleProducts.length} products</div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
             {filtered.length === 0 && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
           </div>
@@ -1616,7 +1621,7 @@ export default function App() {
             <div className="grid md:grid-cols-2 gap-12">
               <ProductGallery key={selectedProduct.id} images={productImages(selectedProduct)} alt={selectedProduct.name} />
               <div>
-                <div className="flex gap-2 mb-3">{selectedProduct.isNew && <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">NEW</span>}{selectedProduct.isBestseller && <span className="bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-semibold">★ BESTSELLER</span>}</div>
+                <div className="flex gap-2 mb-3">{selectedProduct.isNew && <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">NEW</span>}{selectedProduct.isBestseller && <span className="bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-semibold">★ BESTSELLER</span>}{selectedProduct.outOfStock && <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-semibold">OUT OF STOCK</span>}</div>
                 <div className="text-sm text-slate-500 font-mono mb-2">{selectedProduct.code}</div>
                 <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">{selectedProduct.name}</h1>
                 <div className="text-amber-600 font-medium mb-4">{categories.find(c => c.id === selectedProduct.category)?.name}</div>
@@ -1632,14 +1637,16 @@ export default function App() {
                   <div className="space-y-2">{selectedProduct.pricingTiers.map((t, i) => <div key={i} className="flex justify-between text-sm bg-white rounded px-3 py-2"><span className="text-slate-700">{t.qty}</span><span className="font-bold text-amber-700">{t.price} per pair</span></div>)}</div>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <button onClick={() => addToInquiry(selectedProduct)} className="flex-1 bg-slate-900 hover:bg-amber-500 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>
+                  {selectedProduct.outOfStock
+                    ? <button disabled className="flex-1 bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Out of Stock</button>
+                    : <button onClick={() => addToInquiry(selectedProduct)} className="flex-1 bg-slate-900 hover:bg-amber-500 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
                   <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${selectedProduct.code} - ${selectedProduct.name}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><MessageCircle size={18} /> WhatsApp Inquiry</a>
                 </div>
               </div>
             </div>
             <div className="mt-16">
               <h2 className="text-2xl font-bold text-slate-900 mb-6">Related Products</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">{products.filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">{visibleProducts.filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
             </div>
           </div>
         )}
