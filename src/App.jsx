@@ -1059,7 +1059,7 @@ export default function App() {
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    const onScroll = () => setShowScrollTop(window.scrollY > 120);
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
