@@ -579,7 +579,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
           <button onClick={submit} disabled={submitting} className="mt-6 w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
             {submitting ? <><Loader2 className="animate-spin" size={18} /> Submitting...</> : <><Send size={18} /> Submit Inquiry</>}
           </button>
-        
+          <div className="text-xs text-slate-500 mt-2 text-center">Your inquiry will be saved to database, Google Sheets, and emailed to us.</div>
         </div>
         <div className="space-y-4">
           <div className="bg-slate-900 text-white rounded-2xl p-6">
@@ -1181,21 +1181,53 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  // Keep admin logged in across page refresh (within the inactivity window)
+  // On load: restore the cart, then the admin session (priority), else the last public page
   useEffect(() => {
+    // Restore inquiry cart
+    try {
+      const cart = localStorage.getItem('wsCart');
+      if (cart) { const c = JSON.parse(cart); if (Array.isArray(c)) setInquiryList(c); }
+    } catch (e) {}
+
+    // Admin session takes precedence (expires after 2 min inactivity)
+    let adminRestored = false;
     try {
       const raw = sessionStorage.getItem('wsAdminSession');
       if (raw) {
         const s = JSON.parse(raw);
-        if (s && s.auth && (Date.now() - s.ts) < 120000) {
-          setAdminAuth(true);
-          setPage('admin');
-        } else {
-          sessionStorage.removeItem('wsAdminSession');
-        }
+        if (s && s.auth && (Date.now() - s.ts) < 120000) { setAdminAuth(true); setPage('admin'); adminRestored = true; }
+        else sessionStorage.removeItem('wsAdminSession');
       }
     } catch (e) {}
+
+    // Otherwise return the visitor to the page they were on
+    if (!adminRestored) {
+      try {
+        const nav = localStorage.getItem('wsNav');
+        if (nav) {
+          const n = JSON.parse(nav);
+          if (n && n.page && n.page !== 'admin' && n.page !== 'home') {
+            if (n.page === 'product' && n.product) { setSelectedProduct(n.product); setPage('product'); }
+            else if (n.page !== 'product') setPage(n.page);
+          }
+        }
+      } catch (e) {}
+    }
   }, []);
+
+  // Persist the cart whenever it changes (skip the initial mount so it doesn't overwrite the restored cart)
+  const cartHydrated = useRef(false);
+  useEffect(() => {
+    if (!cartHydrated.current) { cartHydrated.current = true; return; }
+    try { localStorage.setItem('wsCart', JSON.stringify(inquiryList)); } catch (e) {}
+  }, [inquiryList]);
+
+  // Persist the current public page so a refresh keeps the visitor in place
+  const navHydrated = useRef(false);
+  useEffect(() => {
+    if (!navHydrated.current) { navHydrated.current = true; return; }
+    try { if (page !== 'admin') localStorage.setItem('wsNav', JSON.stringify({ page, product: page === 'product' ? selectedProduct : null })); } catch (e) {}
+  }, [page, selectedProduct]);
 
   // Auto-logout after 2 minutes of inactivity (only while logged in)
   useEffect(() => {
