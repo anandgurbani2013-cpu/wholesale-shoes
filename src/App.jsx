@@ -1468,7 +1468,7 @@ export default function App() {
         {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} />}
       </main>
 
-      <footer className="bg-slate-900 text-white py-12 mt-16">
+      <footer className="bg-slate-900 text-white pt-12 pb-40 mt-16">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">{business.logoImage ? <img src={business.logoImage} alt={business.name} className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold">{business.logoText}</div>}<div className="font-bold">{business.name}</div></div>
