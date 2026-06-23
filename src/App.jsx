@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -603,7 +603,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
           <button onClick={submit} disabled={submitting} className="mt-6 w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
             {submitting ? <><Loader2 className="animate-spin" size={18} /> Submitting...</> : <><Send size={18} /> Submit Inquiry</>}
           </button>
-         <div className="text-xs text-slate-500 mt-2 text-center">We'll review your inquiry and get back to you within 24 hours.</div>
+          <div className="text-xs text-slate-500 mt-2 text-center">We'll review your inquiry and get back to you within 24 hours.</div>
         </div>
         <div className="space-y-4">
           <div className="bg-slate-900 text-white rounded-2xl p-6">
@@ -1056,6 +1056,14 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const [dark, setDark] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const [business, setBusiness] = useState(DEFAULT_BUSINESS);
   const [products, setProducts] = useState([]);
@@ -1627,6 +1635,17 @@ export default function App() {
           {adminAuth ? <button onClick={() => setPage('admin')} className="hover:text-amber-400 flex items-center gap-1"><Lock size={12} /> Admin Panel</button> : <button onClick={() => setShowAdminLogin(true)} className="hover:text-amber-400 flex items-center gap-1"><Lock size={12} /> Admin Login</button>}
         </div>
       </footer>
+
+      {/* Back to top button - classic navy/gold, bottom center */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-label="Back to top"
+        style={{ borderColor: '#C6A15B', color: '#C6A15B' }}
+        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-14 h-14 rounded-full bg-slate-900 border-2 flex flex-col items-center justify-center shadow-2xl transition-all duration-300 hover:bg-slate-800 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+      >
+        <ChevronUp size={18} />
+        <span className="font-serif" style={{ fontSize: '10px', letterSpacing: '1.5px', lineHeight: 1 }}>TOP</span>
+      </button>
 
       {/* Enhanced WhatsApp button - more prominent, with tooltip */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
