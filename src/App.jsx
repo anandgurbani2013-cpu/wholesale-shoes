@@ -684,7 +684,7 @@ function CrudListEditor({ title, icon: Icon, items, onSave, fields, itemLabel = 
 }
 
 // ===== ADMIN PANEL =====
-function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, navigate, showToast, setAdminAuth }) {
+function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, navigate, showToast, setAdminAuth, logout }) {
   const [tab, setTab] = useState('dashboard');
   const [editingProduct, setEditingProduct] = useState(null);
   const [editBiz, setEditBiz] = useState(business);
@@ -743,7 +743,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
         </nav>
         <div className="mt-6 pt-4 border-t border-slate-700 space-y-1">
           <button onClick={() => navigate('home')} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-slate-800"><Eye size={16} /> View Website</button>
-          <button onClick={() => { setAdminAuth(false); navigate('home'); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-slate-800"><LogOut size={16} /> Logout</button>
+          <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-slate-800"><LogOut size={16} /> Logout</button>
         </div>
       </aside>
 
@@ -751,7 +751,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
         <div className="md:hidden mb-6 flex gap-2 overflow-x-auto pb-2">
           {sidebarItems.map(t => <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-sm whitespace-nowrap ${tab === t.id ? 'bg-amber-500 text-white' : 'bg-white text-slate-700'}`}>{t.label}</button>)}
           <button onClick={() => navigate('home')} className="px-4 py-2 rounded-lg text-sm whitespace-nowrap bg-white text-slate-700">View Site</button>
-          <button onClick={() => { setAdminAuth(false); navigate('home'); }} className="px-4 py-2 rounded-lg text-sm whitespace-nowrap bg-white text-red-600">Logout</button>
+          <button onClick={logout} className="px-4 py-2 rounded-lg text-sm whitespace-nowrap bg-white text-red-600">Logout</button>
         </div>
 
         {tab === 'dashboard' && (
@@ -1165,6 +1165,15 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  const logout = () => {
+    setAdminAuth(false);
+    setHistory([]);
+    setSelectedProduct(null);
+    setMenuOpen(false);
+    setPage('home');
+    window.scrollTo(0, 0);
+  };
+
   const goBack = () => {
     if (history.length === 0) return;
     const prev = history[history.length - 1];
@@ -1215,7 +1224,7 @@ export default function App() {
   if (page === 'admin' && adminAuth) {
     return (
       <>
-        <AdminPanel business={business} saveBusiness={saveBusiness} products={products} saveProducts={saveProducts} categories={categories} saveCategories={saveCategories} faqs={faqs} saveFaqs={saveFaqs} testimonials={testimonials} saveTestimonials={saveTestimonials} features={features} saveFeatures={saveFeatures} steps={steps} saveSteps={saveSteps} inquiries={inquiries} saveInquiries={saveInquiries} navigate={navigate} showToast={showToast} setAdminAuth={setAdminAuth} />
+        <AdminPanel business={business} saveBusiness={saveBusiness} products={products} saveProducts={saveProducts} categories={categories} saveCategories={saveCategories} faqs={faqs} saveFaqs={saveFaqs} testimonials={testimonials} saveTestimonials={saveTestimonials} features={features} saveFeatures={saveFeatures} steps={steps} saveSteps={saveSteps} inquiries={inquiries} saveInquiries={saveInquiries} navigate={navigate} showToast={showToast} setAdminAuth={setAdminAuth} logout={logout} />
         {toast && <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-2xl z-50">{toast}</div>}
       </>
     );
