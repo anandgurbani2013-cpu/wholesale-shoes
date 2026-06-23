@@ -603,7 +603,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
           <button onClick={submit} disabled={submitting} className="mt-6 w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
             {submitting ? <><Loader2 className="animate-spin" size={18} /> Submitting...</> : <><Send size={18} /> Submit Inquiry</>}
           </button>
-          <div className="text-xs text-slate-500 mt-2 text-center">Your inquiry will be saved to database, Google Sheets, and emailed to us.</div>
+         
         </div>
         <div className="space-y-4">
           <div className="bg-slate-900 text-white rounded-2xl p-6">
