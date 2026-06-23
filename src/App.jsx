@@ -8,6 +8,14 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz79bSOmt6s31
 const WEB3FORMS_KEY = '28dbd52f-c661-42f5-b781-34ba0c7d0249';
 const ADMIN_EMAIL = 'anandgurbani2013@gmail.com';
 
+// ===== ADMIN LOGIN MODE =====
+// true  = use Supabase Auth — password is stored securely on Supabase, not in this code.
+//         You change/reset the password from the Supabase dashboard (no redeploy needed).
+// false = use the hardcoded password below (works without Supabase Auth; e.g. if Supabase ever charges).
+//         To switch, just change this one line to: false
+const USE_SUPABASE_AUTH = true;
+const ADMIN_PASSWORD_FALLBACK = 'admin123'; // only used when USE_SUPABASE_AUTH = false — change this to your own strong password
+
 // ===== SUPABASE REST API HELPER =====
 const sb = {
   headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
@@ -1169,9 +1177,32 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const tryAdminLogin = () => {
-    if (adminPwd === 'admin123') { setAdminAuth(true); setShowAdminLogin(false); setPage('admin'); setPwdError(''); setAdminPwd(''); }
-    else setPwdError('Incorrect password');
+  const tryAdminLogin = async () => {
+    if (USE_SUPABASE_AUTH) {
+      // Secure login: Supabase verifies the password on its server — it is NOT stored in this code.
+      try {
+        const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: ADMIN_EMAIL, password: adminPwd }),
+        });
+        const data = await r.json();
+        if (r.ok && data.access_token) {
+          setAdminAuth(true); setShowAdminLogin(false); setPage('admin'); setPwdError(''); setAdminPwd('');
+        } else {
+          setPwdError('Incorrect password');
+        }
+      } catch (e) {
+        setPwdError('Login failed — check your connection and try again.');
+      }
+    } else {
+      // ===== HARDCODED FALLBACK (active only when USE_SUPABASE_AUTH = false) =====
+      if (adminPwd === ADMIN_PASSWORD_FALLBACK) {
+        setAdminAuth(true); setShowAdminLogin(false); setPage('admin'); setPwdError(''); setAdminPwd('');
+      } else {
+        setPwdError('Incorrect password');
+      }
+    }
   };
 
   if (loading) {
@@ -1554,7 +1585,7 @@ export default function App() {
       {showAdminLogin && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowAdminLogin(false); setPwdError(''); setAdminPwd(''); }}>
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-            <div className="text-center mb-6"><div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><Lock className="text-amber-600" size={28} /></div><h2 className="text-xl font-bold">Admin Login</h2><p className="text-sm text-slate-500 mt-1">Default password: admin123</p></div>
+            <div className="text-center mb-6"><div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><Lock className="text-amber-600" size={28} /></div><h2 className="text-xl font-bold">Admin Login</h2><p className="text-sm text-slate-500 mt-1">Enter your password to continue</p></div>
             <input type="password" value={adminPwd} onChange={e => { setAdminPwd(e.target.value); setPwdError(''); }} onKeyDown={e => e.key === 'Enter' && tryAdminLogin()} placeholder="Enter password" className="w-full px-4 py-3 border rounded-lg mb-3" autoFocus />
             {pwdError && <div className="text-red-500 text-sm mb-3">{pwdError}</div>}
             <button onClick={tryAdminLogin} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold">Login</button>
