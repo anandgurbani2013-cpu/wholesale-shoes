@@ -1158,7 +1158,8 @@ export default function App() {
   };
 
   const navigate = (p) => {
-    if (p !== page) setHistory(prev => [...prev, page]);
+    if (p === 'home') setHistory([]);
+    else if (p !== page) setHistory(prev => [...prev, page]);
     setPage(p); setMenuOpen(false);
     if (p !== 'product') setSelectedProduct(null);
     window.scrollTo(0, 0);
