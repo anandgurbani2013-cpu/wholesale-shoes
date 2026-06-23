@@ -1457,7 +1457,7 @@ export default function App() {
               <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center items-center gap-x-8 gap-y-2 text-sm font-medium">
                 <span className="flex items-center gap-1.5"><CheckCircle size={16} /> GST Registered</span>
                 <span className="flex items-center gap-1.5"><Truck size={16} /> {business.shippingCoverage} Delivery</span>
-                <span className="flex items-center gap-1.5"><Users size={16} /> {business.retailers} Retailers Served</span>
+                <span className="flex items-center gap-1.5"><Award size={16} /> Quality Assured</span>
                 <span className="flex items-center gap-1.5"><Package size={16} /> Low MOQ</span>
               </div>
             </section>
