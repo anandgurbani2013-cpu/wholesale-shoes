@@ -727,6 +727,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     { id: 'features', label: 'Why Choose Us', icon: Sparkles },
     { id: 'steps', label: 'How to Order', icon: ListChecks },
     { id: 'business', label: 'Business Info', icon: Settings },
+    { id: 'integrations', label: 'Integrations', icon: CheckCircle },
   ];
 
   return (
@@ -762,8 +763,24 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div key={i} className="bg-white rounded-xl p-6 shadow-sm"><s.icon className="text-amber-500 mb-3" size={24} /><div className="text-3xl font-bold text-slate-900">{s.value}</div><div className="text-sm text-slate-600 mt-1">{s.label}</div></div>
               ))}
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <h3 className="font-bold text-blue-900 mb-2">🚀 Integrations Status</h3>
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Recent Inquiries</h2>
+              {inquiries.slice(0, 5).map(i => (
+                <div key={i.id} className="py-3 border-b last:border-b-0 flex justify-between items-center">
+                  <div><div className="font-medium text-slate-900">{i.name} • {i.shop || 'N/A'}</div><div className="text-sm text-slate-500">{i.products?.length || 0} products • {new Date(i.date).toLocaleDateString()}</div></div>
+                  <span className={`text-xs px-3 py-1 rounded-full ${i.status === 'new' ? 'bg-blue-100 text-blue-700' : i.status === 'contacted' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{i.status}</span>
+                </div>
+              ))}
+              {inquiries.length === 0 && <div className="text-center py-8 text-slate-500">No inquiries yet</div>}
+            </div>
+          </div>
+        )}
+
+        {tab === 'integrations' && (
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-6">Integrations</h1>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 max-w-2xl">
+              <h3 className="font-bold text-blue-900 mb-3">🚀 Integrations Status</h3>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>✅ <strong>Supabase Database</strong> — All data persisted in cloud</li>
                 <li>✅ <strong>Google Sheets Push</strong> — Inquiries auto-saved to your sheet</li>
@@ -771,7 +788,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <li>✅ <strong>AI Support Agent</strong> — 24/7 customer chatbot</li>
                 <li>✅ <strong>GST Invoice Generator</strong> — Click any inquiry to generate</li>
               </ul>
-              <div className="mt-3 pt-3 border-t border-blue-200">
+              <div className="mt-4 pt-4 border-t border-blue-200">
                 <button onClick={async () => {
                   const tests = [];
                   tests.push('🔍 Running connection tests...\n');
@@ -789,7 +806,6 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                     const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries`, { method: 'POST', headers: { ...sb.headers, 'Prefer': 'return=representation' }, body: JSON.stringify([{ id: testId, data: { test: true }, status: 'test' }]) });
                     if (r.ok) {
                       tests.push('✅ Supabase Write: Working');
-                      // Clean up
                       await fetch(`${SUPABASE_URL}/rest/v1/inquiries?id=eq.${testId}`, { method: 'DELETE', headers: sb.headers });
                     } else tests.push(`❌ Supabase Write: HTTP ${r.status} - ${(await r.text()).slice(0,150)}`);
                   } catch (e) { tests.push(`❌ Supabase Write: ${e.message}`); }
@@ -811,16 +827,6 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   alert(tests.join('\n'));
                 }} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">🧪 Test All Connections</button>
               </div>
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Recent Inquiries</h2>
-              {inquiries.slice(0, 5).map(i => (
-                <div key={i.id} className="py-3 border-b last:border-b-0 flex justify-between items-center">
-                  <div><div className="font-medium text-slate-900">{i.name} • {i.shop || 'N/A'}</div><div className="text-sm text-slate-500">{i.products?.length || 0} products • {new Date(i.date).toLocaleDateString()}</div></div>
-                  <span className={`text-xs px-3 py-1 rounded-full ${i.status === 'new' ? 'bg-blue-100 text-blue-700' : i.status === 'contacted' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{i.status}</span>
-                </div>
-              ))}
-              {inquiries.length === 0 && <div className="text-center py-8 text-slate-500">No inquiries yet</div>}
             </div>
           </div>
         )}
@@ -1171,8 +1177,45 @@ export default function App() {
     setSelectedProduct(null);
     setMenuOpen(false);
     setPage('home');
+    try { sessionStorage.removeItem('wsAdminSession'); } catch (e) {}
     window.scrollTo(0, 0);
   };
+
+  // Keep admin logged in across page refresh (within the inactivity window)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('wsAdminSession');
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s && s.auth && (Date.now() - s.ts) < 120000) {
+          setAdminAuth(true);
+          setPage('admin');
+        } else {
+          sessionStorage.removeItem('wsAdminSession');
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  // Auto-logout after 2 minutes of inactivity (only while logged in)
+  useEffect(() => {
+    if (!adminAuth) return;
+    let timer;
+    let lastWrite = 0;
+    const reset = () => {
+      clearTimeout(timer);
+      const now = Date.now();
+      if (now - lastWrite > 5000) {
+        try { sessionStorage.setItem('wsAdminSession', JSON.stringify({ auth: true, ts: now })); } catch (e) {}
+        lastWrite = now;
+      }
+      timer = setTimeout(() => { logout(); }, 120000);
+    };
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(ev => window.addEventListener(ev, reset, { passive: true }));
+    reset();
+    return () => { clearTimeout(timer); events.forEach(ev => window.removeEventListener(ev, reset)); };
+  }, [adminAuth]);
 
   const goBack = () => {
     if (history.length === 0) return;
