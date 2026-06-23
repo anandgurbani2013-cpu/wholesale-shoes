@@ -254,6 +254,50 @@ function FAQItem({ q, a }) {
   );
 }
 
+function productImages(p) {
+  if (p && Array.isArray(p.images) && p.images.filter(Boolean).length) return p.images.filter(Boolean);
+  return p && p.image ? [p.image] : [];
+}
+
+function ProductGallery({ images, alt }) {
+  const [idx, setIdx] = useState(0);
+  const touchX = useRef(null);
+  const imgs = images && images.length ? images : [''];
+  const go = (n) => setIdx((n + imgs.length) % imgs.length);
+  const onTouchStart = (e) => { touchX.current = e.changedTouches[0].clientX; };
+  const onTouchEnd = (e) => {
+    if (touchX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    if (Math.abs(dx) > 40) go(idx + (dx < 0 ? 1 : -1));
+    touchX.current = null;
+  };
+  return (
+    <div>
+      <div className="relative bg-slate-100 rounded-2xl overflow-hidden aspect-square" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <SafeImage src={imgs[idx]} alt={alt} className="w-full h-full object-cover" />
+        {imgs.length > 1 && (
+          <>
+            <button onClick={() => go(idx - 1)} aria-label="Previous image" className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight className="rotate-180" size={20} /></button>
+            <button onClick={() => go(idx + 1)} aria-label="Next image" className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight size={20} /></button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 md:hidden">
+              {imgs.map((_, i) => <span key={i} className={`w-2 h-2 rounded-full transition-colors ${i === idx ? 'bg-amber-500' : 'bg-white/70'}`} />)}
+            </div>
+          </>
+        )}
+      </div>
+      {imgs.length > 1 && (
+        <div className="hidden md:flex gap-2 mt-3 flex-wrap">
+          {imgs.map((src, i) => (
+            <button key={i} onClick={() => setIdx(i)} style={i === idx ? { borderColor: '#C6A15B' } : {}} className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${i === idx ? '' : 'border-transparent'}`}>
+              <SafeImage src={src} alt={`${alt} ${i + 1}`} className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductCard({ product, categories, onView, onAddToInquiry }) {
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 transition-all hover:-translate-y-1 group">
@@ -713,17 +757,19 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [editingProduct, setEditingProduct] = useState(null);
   const [editBiz, setEditBiz] = useState(business);
   const [invoiceFor, setInvoiceFor] = useState(null);
-  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', moq: 50, priceFrom: '', isNew: false, isBestseller: false, description: '', pricingTiers: [{qty:'50-99 pairs',price:''},{qty:'100-499 pairs',price:''},{qty:'500+ pairs',price:''}] };
+  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', moq: 50, priceFrom: '', isNew: false, isBestseller: false, description: '', pricingTiers: [{qty:'50-99 pairs',price:''},{qty:'100-499 pairs',price:''},{qty:'500+ pairs',price:''}] };
   const [pForm, setPForm] = useState(blankProduct);
 
   useEffect(() => { setEditBiz(business); }, [business]);
 
-  const editProduct = (p) => { setEditingProduct(p); setPForm({ ...p }); setTab('product-edit'); };
+  const editProduct = (p) => { setEditingProduct(p); setPForm({ ...p, images: (Array.isArray(p.images) && p.images.filter(Boolean).length) ? p.images.filter(Boolean) : (p.image ? [p.image] : ['']) }); setTab('product-edit'); };
   const newProduct = () => { setEditingProduct(null); setPForm({ ...blankProduct, id: `prod_${Date.now()}`, code: `SH-${String(products.length + 1).padStart(4, '0')}`, category: categories[0]?.id || '' }); setTab('product-edit'); };
 
   const saveProduct = async () => {
     if (!pForm.name || !pForm.code) { showToast('Name and code required'); return; }
-    const updated = editingProduct ? products.map(p => p.id === editingProduct.id ? pForm : p) : [...products, pForm];
+    const imgs = (pForm.images || []).map(s => (s || '').trim()).filter(Boolean);
+    const cleaned = { ...pForm, images: imgs, image: imgs[0] || '' };
+    const updated = editingProduct ? products.map(p => p.id === editingProduct.id ? cleaned : p) : [...products, cleaned];
     await saveProducts(updated);
     showToast(editingProduct ? 'Product updated ✓' : 'Product added ✓');
     setTab('products'); setEditingProduct(null);
@@ -891,7 +937,18 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Category</label><select value={pForm.category} onChange={e => setPForm({...pForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-lg">{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">MOQ (pairs)</label><input type="number" value={pForm.moq} onChange={e => setPForm({...pForm, moq: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Price From (₹)</label><input value={pForm.priceFrom} onChange={e => setPForm({...pForm, priceFrom: e.target.value})} placeholder="e.g., 500" className="w-full px-3 py-2 border rounded-lg" /></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Image URL</label><input value={pForm.image} onChange={e => setPForm({...pForm, image: e.target.value})} placeholder="https://..." className="w-full px-3 py-2 border rounded-lg" />{pForm.image && <SafeImage src={pForm.image} alt="preview" className="mt-2 w-32 h-32 rounded object-cover border" />}</div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Product Images</label>
+                  <div className="text-xs text-slate-500 mb-2">The first image is the main one shown on cards. Add more for the product-page gallery.</div>
+                  {(pForm.images && pForm.images.length ? pForm.images : ['']).map((url, i) => (
+                    <div key={i} className="flex gap-2 mb-2 items-center">
+                      <input value={url} onChange={e => { const arr = [...(pForm.images && pForm.images.length ? pForm.images : [''])]; arr[i] = e.target.value; setPForm({...pForm, images: arr}); }} placeholder={i === 0 ? 'https://... (main image)' : 'https://...'} className="flex-1 px-3 py-2 border rounded-lg" />
+                      {url && <SafeImage src={url} alt="preview" className="w-12 h-12 rounded object-cover border flex-shrink-0" />}
+                      <button onClick={() => { const base = (pForm.images && pForm.images.length ? pForm.images : ['']); const arr = base.filter((_, j) => j !== i); setPForm({...pForm, images: arr.length ? arr : ['']}); }} className="text-red-600 hover:bg-red-50 p-2 rounded flex-shrink-0"><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                  <button onClick={() => setPForm({...pForm, images: [...(pForm.images && pForm.images.length ? pForm.images : ['']), '']})} className="text-sm text-amber-600 hover:underline flex items-center gap-1"><Plus size={14} /> Add image</button>
+                </div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Sizes (comma separated)</label><input value={pForm.sizes.join(', ')} onChange={e => setPForm({...pForm, sizes: e.target.value.split(',').map(s => s.trim())})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Colors (comma separated)</label><input value={pForm.colors.join(', ')} onChange={e => setPForm({...pForm, colors: e.target.value.split(',').map(s => s.trim())})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Material</label><input value={pForm.material} onChange={e => setPForm({...pForm, material: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
@@ -1557,7 +1614,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 py-12">
             <button onClick={() => navigate('catalog')} className="text-slate-600 hover:text-amber-600 mb-6 flex items-center gap-1"><ChevronRight className="rotate-180" size={18} /> Back to Catalog</button>
             <div className="grid md:grid-cols-2 gap-12">
-              <div className="bg-slate-100 rounded-2xl overflow-hidden aspect-square"><SafeImage src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover" /></div>
+              <ProductGallery key={selectedProduct.id} images={productImages(selectedProduct)} alt={selectedProduct.name} />
               <div>
                 <div className="flex gap-2 mb-3">{selectedProduct.isNew && <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">NEW</span>}{selectedProduct.isBestseller && <span className="bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-semibold">★ BESTSELLER</span>}</div>
                 <div className="text-sm text-slate-500 font-mono mb-2">{selectedProduct.code}</div>
