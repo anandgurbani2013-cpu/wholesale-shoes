@@ -155,6 +155,7 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
   const [savedMsg, setSavedMsg] = useState('');
   const [acctTab, setAcctTab] = useState(initialTab || 'profile');
   const [openInq, setOpenInq] = useState(null);
+  const [openOrd, setOpenOrd] = useState(null);
   useEffect(() => { if (customer) setProf({ ...customer.profile }); }, [customer]);
   useEffect(() => { if (initialTab) setAcctTab(initialTab); }, [initialTab]);
 
@@ -226,17 +227,32 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
         <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div></div>
       ) : (
         <div className="space-y-3">
-          {orderHistory.map(o => (
-            <div key={o.id} className="border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                <span className="text-sm font-mono font-bold text-amber-600">{o.orderNo}</span>
-                <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{o.status || 'New'}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2"><Clock size={12} /> {new Date(o.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-              {o.items && o.items.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{o.items.map((it, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{it.name}{(it.size || it.color) ? ` (${[it.size, it.color].filter(Boolean).join('/')})` : ''} ×{it.qty}</span>)}</div>}
-              <div className="flex justify-between items-center text-sm border-t pt-2 mt-2"><span className="text-slate-500">{o.payment}</span><span className="font-bold text-slate-900">₹{Number(o.total).toLocaleString('en-IN')}</span></div>
+          {orderHistory.map(o => {
+            const isOpen = openOrd === o.id;
+            return (
+            <div key={o.id} className="border border-slate-200 rounded-xl overflow-hidden">
+              <button onClick={() => setOpenOrd(isOpen ? null : o.id)} className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-slate-50">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-mono font-bold text-amber-600">{o.orderNo}</span>
+                    <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{o.status || 'New'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><Clock size={12} /> {new Date(o.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="font-bold text-slate-900 text-sm">₹{Number(o.total).toLocaleString('en-IN')}</span>
+                  <ChevronRight size={18} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                </div>
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-4 -mt-1">
+                  {o.items && o.items.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{o.items.map((it, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{it.name}{(it.size || it.color) ? ` (${[it.size, it.color].filter(Boolean).join('/')})` : ''} ×{it.qty}</span>)}</div>}
+                  <div className="flex justify-between items-center text-sm border-t pt-2 mt-1"><span className="text-slate-500">{o.payment}</span><span className="font-bold text-slate-900">₹{Number(o.total).toLocaleString('en-IN')}</span></div>
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1463,8 +1479,19 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     })();
     return () => { cancel = true; };
   }, [tab, adminToken]);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [editBiz, setEditBiz] = useState(business);
+  const ORDER_STATUSES = ['new', 'confirmed', 'dispatched', 'delivered', 'cancelled'];
+  const updateOrderStatus = async (rowId, status) => {
+    setOrders(prev => prev.map(r => r.id === rowId ? { ...r, status } : r));
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(rowId)}`, {
+        method: 'PATCH',
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      showToast('Order status updated ✓');
+    } catch (e) { showToast('Could not update status — check the Supabase update policy'); }
+  };
   const [invoiceFor, setInvoiceFor] = useState(null);
   const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, codAvailable: true, description: '', availabilityNote: '', retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
   const [pForm, setPForm] = useState(blankProduct);
@@ -1790,9 +1817,14 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                     <span>Delivery {o.delivery ? `₹${Number(o.delivery).toLocaleString('en-IN')}` : 'Free'}</span>
                     {o.note && <span>Note: {o.note}</span>}
                   </div>
-                  <div className="mt-3 flex gap-2 flex-wrap">
+                  <div className="mt-3 flex gap-2 flex-wrap items-center">
                     <a href={`tel:${o.phone}`} className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">📞 Call</a>
                     {(o.whatsapp || o.phone) && <a href={`https://wa.me/${(o.whatsapp || o.phone + '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">💬 WhatsApp</a>}
+                    <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">Status:
+                      <select value={row.status || 'new'} onChange={e => updateOrderStatus(row.id, e.target.value)} className="border rounded-lg px-2 py-1 text-sm font-medium capitalize">
+                        {ORDER_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
+                      </select>
+                    </label>
                   </div>
                 </div>
               ); })}
