@@ -589,7 +589,7 @@ function AIChatbot({ business, products, categories }) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-full shadow-2xl flex items-center justify-center text-white z-40 transition-all hover:scale-110 group" title="Ask AI Assistant">
+      <button onClick={() => setOpen(true)} className="fixed bottom-[160px] lg:bottom-24 right-6 w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-full shadow-2xl flex items-center justify-center text-white z-40 transition-all hover:scale-110 group" title="Ask AI Assistant">
         <Bot size={26} />
         <span className="absolute -top-2 -left-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">AI</span>
       </button>
@@ -597,7 +597,7 @@ function AIChatbot({ business, products, categories }) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 bg-white rounded-2xl shadow-2xl w-80 sm:w-96 h-[500px] flex flex-col border border-slate-200">
+    <div className="fixed bottom-[88px] lg:bottom-6 right-6 z-50 bg-white rounded-2xl shadow-2xl w-80 sm:w-96 h-[500px] flex flex-col border border-slate-200">
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 rounded-t-2xl flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><Bot size={20} /></div>
@@ -2127,6 +2127,13 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  const goToSection = (id) => {
+    setMenuOpen(false);
+    const doScroll = () => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    if (page !== 'home') { navigate('home'); setTimeout(doScroll, 350); }
+    else { setTimeout(doScroll, 50); }
+  };
+
   const tryAdminLogin = async () => {
     if (USE_SUPABASE_AUTH) {
       // Secure login: Supabase verifies the password on its server — it is NOT stored in this code.
@@ -2181,7 +2188,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-white app-root${dark ? ' theme-dark' : ''}`}>
+    <div className={`min-h-screen bg-white app-root pb-16 lg:pb-0${dark ? ' theme-dark' : ''}`}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800;900&display=swap');
 
@@ -2271,22 +2278,37 @@ export default function App() {
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
         </div>
-        {menuOpen && <div className="lg:hidden bg-white border-t">
-          {NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium ${page === item.id ? 'bg-amber-50 text-amber-600' : 'text-slate-700'}`}><item.icon size={18} /> {item.label}</button>)}
-          <div className="border-t border-slate-100 mt-1 pt-1">
-            {customer ? (
-              <>
-                <div className="px-4 pt-2 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">My account</div>
-                <button onClick={() => { setAccountTab('profile'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><Users size={18} /> Account info</button>
-                <button onClick={() => { setAccountTab('inquiries'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><ListChecks size={18} /> My inquiries</button>
-                <button onClick={() => { setAccountTab('orders'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><ShoppingBag size={18} /> My orders</button>
-                <button onClick={() => { setMenuOpen(false); logoutCustomer(); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-red-600"><LogOut size={18} /> Log out</button>
-              </>
-            ) : (
-              <button onClick={() => { setAccountTab('profile'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><Users size={18} /> Login / Register</button>
-            )}
+        {menuOpen && (
+          <div className="lg:hidden fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setMenuOpen(false)}>
+            <div className="bg-white w-72 max-w-[85%] h-full overflow-auto" onClick={e => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><span className="font-bold text-slate-900">Menu</span><button onClick={() => setMenuOpen(false)} aria-label="Close"><X size={22} /></button></div>
+              <div className="p-2">
+                {NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium ${page === item.id ? 'bg-amber-50 text-amber-600' : 'text-slate-700 hover:bg-slate-50'}`}><item.icon size={18} /> {item.label}</button>)}
+
+                <div className="px-3 pt-3 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Browse</div>
+                <button onClick={() => navigate('catalog')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Grid size={18} /> Shop by category</button>
+                <button onClick={() => goToSection('sec-featured')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Star size={18} /> Featured products</button>
+
+                <div className="px-3 pt-3 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Company</div>
+                <button onClick={() => goToSection('sec-why')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><CheckCircle size={18} /> Why choose us</button>
+                <button onClick={() => goToSection('sec-reviews')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><MessageSquare size={18} /> What retailers say</button>
+
+                <div className="border-t border-slate-100 my-2"></div>
+                {customer ? (
+                  <>
+                    <div className="px-3 pt-1 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">My account</div>
+                    <button onClick={() => { setAccountTab('profile'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Users size={18} /> Account info</button>
+                    <button onClick={() => { setAccountTab('inquiries'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><ListChecks size={18} /> My inquiries</button>
+                    <button onClick={() => { setAccountTab('orders'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><ShoppingBag size={18} /> My orders</button>
+                    <button onClick={() => { setMenuOpen(false); logoutCustomer(); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"><LogOut size={18} /> Log out</button>
+                  </>
+                ) : (
+                  <button onClick={() => { setAccountTab('profile'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Users size={18} /> Login / Register</button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>}
+        )}
       </header>
 
       <main>
@@ -2340,7 +2362,7 @@ export default function App() {
             )}
 
             {visibleProducts.filter(p => p.isNew).length > 0 && (
-              <section className="py-16 bg-white">
+              <section id="sec-featured" className="py-16 bg-white">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-end mb-8"><div><span className="text-amber-600 font-semibold text-sm uppercase">Just In</span><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">New Arrivals</h2></div><button onClick={() => navigate('catalog')} className="text-amber-600 font-medium flex items-center gap-1 hover:underline">View All <ChevronRight size={18} /></button></div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isNew).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
@@ -2358,7 +2380,7 @@ export default function App() {
             )}
 
             {features.length > 0 && (
-              <section className="py-16 bg-white">
+              <section id="sec-why" className="py-16 bg-white">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">Why Choose Us</h2></div>
                   <div className={`grid gap-6 ${features.length >= 4 ? 'md:grid-cols-4' : features.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
@@ -2369,7 +2391,7 @@ export default function App() {
             )}
 
             {testimonials.length > 0 && (
-              <section className="py-16 bg-slate-50">
+              <section id="sec-reviews" className="py-16 bg-slate-50">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">What Retailers Say</h2></div>
                   <div className={`grid gap-6 ${testimonials.length >= 3 ? 'md:grid-cols-3' : testimonials.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1 max-w-2xl mx-auto'}`}>
@@ -2535,18 +2557,39 @@ export default function App() {
       </footer>
 
       {/* Back to top button - classic navy/gold, bottom center */}
+      {page !== 'admin' && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 flex justify-around items-stretch" aria-label="Primary">
+          {(() => {
+            const cartCount = shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length;
+            const items = [
+              { id: 'home', Icon: Home, label: 'Home', on: page === 'home', act: () => navigate('home') },
+              { id: 'shop', Icon: Grid, label: 'Shop', on: page === 'catalog' || page === 'product', act: () => navigate('catalog') },
+              { id: 'cart', Icon: ShoppingBag, label: 'Cart', on: false, act: openCart, badge: cartCount },
+              { id: 'account', Icon: Users, label: 'Account', on: showAccount, act: () => { setAccountTab('profile'); setShowAccount(true); } },
+            ];
+            return items.map(t => (
+              <button key={t.id} onClick={t.act} className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium ${t.on ? 'text-amber-600' : 'text-slate-500'}`}>
+                <t.Icon size={21} />
+                {t.badge > 0 && <span className="absolute top-1 left-1/2 ml-2 bg-amber-500 text-white text-[9px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-bold">{t.badge}</span>}
+                {t.label}
+              </button>
+            ));
+          })()}
+        </nav>
+      )}
+
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-label="Back to top"
         style={{ borderColor: '#C6A15B', color: '#C6A15B' }}
-        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-14 h-14 rounded-full bg-slate-900 border-2 flex flex-col items-center justify-center shadow-2xl transition-all duration-300 hover:bg-slate-800 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+        className={`fixed bottom-[88px] lg:bottom-6 left-1/2 -translate-x-1/2 z-40 w-14 h-14 rounded-full bg-slate-900 border-2 flex flex-col items-center justify-center shadow-2xl transition-all duration-300 hover:bg-slate-800 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
       >
         <ChevronUp size={18} />
         <span className="font-serif" style={{ fontSize: '10px', letterSpacing: '1.5px', lineHeight: 1 }}>TOP</span>
       </button>
 
       {/* Enhanced WhatsApp button - more prominent, with tooltip */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+      <div className="fixed bottom-[88px] lg:bottom-6 right-6 z-40 flex flex-col items-end gap-3">
         {/* Call button */}
         <a 
           href={`tel:${business.phone}`}
