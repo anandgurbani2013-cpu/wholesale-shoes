@@ -363,21 +363,48 @@ async function pushOrderToSheets(order) {
 }
 async function sendOrderEmail(order) {
   try {
-    const productsStr = (order.items || []).map(it => `${it.code}-${it.name} [${it.size}/${it.color}] x${it.qty} @ ₹${it.unit} = ₹${it.lineTotal}`).join('\n');
+    const itemsStr = (order.items || []).map(it => `• ${it.code} ${it.name} (${it.size}/${it.color}) x${it.qty} = ₹${it.lineTotal}`).join('\n');
+    const message = [
+      `New order ${order.orderNo}`,
+      ``,
+      `Customer: ${order.name}`,
+      `Phone: ${order.phone}`,
+      `WhatsApp: ${order.whatsapp || order.phone}`,
+      `Email: ${order.email || 'N/A'}`,
+      `Address: ${[order.address, order.city, order.pincode].filter(Boolean).join(', ')}`,
+      ``,
+      `Items:`,
+      itemsStr,
+      ``,
+      `Subtotal: ₹${order.subtotal}`,
+      `GST (${order.gstRate}%): ₹${order.gst}`,
+      `Delivery: ${order.delivery ? '₹' + order.delivery : 'Free'}`,
+      `Total: ₹${order.total}`,
+      `Payment: ${order.paymentLabel}`,
+      `Note: ${order.note || 'None'}`,
+      `Placed: ${new Date(order.date).toLocaleString('en-IN')}`,
+    ].join('\n');
     const r = await fetch('https://api.web3forms.com/submit', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         access_key: WEB3FORMS_KEY,
-        subject: `[${order.orderNo}] New Order from ${order.name} — ₹${order.total}`,
+        subject: `New Order ${order.orderNo} from ${order.name}`,
         from_name: 'Anand Footwear Website',
-        order_no: order.orderNo, name: order.name, phone: order.phone, whatsapp: order.whatsapp || order.phone, email: order.email || 'N/A',
-        address: order.address, city: order.city, pincode: order.pincode, products: productsStr,
-        subtotal: `₹${order.subtotal}`, gst: `₹${order.gst} (${order.gstRate}%)`, delivery: order.delivery ? `₹${order.delivery}` : 'Free', total: `₹${order.total}`,
-        payment: order.paymentLabel, note: order.note || 'None', date: new Date(order.date).toLocaleString('en-IN'),
+        order_no: order.orderNo,
+        name: order.name,
+        phone: order.phone,
+        email: order.email || 'N/A',
+        total: `₹${order.total}`,
+        payment: order.paymentLabel,
+        message,
       }),
     });
-    const data = await r.json(); return !!data.success;
-  } catch (e) { return false; }
+    const data = await r.json();
+    if (data.success) return true;
+    console.error('Web3Forms order error:', data);
+    return false;
+  } catch (e) { console.error('Order email failed:', e.message); return false; }
 }
 async function saveOrderToSupabase(order, accessToken) {
   try {
