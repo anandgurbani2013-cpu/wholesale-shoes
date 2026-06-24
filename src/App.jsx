@@ -1848,7 +1848,7 @@ export default function App() {
         ]);
       }
     } catch (e) {}
-    try { localStorage.removeItem('wsShopCart'); localStorage.removeItem('wsCart'); localStorage.removeItem('wsCustomerSession'); } catch (e) {}
+    try { localStorage.removeItem('wsShopCart'); localStorage.removeItem('wsCart'); localStorage.removeItem('wsCustomerSession'); localStorage.removeItem('wsContactForm'); } catch (e) {}
     window.location.reload();
   };
   const onCustomerProfileUpdated = (user) => { setCustomer(c => (c ? { ...c, profile: customerProfile(user) } : c)); };
