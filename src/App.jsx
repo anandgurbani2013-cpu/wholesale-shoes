@@ -107,6 +107,12 @@ const customerAuth = {
       return r.ok;
     } catch (e) { return false; }
   },
+  async saveOrderHistory(access_token, orderHistory) {
+    try {
+      const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ data: { orderHistory } }) });
+      return r.ok;
+    } catch (e) { return false; }
+  },
 };
 
 function mergeCarts(a, b) {
@@ -139,7 +145,7 @@ function customerProfile(user) {
   return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', city: m.city || '', address: m.address || '' };
 }
 
-function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
+function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
   const [mode, setMode] = useState('login');
   const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [busy, setBusy] = useState(false);
@@ -216,7 +222,23 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
   const ordersView = (
     <div>
       <div className="flex items-center gap-2 mb-4"><ShoppingBag size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My orders</h3></div>
-      <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div></div>
+      {(!orderHistory || orderHistory.length === 0) ? (
+        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div></div>
+      ) : (
+        <div className="space-y-3">
+          {orderHistory.map(o => (
+            <div key={o.id} className="border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                <span className="text-sm font-mono font-bold text-amber-600">{o.orderNo}</span>
+                <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{o.status || 'New'}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2"><Clock size={12} /> {new Date(o.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+              {o.items && o.items.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{o.items.map((it, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{it.name}{(it.size || it.color) ? ` (${[it.size, it.color].filter(Boolean).join('/')})` : ''} ×{it.qty}</span>)}</div>}
+              <div className="flex justify-between items-center text-sm border-t pt-2 mt-2"><span className="text-slate-500">{o.payment}</span><span className="font-bold text-slate-900">₹{Number(o.total).toLocaleString('en-IN')}</span></div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -322,6 +344,47 @@ async function nextInquiryNumber() {
   } catch (e) {
     return `INQ-${String(Date.now()).slice(-5)}`;
   }
+}
+
+// Order reference, e.g. ORD-240626-165830 (date + time, unique per second)
+function makeOrderNo() {
+  const d = new Date(); const p = n => String(n).padStart(2, '0');
+  return `ORD-${p(d.getDate())}${p(d.getMonth() + 1)}${String(d.getFullYear()).slice(2)}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+async function pushOrderToSheets(order) {
+  try {
+    const productsStr = (order.items || []).map(it => `${it.code}-${it.name} [${it.size}/${it.color}] x${it.qty} @ ₹${it.unit}`).join('; ');
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      type: 'order', orderId: order.orderNo, name: order.name, phone: order.phone, whatsapp: order.whatsapp, email: order.email,
+      address: order.address, city: order.city, pincode: order.pincode, products: productsStr, total: order.total, payment: order.paymentLabel, message: order.note || ''
+    }) });
+    return true;
+  } catch (e) { return null; }
+}
+async function sendOrderEmail(order) {
+  try {
+    const productsStr = (order.items || []).map(it => `${it.code}-${it.name} [${it.size}/${it.color}] x${it.qty} @ ₹${it.unit} = ₹${it.lineTotal}`).join('\n');
+    const r = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_KEY,
+        subject: `[${order.orderNo}] New Order from ${order.name} — ₹${order.total}`,
+        from_name: 'Anand Footwear Website',
+        order_no: order.orderNo, name: order.name, phone: order.phone, whatsapp: order.whatsapp || order.phone, email: order.email || 'N/A',
+        address: order.address, city: order.city, pincode: order.pincode, products: productsStr,
+        subtotal: `₹${order.subtotal}`, gst: `₹${order.gst} (${order.gstRate}%)`, delivery: order.delivery ? `₹${order.delivery}` : 'Free', total: `₹${order.total}`,
+        payment: order.paymentLabel, note: order.note || 'None', date: new Date(order.date).toLocaleString('en-IN'),
+      }),
+    });
+    const data = await r.json(); return !!data.success;
+  } catch (e) { return false; }
+}
+async function saveOrderToSupabase(order, accessToken) {
+  try {
+    const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken || SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' };
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/orders`, { method: 'POST', headers, body: JSON.stringify([{ id: order.id, data: order, status: 'new', user_id: order.userId || null }]) });
+    return r.ok;
+  } catch (e) { return null; }
 }
 
 // Sync a customer's profile (never the password) to the Customers sheet; Apps Script upserts by email
@@ -432,6 +495,7 @@ const DEFAULT_BUSINESS = {
   facebook: '#', instagram: '#', linkedin: '#',
   gstin: '[YOUR GSTIN]', legalName: '[Legal Business Name]', hsnCode: '6403', gstRate: 18,
   bankName: '[Bank Name]', accountNo: '[Account Number]', ifsc: '[IFSC Code]', invoicePrefix: 'INV-',
+  deliveryFee: 0, freeDeliveryAbove: 0, upiId: '', upiName: '',
 };
 
 const NAV_ITEMS = [
@@ -913,6 +977,126 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
   );
 }
 
+// ===== CHECKOUT (B2C order placement) =====
+function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, onClose }) {
+  const prof = (customer && customer.profile) || {};
+  const [form, setForm] = useState({ name: prof.name || '', phone: prof.phone || '', whatsapp: '', email: prof.email || '', address: prof.address || '', city: prof.city || '', pincode: '', note: '' });
+  const codAllowed = shopCart.length > 0 && shopCart.every(it => { const pr = products.find(p => p.id === it.id); return pr ? pr.codAvailable !== false : true; });
+  const [pay, setPay] = useState(codAllowed ? 'cod' : 'upi');
+  const [placing, setPlacing] = useState(false);
+  const [done, setDone] = useState(null);
+  const [err, setErr] = useState('');
+
+  const gstRate = parseFloat(business.gstRate) || 0;
+  const subtotal = shopCart.reduce((a, it) => a + retailUnitPrice(it, it.qty) * it.qty, 0);
+  const gst = Math.round(subtotal * gstRate / 100);
+  const fee = parseFloat(business.deliveryFee) || 0;
+  const freeAbove = parseFloat(business.freeDeliveryAbove) || 0;
+  const delivery = (freeAbove > 0 && subtotal >= freeAbove) ? 0 : fee;
+  const total = subtotal + gst + delivery;
+  const upiId = (business.upiId || '').trim();
+
+  const place = async () => {
+    setErr('');
+    if (!form.name.trim() || !form.phone.trim() || !form.address.trim() || !form.city.trim() || !form.pincode.trim()) { setErr('Please fill name, phone, address, city and pincode.'); return; }
+    if (pay === 'cod' && !codAllowed) { setErr('Cash on Delivery is not available for some items. Please choose UPI.'); return; }
+    setPlacing(true);
+    const items = shopCart.map(it => { const unit = retailUnitPrice(it, it.qty); return { code: it.code, name: it.name, size: it.size, color: it.color, qty: it.qty, unit, lineTotal: unit * it.qty }; });
+    const order = {
+      id: `ord_${Date.now()}`, orderNo: makeOrderNo(), type: 'order', date: new Date().toISOString(),
+      name: form.name.trim(), phone: form.phone.trim(), whatsapp: (form.whatsapp || form.phone).trim(), email: form.email.trim(),
+      address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), note: form.note.trim(),
+      items, subtotal, gst, gstRate, delivery, total,
+      payment: pay, paymentLabel: pay === 'cod' ? 'Cash on Delivery' : 'UPI (to be confirmed)', status: 'new'
+    };
+    try { await onPlaceOrder(order); setDone(order); } catch (e) { setErr('Could not place the order. Please try again or contact us on WhatsApp.'); }
+    setPlacing(false);
+  };
+
+  if (done) {
+    const upiLink = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(business.upiName || business.name || '')}&am=${done.total}&cu=INR` : '';
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl max-w-md w-full p-6 text-center" onClick={e => e.stopPropagation()}>
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3"><CheckCircle className="text-green-600" size={34} /></div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-1">Order placed! 🎉</h2>
+          <div className="inline-block bg-amber-50 border border-amber-200 text-amber-700 font-mono font-bold px-4 py-1.5 rounded-full mb-3">{done.orderNo}</div>
+          <p className="text-slate-600 text-sm mb-4">Total <span className="font-bold">₹{done.total.toLocaleString('en-IN')}</span> · {done.paymentLabel}</p>
+          {done.payment === 'upi' && (
+            <div className="bg-slate-50 border rounded-xl p-4 text-left text-sm mb-4">
+              <div className="font-semibold text-slate-900 mb-1">Pay ₹{done.total.toLocaleString('en-IN')} via UPI</div>
+              {upiId ? (<>
+                <div className="text-slate-600">UPI ID: <span className="font-mono font-semibold">{upiId}</span></div>
+                {upiLink && <a href={upiLink} className="inline-block mt-2 bg-slate-900 text-white px-4 py-2 rounded-lg font-semibold">Open UPI app to pay</a>}
+                <div className="text-xs text-slate-500 mt-2">After paying, we'll confirm your payment and dispatch your order.</div>
+              </>) : <div className="text-slate-600">We'll share UPI payment details on WhatsApp shortly.</div>}
+            </div>
+          )}
+          <p className="text-xs text-slate-500 mb-4">We've received your order and will contact you to confirm.{customer ? ' You can see it under My orders.' : ''}</p>
+          <div className="flex gap-3 justify-center">
+            <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I just placed order ${done.orderNo}.`)}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"><WhatsAppIcon size={16} /> WhatsApp</a>
+            <button onClick={onClose} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg font-semibold">Done</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const Field = (label, key, opts = {}) => (
+    <div className={opts.full ? 'md:col-span-2' : ''}>
+      <label className="block text-xs font-medium text-slate-600 mb-1">{label}{opts.req ? ' *' : ''}</label>
+      <input value={form[key]} onChange={e => setForm({ ...form, [key]: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder={opts.ph || ''} />
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><h2 className="font-bold text-slate-900">Checkout</h2><button onClick={onClose} aria-label="Close"><X size={22} /></button></div>
+        <div className="p-5">
+          <div className="bg-slate-50 rounded-xl p-3 mb-4 text-sm">
+            {shopCart.map(it => { const u = retailUnitPrice(it, it.qty); return <div key={it.key} className="flex justify-between py-0.5 gap-2"><span className="text-slate-600">{it.name} <span className="text-xs text-slate-400">({it.size}/{it.color}) ×{it.qty}</span></span><span className="font-medium whitespace-nowrap">₹{(u * it.qty).toLocaleString('en-IN')}</span></div>; })}
+            <div className="border-t mt-2 pt-2 space-y-0.5">
+              <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-slate-600"><span>GST ({gstRate}%)</span><span>₹{gst.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-slate-600"><span>Delivery</span><span>{delivery ? `₹${delivery.toLocaleString('en-IN')}` : 'Free'}</span></div>
+              <div className="flex justify-between font-bold text-slate-900 text-base pt-1"><span>Total</span><span>₹{total.toLocaleString('en-IN')}</span></div>
+            </div>
+          </div>
+
+          <div className="text-sm font-semibold text-slate-900 mb-2">Delivery details</div>
+          <div className="grid md:grid-cols-2 gap-3 mb-4">
+            {Field('Full name', 'name', { req: true })}
+            {Field('Phone', 'phone', { req: true })}
+            {Field('WhatsApp (optional)', 'whatsapp')}
+            {Field('Email (optional)', 'email')}
+            {Field('Full address', 'address', { req: true, full: true })}
+            {Field('City', 'city', { req: true })}
+            {Field('Pincode', 'pincode', { req: true })}
+            {Field('Note (optional)', 'note', { full: true })}
+          </div>
+
+          <div className="text-sm font-semibold text-slate-900 mb-2">Payment</div>
+          <div className="space-y-2 mb-4">
+            <label className={`flex items-center gap-3 border rounded-lg p-3 ${!codAllowed ? 'opacity-60' : 'cursor-pointer'} ${pay === 'cod' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
+              <input type="radio" name="pay" disabled={!codAllowed} checked={pay === 'cod'} onChange={() => setPay('cod')} />
+              <div><div className="text-sm font-medium text-slate-900">Cash on Delivery</div>{!codAllowed && <div className="text-xs text-red-500">Not available for some items in your cart</div>}</div>
+            </label>
+            <label className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer ${pay === 'upi' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
+              <input type="radio" name="pay" checked={pay === 'upi'} onChange={() => setPay('upi')} />
+              <div><div className="text-sm font-medium text-slate-900">UPI</div><div className="text-xs text-slate-500">{upiId ? `Pay to ${upiId} after placing the order` : 'We share UPI details after you place the order'}</div></div>
+            </label>
+          </div>
+
+          {err && <div className="text-sm text-red-600 mb-3">{err}</div>}
+          <button onClick={place} disabled={placing} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold">{placing ? 'Placing order…' : `Place order · ₹${total.toLocaleString('en-IN')}`}</button>
+          <div className="text-xs text-slate-400 text-center mt-2">We'll contact you to confirm your order.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ===== CONTACT PAGE =====
 function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast, customer, onInquirySubmitted }) {
   const [form, setForm] = useState(() => {
@@ -1228,12 +1412,32 @@ function CrudListEditor({ title, icon: Icon, items, onSave, fields, itemLabel = 
 }
 
 // ===== ADMIN PANEL =====
-function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, navigate, showToast, setAdminAuth, logout }) {
+function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, adminToken, navigate, showToast, setAdminAuth, logout }) {
   const [tab, setTab] = useState('dashboard');
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
+  useEffect(() => {
+    if (tab !== 'orders') return;
+    if (!adminToken) { setOrdersError('Your admin session needs a fresh login to load orders. Please log out and log in again.'); setOrders([]); return; }
+    let cancel = false;
+    (async () => {
+      setOrdersLoading(true); setOrdersError('');
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const rows = await r.json();
+        if (!cancel) setOrders(Array.isArray(rows) ? rows : []);
+      } catch (e) {
+        if (!cancel) setOrdersError('Could not load orders. Check that the admin read policy is set in Supabase (see note below).');
+      } finally { if (!cancel) setOrdersLoading(false); }
+    })();
+    return () => { cancel = true; };
+  }, [tab, adminToken]);
   const [editingProduct, setEditingProduct] = useState(null);
   const [editBiz, setEditBiz] = useState(business);
   const [invoiceFor, setInvoiceFor] = useState(null);
-  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, description: '', availabilityNote: '', retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
+  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, codAvailable: true, description: '', availabilityNote: '', retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
   const [pForm, setPForm] = useState(blankProduct);
 
   useEffect(() => { setEditBiz(business); }, [business]);
@@ -1269,6 +1473,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     { id: 'products', label: 'Products', icon: Package },
     { id: 'categories', label: 'Categories', icon: Tag },
     { id: 'inquiries', label: 'Inquiries', icon: Inbox },
+    { id: 'orders', label: 'Orders', icon: ShoppingBag },
     { id: 'faqs', label: 'FAQs', icon: HelpCircle },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquare },
     { id: 'features', label: 'Why Choose Us', icon: Sparkles },
@@ -1429,7 +1634,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Material</label><input value={pForm.material} onChange={e => setPForm({...pForm, material: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Description</label><textarea value={pForm.description} onChange={e => setPForm({...pForm, description: e.target.value})} rows="3" className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Availability Note (optional)</label><input value={pForm.availabilityNote || ''} onChange={e => setPForm({...pForm, availabilityNote: e.target.value})} placeholder="e.g., Size 6 available in Red only" className="w-full px-3 py-2 border rounded-lg" /><div className="text-xs text-slate-500 mt-1">Shown on the product page under sizes &amp; colours — use it to note any size/colour limits.</div></div>
-                <div className="flex gap-4 flex-wrap md:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isNew} onChange={e => setPForm({...pForm, isNew: e.target.checked})} /> New Arrival</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isBestseller} onChange={e => setPForm({...pForm, isBestseller: e.target.checked})} /> Bestseller</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.active !== false} onChange={e => setPForm({...pForm, active: e.target.checked})} /> Active (show on site)</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!pForm.outOfStock} onChange={e => setPForm({...pForm, outOfStock: e.target.checked})} /> Out of stock</label></div>
+                <div className="flex gap-4 flex-wrap md:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isNew} onChange={e => setPForm({...pForm, isNew: e.target.checked})} /> New Arrival</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isBestseller} onChange={e => setPForm({...pForm, isBestseller: e.target.checked})} /> Bestseller</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.active !== false} onChange={e => setPForm({...pForm, active: e.target.checked})} /> Active (show on site)</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!pForm.outOfStock} onChange={e => setPForm({...pForm, outOfStock: e.target.checked})} /> Out of stock</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.codAvailable !== false} onChange={e => setPForm({...pForm, codAvailable: e.target.checked})} /> Cash on Delivery available</label></div>
 
                 <div className="md:col-span-2 mt-2 pt-4 border-t border-slate-200">
                   <div className="font-semibold text-slate-900 mb-1">Retail Buy Pricing &amp; Stock (B2C)</div>
@@ -1527,6 +1732,45 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
           </div>
         )}
 
+        {tab === 'orders' && (
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-6">Orders ({orders.length})</h1>
+            {ordersError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-sm">{ordersError}</div>}
+            {ordersLoading && <div className="bg-white rounded-xl p-12 text-center text-slate-500">Loading orders…</div>}
+            {!ordersLoading && !ordersError && orders.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />No orders yet</div>}
+            <div className="space-y-4">
+              {orders.map(row => { const o = row.data || {}; return (
+                <div key={row.id} className="bg-white rounded-xl p-6 shadow-sm">
+                  <div className="flex justify-between items-start flex-wrap gap-2 mb-3">
+                    <div>
+                      <div className="font-mono font-bold text-amber-600">{o.orderNo}</div>
+                      <h3 className="font-bold text-slate-900">{o.name}</h3>
+                      <div className="text-sm text-slate-500 mt-0.5">📞 {o.phone}{o.whatsapp && o.whatsapp !== o.phone && ` • 💬 ${o.whatsapp}`}{o.email && ` • ✉️ ${o.email}`}</div>
+                      <div className="text-sm text-slate-500">{[o.address, o.city, o.pincode].filter(Boolean).join(', ')}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-slate-900">₹{Number(o.total || 0).toLocaleString('en-IN')}</div>
+                      <div className="text-xs font-semibold text-slate-600">{o.paymentLabel || o.payment}</div>
+                      <div className="text-xs text-slate-400">{o.date ? new Date(o.date).toLocaleString('en-IN') : ''}</div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">{(o.items || []).map((it, idx) => <div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{it.code} - {it.name} ({it.size}/{it.color})</span><span className="font-medium">×{it.qty} · ₹{Number(it.lineTotal || 0).toLocaleString('en-IN')}</span></div>)}</div>
+                  <div className="text-xs text-slate-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                    <span>Subtotal ₹{Number(o.subtotal || 0).toLocaleString('en-IN')}</span>
+                    <span>GST ({o.gstRate}%) ₹{Number(o.gst || 0).toLocaleString('en-IN')}</span>
+                    <span>Delivery {o.delivery ? `₹${Number(o.delivery).toLocaleString('en-IN')}` : 'Free'}</span>
+                    {o.note && <span>Note: {o.note}</span>}
+                  </div>
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    <a href={`tel:${o.phone}`} className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">📞 Call</a>
+                    {(o.whatsapp || o.phone) && <a href={`https://wa.me/${(o.whatsapp || o.phone + '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">💬 WhatsApp</a>}
+                  </div>
+                </div>
+              ); })}
+            </div>
+          </div>
+        )}
+
         {tab === 'faqs' && <CrudListEditor title="FAQs" icon={HelpCircle} items={faqs} onSave={async (l) => { await saveFaqs(l); showToast('FAQs updated ✓'); }} itemLabel="FAQ" idPrefix="faq" fields={[{ key: 'q', label: 'Question', required: true }, { key: 'a', label: 'Answer', required: true, type: 'textarea' }]} renderItem={(item) => (<div><div className="font-semibold text-slate-900 mb-1">{item.q}</div><div className="text-sm text-slate-600 line-clamp-2">{item.a}</div></div>)} />}
 
         {tab === 'testimonials' && <CrudListEditor title="Testimonials" icon={MessageSquare} items={testimonials} onSave={async (l) => { await saveTestimonials(l); showToast('Testimonials updated ✓'); }} itemLabel="Testimonial" idPrefix="test" fields={[{ key: 'name', label: 'Customer Name', required: true }, { key: 'shop', label: 'Shop Name' }, { key: 'city', label: 'City' }, { key: 'content', label: 'Testimonial Content', required: true, type: 'textarea' }, { key: 'rating', label: 'Rating (1-5)', type: 'number', required: true, min: 1, max: 5, default: 5 }]} renderItem={(item) => (<div><div className="flex items-center gap-2 mb-1"><div className="font-semibold text-slate-900">{item.name}</div><div className="text-amber-400 text-sm">{'★'.repeat(item.rating || 5)}</div></div><div className="text-xs text-slate-500 mb-1">{item.shop}{item.shop && item.city && ' • '}{item.city}</div><div className="text-sm text-slate-600 line-clamp-2 italic">"{item.content}"</div></div>)} />}
@@ -1573,6 +1817,10 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Legal Business Name</label><input value={editBiz.legalName || ''} onChange={e => setEditBiz({...editBiz, legalName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">HSN Code</label><input value={editBiz.hsnCode || ''} onChange={e => setEditBiz({...editBiz, hsnCode: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 6403" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">GST Rate (%)</label><input type="number" value={editBiz.gstRate || ''} onChange={e => setEditBiz({...editBiz, gstRate: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 18" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Delivery Fee (₹)</label><input type="number" value={editBiz.deliveryFee || ''} onChange={e => setEditBiz({...editBiz, deliveryFee: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 60" /><div className="text-xs text-slate-500 mt-1">Flat delivery charge added at checkout.</div></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Free Delivery Above (₹)</label><input type="number" value={editBiz.freeDeliveryAbove || ''} onChange={e => setEditBiz({...editBiz, freeDeliveryAbove: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 999" /><div className="text-xs text-slate-500 mt-1">Order subtotal at/above this = free delivery. 0 = always charge the fee.</div></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">UPI ID (for online payment)</label><input value={editBiz.upiId || ''} onChange={e => setEditBiz({...editBiz, upiId: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., yourname@okhdfc" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">UPI Payee Name</label><input value={editBiz.upiName || ''} onChange={e => setEditBiz({...editBiz, upiName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="Name shown in customer's UPI app" /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Payment Note (shown to buyers)</label><input value={editBiz.paymentNote || ''} onChange={e => setEditBiz({...editBiz, paymentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Payment via UPI / bank transfer on order confirmation. GST invoice provided." /><div className="text-xs text-slate-500 mt-1">A short line shown on the inquiry cart and contact page. You can include your UPI ID here if you like.</div></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps — Address or Coordinates</label><input value={editBiz.mapQuery || ''} onChange={e => setEditBiz({...editBiz, mapQuery: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 12 MG Road, Agra, UP 282001  (or  27.1767,78.0081)" /><div className="text-xs text-slate-500 mt-1">Shows a map on the contact page. For a precise pin, use the embed link field below instead.</div></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps Embed Link (optional, more precise)</label><input value={editBiz.mapEmbedUrl || ''} onChange={e => setEditBiz({...editBiz, mapEmbedUrl: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder='Paste the src link from Google Maps → Share → Embed a map' /><div className="text-xs text-slate-500 mt-1">In Google Maps: find your shop → Share → "Embed a map" → copy the link inside src="...". Overrides the address above.</div></div>
@@ -1664,6 +1912,8 @@ export default function App() {
   const [accountTab, setAccountTab] = useState('profile');
   const [showIdleWarn, setShowIdleWarn] = useState(false);
   const [inquiryHistory, setInquiryHistory] = useState([]);
+  const [orderHistory, setOrderHistory] = useState([]);
+  const [showCheckout, setShowCheckout] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -1690,6 +1940,7 @@ export default function App() {
     setShopCart(local => mergeCarts(local, accountCart));
     setInquiryList(local => mergeInquiry(local, accountInquiry));
     setInquiryHistory(Array.isArray(m.inquiryHistory) ? m.inquiryHistory : []);
+    setOrderHistory(Array.isArray(m.orderHistory) ? m.orderHistory : []);
     return true;
   };
   // Record a submitted inquiry to the logged-in customer's private account history
@@ -1701,6 +1952,22 @@ export default function App() {
       customerAuth.saveInquiryHistory(customer.access_token, next);
       return next;
     });
+  };
+  const recordOrderHistory = (order) => {
+    if (!customer || !customer.access_token) return;
+    const rec = { id: order.id, orderNo: order.orderNo, date: order.date, total: order.total, payment: order.paymentLabel, status: 'New', items: (order.items || []).map(it => ({ code: it.code, name: it.name, size: it.size, color: it.color, qty: it.qty })) };
+    setOrderHistory(prev => { const next = [rec, ...(Array.isArray(prev) ? prev : [])].slice(0, 30); customerAuth.saveOrderHistory(customer.access_token, next); return next; });
+  };
+  const placeOrder = async (order) => {
+    const token = customer && customer.access_token;
+    const o = { ...order, userId: (customer && customer.profile && customer.profile.id) || '' };
+    await saveOrderToSupabase(o, token);
+    await pushOrderToSheets(o);
+    await sendOrderEmail(o);
+    recordOrderHistory(o);
+    setShopCart([]);
+    try { localStorage.removeItem('wsShopCart'); } catch (e) {}
+    return true;
   };
   const logoutCustomer = async () => {
     setShowIdleWarn(false);
@@ -1771,6 +2038,8 @@ export default function App() {
   const [inquiries, setInquiries] = useState([]);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminAuth, setAdminAuth] = useState(false);
+  const [adminToken, setAdminToken] = useState('');
+  const adminTokenRef = useRef('');
   const [adminPwd, setAdminPwd] = useState('');
   const [pwdError, setPwdError] = useState('');
 
@@ -1925,6 +2194,7 @@ export default function App() {
 
   const logout = () => {
     setAdminAuth(false);
+    setAdminToken(''); adminTokenRef.current = '';
     setHistory([]);
     setSelectedProduct(null);
     setMenuOpen(false);
@@ -1947,7 +2217,7 @@ export default function App() {
       const raw = sessionStorage.getItem('wsAdminSession');
       if (raw) {
         const s = JSON.parse(raw);
-        if (s && s.auth && (Date.now() - s.ts) < 120000) { setAdminAuth(true); setPage('admin'); adminRestored = true; }
+        if (s && s.auth && (Date.now() - s.ts) < 120000) { setAdminAuth(true); setAdminToken(s.token || ''); adminTokenRef.current = s.token || ''; setPage('admin'); adminRestored = true; }
         else sessionStorage.removeItem('wsAdminSession');
       }
     } catch (e) {}
@@ -2014,7 +2284,7 @@ export default function App() {
       clearTimeout(timer);
       const now = Date.now();
       if (now - lastWrite > 5000) {
-        try { sessionStorage.setItem('wsAdminSession', JSON.stringify({ auth: true, ts: now })); } catch (e) {}
+        try { sessionStorage.setItem('wsAdminSession', JSON.stringify({ auth: true, ts: now, token: adminTokenRef.current })); } catch (e) {}
         lastWrite = now;
       }
       timer = setTimeout(() => { logout(); }, 120000);
@@ -2059,6 +2329,7 @@ export default function App() {
         });
         const data = await r.json();
         if (r.ok && data.access_token) {
+          setAdminToken(data.access_token); adminTokenRef.current = data.access_token;
           setAdminAuth(true); setShowAdminLogin(false); setPage('admin'); setPwdError(''); setAdminPwd('');
         } else {
           setPwdError('Incorrect password');
@@ -2095,7 +2366,7 @@ export default function App() {
   if (page === 'admin' && adminAuth) {
     return (
       <>
-        <AdminPanel business={business} saveBusiness={saveBusiness} products={products} saveProducts={saveProducts} categories={categories} saveCategories={saveCategories} faqs={faqs} saveFaqs={saveFaqs} testimonials={testimonials} saveTestimonials={saveTestimonials} features={features} saveFeatures={saveFeatures} steps={steps} saveSteps={saveSteps} inquiries={inquiries} saveInquiries={saveInquiries} navigate={navigate} showToast={showToast} setAdminAuth={setAdminAuth} logout={logout} />
+        <AdminPanel business={business} saveBusiness={saveBusiness} products={products} saveProducts={saveProducts} categories={categories} saveCategories={saveCategories} faqs={faqs} saveFaqs={saveFaqs} testimonials={testimonials} saveTestimonials={saveTestimonials} features={features} saveFeatures={saveFeatures} steps={steps} saveSteps={saveSteps} inquiries={inquiries} saveInquiries={saveInquiries} adminToken={adminToken} navigate={navigate} showToast={showToast} setAdminAuth={setAdminAuth} logout={logout} />
         {toast && <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-2xl z-50">{toast}</div>}
       </>
     );
@@ -2584,7 +2855,7 @@ export default function App() {
                     })}
                     <div className="flex justify-between items-center mt-4 py-3 border-t text-lg"><span className="font-semibold">Subtotal</span><span className="font-bold">₹{shopCart.reduce((a, it) => a + retailUnitPrice(it, it.qty) * it.qty, 0).toLocaleString('en-IN')}</span></div>
                     <div className="text-xs text-slate-500 mb-3">Taxes and delivery are confirmed at checkout.</div>
-                    <button disabled className="w-full bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Checkout (coming next)</button>
+                    <button onClick={() => { setShowCart(false); setShowCheckout(true); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold">Checkout →</button>
                     <button onClick={() => setShopCart([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear cart</button>
                     {business.paymentNote && <div className="mt-3 text-xs text-slate-500 flex items-start gap-2"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
                   </>
@@ -2623,7 +2894,8 @@ export default function App() {
       {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} customer={customer} onLog={logProforma} onClose={() => setShowProforma(false)} />}
 
 
-      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+      {showCheckout && <CheckoutModal business={business} shopCart={shopCart} products={products} customer={customer} onPlaceOrder={placeOrder} onClose={() => setShowCheckout(false)} />}
+      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
