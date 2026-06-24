@@ -173,6 +173,22 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
     })();
     return () => { cancel = true; };
   }, [acctTab, customer]);
+  const [liveInq, setLiveInq] = useState(null);
+  useEffect(() => {
+    if (acctTab !== 'inquiries' || !customer || !customer.access_token || !customer.profile || !customer.profile.id) return;
+    let cancel = false;
+    (async () => {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries?select=*&data->>userId=eq.${encodeURIComponent(customer.profile.id)}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
+        if (!r.ok) return;
+        const rows = await r.json();
+        if (cancel || !Array.isArray(rows)) return;
+        const list = rows.filter(x => x && x.data && x.data.type === 'inquiry').map(row => { const d = row.data || {}; return { id: row.id, inqNo: d.inqNo || '', date: d.date, message: (d.message || '').trim(), shop: d.shop || '', city: d.city || '', products: (d.products || []).map(p => ({ code: p.code, name: p.name, quantity: p.quantity, selSize: p.selSize, selColor: p.selColor })), status: row.status || d.status || 'new', adminComment: d.adminComment || '' }; }).sort((a, b) => new Date(b.date) - new Date(a.date));
+        setLiveInq(list);
+      } catch (e) {}
+    })();
+    return () => { cancel = true; };
+  }, [acctTab, customer]);
 
   const doLogin = async () => {
     setErr(''); setBusy(true);
@@ -197,14 +213,16 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
 
+  const inqLiveIds = new Set((liveInq || []).map(x => x.id));
+  const inqToShow = [...(liveInq || []), ...((inquiryHistory || []).filter(h => !inqLiveIds.has(h.id)))].sort((a, b) => new Date(b.date) - new Date(a.date));
   const inquiriesView = (
     <div>
       <div className="flex items-center gap-2 mb-4"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My inquiries</h3></div>
-      {(!inquiryHistory || inquiryHistory.length === 0) ? (
+      {(!inqToShow || inqToShow.length === 0) ? (
         <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><Inbox size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No inquiries yet</div><div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div></div>
       ) : (
         <div className="space-y-3">
-          {inquiryHistory.map(h => {
+          {inqToShow.map(h => {
             const isOpen = openInq === h.id;
             return (
             <div key={h.id} className="border border-slate-200 rounded-xl overflow-hidden">
@@ -212,7 +230,8 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     {h.inqNo ? <span className="text-sm font-mono font-bold text-amber-600">{h.inqNo}</span> : <span className="text-sm font-semibold text-slate-700">Inquiry</span>}
-                    <span className="text-[11px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Submitted</span>
+                    {h.status ? <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${h.status === 'resolved' ? 'bg-green-50 text-green-700' : h.status === 'in progress' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>{h.status}</span> : <span className="text-[11px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Submitted</span>}
+                    {h.adminComment && <span className="text-[10px] font-semibold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">💬 Update</span>}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><Clock size={12} /> {new Date(h.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
@@ -224,6 +243,7 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
                     <div className="flex flex-wrap gap-1.5 mb-2">{h.products.map((p, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{p.name || p.code}{p.quantity ? ` × ${p.quantity}` : ''}{(p.selSize||p.selColor) ? ` (${[p.selSize,p.selColor].filter(Boolean).join('/')})` : ''}</span>)}</div>
                   ) : <div className="text-xs text-slate-400 italic mb-2">General inquiry (no products selected)</div>}
                   {h.message && <div className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-amber-300">{h.message}</div>}
+                  {h.adminComment && <div className="text-sm text-slate-700 bg-blue-50 rounded-lg px-3 py-2 border-l-2 border-blue-400 mt-2"><span className="font-semibold text-blue-700">Update from us:</span> {h.adminComment}</div>}
                   {(h.shop || h.city) && <div className="text-xs text-slate-400 mt-2">{[h.shop, h.city].filter(Boolean).join(' · ')}</div>}
                 </div>
               )}
@@ -1180,7 +1200,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     const whatsappNumber = form.sameWhatsapp ? form.phone : (form.whatsapp || form.phone);
     const inqNo = await nextInquiryNumber();
     setSubmittedNo(inqNo);
-    const inq = { id: `inq_${Date.now()}`, inqNo, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new', type: 'inquiry', source: 'Inquiry Form' };
+    const inq = { id: `inq_${Date.now()}`, inqNo, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new', adminComment: '', userId: (customer && customer.profile && customer.profile.id) || '', type: 'inquiry', source: 'Inquiry Form' };
     
     const dbOk = await saveInquiry(inq);
     setSubmissionStatus(s => ({ ...s, db: dbOk }));
@@ -1473,7 +1493,20 @@ function CrudListEditor({ title, icon: Icon, items, onSave, fields, itemLabel = 
 }
 
 // ===== ADMIN PANEL =====
-function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, adminToken, navigate, showToast, setAdminAuth, logout }) {
+function InquiryCommentBox({ value, onSave }) {
+  const [text, setText] = useState(value || '');
+  const [saving, setSaving] = useState(false);
+  const dirty = text !== (value || '');
+  return (
+    <div className="mt-4 border-t pt-3">
+      <label className="block text-xs font-medium text-slate-500 mb-1">Comment for customer (shown in their account)</label>
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={2} placeholder="e.g., We've received your inquiry and will share a quote shortly." className="w-full border rounded-lg px-3 py-2 text-sm" />
+      <button disabled={!dirty || saving} onClick={async () => { setSaving(true); await onSave(text); setSaving(false); }} className={`mt-1 text-sm px-3 py-1.5 rounded-lg font-semibold ${dirty && !saving ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>{saving ? 'Saving…' : 'Save comment'}</button>
+    </div>
+  );
+}
+
+function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, updateInquiry, adminToken, navigate, showToast, setAdminAuth, logout }) {
   const [tab, setTab] = useState('dashboard');
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -1779,8 +1812,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                       <div className="text-sm text-slate-500 mt-1">📞 {i.phone} {i.whatsapp && i.whatsapp !== i.phone && `• 💬 ${i.whatsapp}`} {i.email && `• ✉️ ${i.email}`}</div>
                     </div>
                     <div className="text-right">
-                      <select value={i.status} onChange={e => saveInquiries(inquiries.map(x => x.id === i.id ? { ...x, status: e.target.value } : x))} className="text-sm border rounded-lg px-3 py-1 mb-2">
-                        <option value="new">New</option><option value="contacted">Contacted</option><option value="closed">Closed</option>
+                      <select value={['new','in progress','resolved'].includes(i.status) ? i.status : 'new'} onChange={e => updateInquiry(i.id, e.target.value, i.adminComment || '')} className="text-sm border rounded-lg px-3 py-1 mb-2 capitalize">
+                        <option value="new">New</option><option value="in progress">In Progress</option><option value="resolved">Resolved</option>
                       </select>
                       <div className="text-xs text-slate-500">{new Date(i.date).toLocaleString()}</div>
                     </div>
@@ -1792,6 +1825,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                       <div className="space-y-1">{i.products.map((p, idx) => (<div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{p.code} - {p.name}{(p.selSize||p.selColor) ? ` — ${[p.selSize,p.selColor].filter(Boolean).join('/')}` : ''}</span><span className="font-medium">{p.quantity} pairs</span></div>))}</div>
                     </div>
                   )}
+                  <InquiryCommentBox value={i.adminComment} onSave={(text) => updateInquiry(i.id, ['new','in progress','resolved'].includes(i.status) ? i.status : 'new', text)} />
                   <div className="mt-4 flex gap-2 flex-wrap">
                     <a href={`tel:${i.phone}`} className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">📞 Call</a>
                     {(i.whatsapp || i.phone) && <a href={`https://wa.me/${(i.whatsapp || i.phone + '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">💬 WhatsApp</a>}
@@ -2247,6 +2281,13 @@ export default function App() {
       if (list.length > 0) await sb.upsert('inquiries', list.map(i => ({ id: i.id, data: i, status: i.status })));
     } catch (e) { console.error(e); }
   };
+  const updateInquiry = async (inqId, status, adminComment) => {
+    const cur = inquiries.find(i => i.id === inqId) || {};
+    const data = { ...cur, status, adminComment };
+    setInquiries(prev => prev.map(i => i.id === inqId ? { ...i, status, adminComment } : i));
+    try { await sb.upsert('inquiries', [{ id: inqId, data, status }]); showToast('Inquiry updated ✓'); }
+    catch (e) { showToast('Could not update inquiry'); }
+  };
 
   const yearsInBusiness = Math.max(0, new Date().getFullYear() - (parseInt(business.foundedYear) || 2013));
 
@@ -2445,7 +2486,7 @@ export default function App() {
   if (page === 'admin' && adminAuth) {
     return (
       <>
-        <AdminPanel business={business} saveBusiness={saveBusiness} products={products} saveProducts={saveProducts} categories={categories} saveCategories={saveCategories} faqs={faqs} saveFaqs={saveFaqs} testimonials={testimonials} saveTestimonials={saveTestimonials} features={features} saveFeatures={saveFeatures} steps={steps} saveSteps={saveSteps} inquiries={inquiries} saveInquiries={saveInquiries} adminToken={adminToken} navigate={navigate} showToast={showToast} setAdminAuth={setAdminAuth} logout={logout} />
+        <AdminPanel business={business} saveBusiness={saveBusiness} products={products} saveProducts={saveProducts} categories={categories} saveCategories={saveCategories} faqs={faqs} saveFaqs={saveFaqs} testimonials={testimonials} saveTestimonials={saveTestimonials} features={features} saveFeatures={saveFeatures} steps={steps} saveSteps={saveSteps} inquiries={inquiries} saveInquiries={saveInquiries} updateInquiry={updateInquiry} adminToken={adminToken} navigate={navigate} showToast={showToast} setAdminAuth={setAdminAuth} logout={logout} />
         {toast && <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-2xl z-50">{toast}</div>}
       </>
     );
