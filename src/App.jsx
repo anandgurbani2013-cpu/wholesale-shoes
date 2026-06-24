@@ -438,12 +438,12 @@ function ProductCard({ product, categories, onView, onAddToInquiry }) {
         <h3 className="font-semibold text-slate-900 mb-1 truncate">{product.name}</h3>
         <div className="text-xs text-slate-600 mb-3">{categories.find(c => c.id === product.category)?.name || 'Uncategorized'}</div>
         <div className="flex justify-between items-center mb-3">
-          <div><div className="text-xs text-slate-500">From</div><div className="text-lg font-bold text-amber-600">₹{product.priceFrom}</div></div>
-          <div className="text-right"><div className="text-xs text-slate-500">MOQ</div><div className="text-sm font-semibold text-slate-700">{product.moq} pairs</div></div>
+          <div><div className="text-lg font-bold text-slate-900">₹{(parseFloat(product.retailPrice) || product.priceFrom || 0).toLocaleString('en-IN')}</div><div className="text-xs text-slate-500">per pair</div></div>
+          {productTotalStock(product) === 0 && !product.outOfStock && (parseFloat(product.retailPrice) > 0) && <div className="text-right"><div className="text-xs text-red-500 font-semibold">Sold out</div></div>}
         </div>
         {product.outOfStock
           ? <button disabled className="w-full bg-slate-200 text-slate-500 py-2 rounded-lg text-sm font-semibold cursor-not-allowed">Out of Stock</button>
-          : <button onClick={(e) => { e.stopPropagation(); onAddToInquiry(product); }} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2 rounded-lg text-sm font-semibold transition-colors">Add to Inquiry</button>}
+          : <button onClick={(e) => { e.stopPropagation(); onView(product); }} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2 rounded-lg text-sm font-semibold transition-colors">View &amp; Buy</button>}
       </div>
     </div>
   );
@@ -693,6 +693,34 @@ function tierRateForQty(item, qty) {
   return null;
 }
 
+// ===== RETAIL (B2C) PRICING & STOCK HELPERS =====
+function retailUnitPrice(p, qty) {
+  const base = parseFloat(p.retailPrice) || 0;
+  const breaks = Array.isArray(p.qtyBreaks) ? p.qtyBreaks : [];
+  let price = base, bestMin = 0;
+  for (const b of breaks) {
+    const mn = parseInt(b.minQty) || 0;
+    const pr = parseFloat(b.price) || 0;
+    if (pr > 0 && qty >= mn && mn >= bestMin) { price = pr; bestMin = mn; }
+  }
+  return price;
+}
+function sortedBreaks(p) {
+  return (Array.isArray(p.qtyBreaks) ? p.qtyBreaks : [])
+    .filter(b => b && parseInt(b.minQty) > 0 && parseFloat(b.price) > 0)
+    .map(b => ({ minQty: parseInt(b.minQty), price: parseFloat(b.price) }))
+    .sort((a, b) => a.minQty - b.minQty);
+}
+function stockFor(p, size, color) {
+  const g = (p && p.stockGrid) || {};
+  const v = g[`${size}|${color}`];
+  return typeof v === 'number' ? v : (parseInt(v) || 0);
+}
+function productTotalStock(p) {
+  const g = (p && p.stockGrid) || {};
+  return Object.values(g).reduce((a, n) => a + (parseInt(n) || 0), 0);
+}
+
 // ===== PROFORMA ESTIMATE (client-facing, NOT a tax invoice) =====
 function ProformaModal({ items, business, customer, onLog, onClose }) {
   const [step, setStep] = useState('select');
@@ -711,12 +739,12 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
   const chosen = items.filter(it => selected.includes(it.id));
   const calcRow = (item) => {
     const qty = item.quantity || item.moq || 0;
-    const tier = tierRateForQty(item, qty);
-    const price = tier ? tier.price : (parseFloat(item.priceFrom) || 0);
+    const base = parseFloat(item.retailPrice) || parseFloat(item.priceFrom) || 0;
+    const price = retailUnitPrice(item, qty) || base;
     const subtotal = price * qty;
     const cgst = subtotal * gstRate / 200;
     const sgst = subtotal * gstRate / 200;
-    return { price, qty, subtotal, cgst, sgst, total: subtotal + cgst + sgst, tierLabel: tier ? tier.label : null };
+    return { price, qty, subtotal, cgst, sgst, total: subtotal + cgst + sgst, tierLabel: (price > 0 && price < base) ? 'bulk price' : null };
   };
   const totals = chosen.reduce((a, it) => { const r = calcRow(it); return { subtotal: a.subtotal + r.subtotal, cgst: a.cgst + r.cgst, sgst: a.sgst + r.sgst, total: a.total + r.total }; }, { subtotal: 0, cgst: 0, sgst: 0, total: 0 });
   const number = `PI-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
@@ -1374,7 +1402,6 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Material</label><input value={pForm.material} onChange={e => setPForm({...pForm, material: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Description</label><textarea value={pForm.description} onChange={e => setPForm({...pForm, description: e.target.value})} rows="3" className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Availability Note (optional)</label><input value={pForm.availabilityNote || ''} onChange={e => setPForm({...pForm, availabilityNote: e.target.value})} placeholder="e.g., Size 6 available in Red only" className="w-full px-3 py-2 border rounded-lg" /><div className="text-xs text-slate-500 mt-1">Shown on the product page under sizes &amp; colours — use it to note any size/colour limits.</div></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-2">Pricing Tiers</label>{pForm.pricingTiers.map((t, i) => (<div key={i} className="flex gap-2 mb-2"><input value={t.qty} onChange={e => { const tiers = [...pForm.pricingTiers]; tiers[i] = {...tiers[i], qty: e.target.value}; setPForm({...pForm, pricingTiers: tiers}); }} placeholder="Quantity range" className="flex-1 px-3 py-2 border rounded-lg" /><input value={t.price} onChange={e => { const tiers = [...pForm.pricingTiers]; tiers[i] = {...tiers[i], price: e.target.value}; setPForm({...pForm, pricingTiers: tiers}); }} placeholder="Price" className="flex-1 px-3 py-2 border rounded-lg" /></div>))}</div>
                 <div className="flex gap-4 flex-wrap md:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isNew} onChange={e => setPForm({...pForm, isNew: e.target.checked})} /> New Arrival</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isBestseller} onChange={e => setPForm({...pForm, isBestseller: e.target.checked})} /> Bestseller</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.active !== false} onChange={e => setPForm({...pForm, active: e.target.checked})} /> Active (show on site)</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!pForm.outOfStock} onChange={e => setPForm({...pForm, outOfStock: e.target.checked})} /> Out of stock</label></div>
 
                 <div className="md:col-span-2 mt-2 pt-4 border-t border-slate-200">
@@ -1592,6 +1619,9 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [inquiryList, setInquiryList] = useState([]);
   const [showInquiry, setShowInquiry] = useState(false);
+  const [shopCart, setShopCart] = useState([]);
+  const [showShopCart, setShowShopCart] = useState(false);
+  const [buySel, setBuySel] = useState({ size: '', color: '', qty: 1 });
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
   const [sort, setSort] = useState('newest');
@@ -1864,6 +1894,28 @@ export default function App() {
     try { localStorage.setItem('wsCart', JSON.stringify(inquiryList)); } catch (e) {}
   }, [inquiryList]);
 
+  useEffect(() => {
+    try { const raw = localStorage.getItem('wsShopCart'); if (raw) { const c = JSON.parse(raw); if (Array.isArray(c)) setShopCart(c); } } catch (e) {}
+  }, []);
+  const shopHydrated = useRef(false);
+  useEffect(() => {
+    if (!shopHydrated.current) { shopHydrated.current = true; return; }
+    try { localStorage.setItem('wsShopCart', JSON.stringify(shopCart)); } catch (e) {}
+  }, [shopCart]);
+
+  const addToShopCart = (p, size, color, qty) => {
+    const q = Math.max(1, parseInt(qty) || 1);
+    setShopCart(prev => {
+      const key = `${p.id}|${size}|${color}`;
+      const existing = prev.find(it => it.key === key);
+      if (existing) return prev.map(it => it.key === key ? { ...it, qty: it.qty + q } : it);
+      return [...prev, { key, id: p.id, code: p.code, name: p.name, image: (productImages(p)[0] || ''), size, color, qty: q, retailPrice: p.retailPrice, qtyBreaks: p.qtyBreaks }];
+    });
+    setShowShopCart(true);
+  };
+  const setShopQty = (key, q) => setShopCart(prev => prev.map(it => it.key === key ? { ...it, qty: Math.max(1, q) } : it));
+  const removeShopItem = (key) => setShopCart(prev => prev.filter(it => it.key !== key));
+
   // Persist the current public page so a refresh keeps the visitor in place
   const navHydrated = useRef(false);
   useEffect(() => {
@@ -1903,6 +1955,7 @@ export default function App() {
   const viewProduct = (p) => {
     if (page !== 'product') setHistory(prev => [...prev, page]);
     setSelectedProduct(p); setPage('product'); setMenuOpen(false);
+    setBuySel({ size: '', color: '', qty: 1 });
     window.scrollTo(0, 0);
   };
 
@@ -2033,7 +2086,8 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => setShowAccount(true)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
-            <button onClick={() => setShowInquiry(true)} className="relative p-2 hover:bg-amber-50 rounded-lg"><ShoppingBag size={22} className="text-slate-700" />{inquiryList.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{inquiryList.length}</span>}</button>
+            <button onClick={() => setShowInquiry(true)} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Inquiry list"><ListChecks size={22} className="text-slate-700" />{inquiryList.length > 0 && <span className="absolute -top-1 -right-1 bg-slate-700 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{inquiryList.length}</span>}</button>
+            <button onClick={() => setShowShopCart(true)} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Shopping cart"><ShoppingBag size={22} className="text-slate-700" />{shopCart.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0)}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
@@ -2176,21 +2230,58 @@ export default function App() {
                 <p className="text-slate-700 mb-6">{selectedProduct.description}</p>
                 <div className="border-t border-b py-4 mb-6 grid grid-cols-2 gap-4">
                   <div><div className="text-xs text-slate-500 mb-1">Material</div><div className="font-medium">{selectedProduct.material}</div></div>
-                  <div><div className="text-xs text-slate-500 mb-1">MOQ</div><div className="font-medium">{selectedProduct.moq} pairs</div></div>
-                  <div><div className="text-xs text-slate-500 mb-1">Sizes</div><div className="flex gap-1 flex-wrap">{selectedProduct.sizes.map(s => <span key={s} className="px-2 py-1 bg-slate-100 rounded text-sm">{s}</span>)}</div></div>
-                  <div><div className="text-xs text-slate-500 mb-1">Colors</div><div className="flex gap-1 flex-wrap">{selectedProduct.colors.map(c => <span key={c} className="px-2 py-1 bg-slate-100 rounded text-sm">{c}</span>)}</div></div>
+                  <div><div className="text-xs text-slate-500 mb-1">Category</div><div className="font-medium">{categories.find(c => c.id === selectedProduct.category)?.name}</div></div>
                 </div>
                 {selectedProduct.availabilityNote && <div className="text-sm text-slate-700 mb-6 flex items-start gap-2 bg-slate-50 rounded-lg p-3"><Info size={16} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{selectedProduct.availabilityNote}</span></div>}
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-                  <div className="font-semibold text-slate-900 mb-3">📊 Wholesale Pricing Tiers</div>
-                  <div className="space-y-2">{selectedProduct.pricingTiers.map((t, i) => <div key={i} className="flex justify-between text-sm bg-white rounded px-3 py-2"><span className="text-slate-700">{t.qty}</span><span className="font-bold text-amber-700">{t.price} per pair</span></div>)}</div>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {selectedProduct.outOfStock
-                    ? <button disabled className="flex-1 bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Out of Stock</button>
-                    : <button onClick={() => addToInquiry(selectedProduct)} className="flex-1 bg-slate-900 hover:bg-amber-500 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
-                  <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${selectedProduct.code} - ${selectedProduct.name}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> WhatsApp Inquiry</a>
-                </div>
+                {(() => {
+                  const p = selectedProduct;
+                  const base = parseFloat(p.retailPrice) || 0;
+                  const brks = sortedBreaks(p);
+                  const sel = buySel;
+                  const sizeStock = (s) => (p.colors || []).reduce((a, c) => a + stockFor(p, s, c), 0);
+                  const colorStock = (c) => sel.size ? stockFor(p, sel.size, c) : (p.sizes || []).reduce((a, s) => a + stockFor(p, s, c), 0);
+                  const comboStock = (sel.size && sel.color) ? stockFor(p, sel.size, sel.color) : 0;
+                  const unit = retailUnitPrice(p, sel.qty || 1);
+                  const canBuy = !p.outOfStock && sel.size && sel.color && comboStock > 0;
+                  return (
+                    <div className="mb-6">
+                      {base > 0 && (
+                        <div className="mb-4">
+                          <div className="flex items-baseline gap-2"><span className="text-3xl font-bold text-slate-900">₹{(canBuy ? unit : base).toLocaleString('en-IN')}</span><span className="text-slate-500 text-sm">/ pair</span>{canBuy && unit < base && <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">bulk price applied</span>}</div>
+                          {brks.length > 0 && <div className="text-sm text-amber-700 bg-amber-50 inline-block px-3 py-1 rounded-lg mt-2">{brks.map(b => `Buy ${b.minQty}+ at ₹${b.price.toLocaleString('en-IN')}`).join('  ·  ')} — applied automatically</div>}
+                        </div>
+                      )}
+                      {!p.outOfStock && base > 0 && (
+                        <>
+                          <div className="mb-3">
+                            <div className="text-xs text-slate-500 mb-1">Size</div>
+                            <div className="flex gap-2 flex-wrap">{(p.sizes || []).filter(Boolean).map(s => { const st = sizeStock(s); const active = sel.size === s; return <button key={s} disabled={st === 0} onClick={() => setBuySel({ ...sel, size: s, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-slate-900 text-white border-slate-900' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{s}</button>; })}</div>
+                          </div>
+                          <div className="mb-3">
+                            <div className="text-xs text-slate-500 mb-1">Colour</div>
+                            <div className="flex gap-2 flex-wrap">{(p.colors || []).filter(Boolean).map(c => { const st = colorStock(c); const active = sel.color === c; return <button key={c} disabled={st === 0} onClick={() => setBuySel({ ...sel, color: c, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-slate-900 text-white border-slate-900' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{c}</button>; })}</div>
+                          </div>
+                          <div className="text-sm mb-3 min-h-[20px]">{(sel.size && sel.color) ? (comboStock > 0 ? <span className="text-green-600 font-medium">{comboStock} in stock</span> : <span className="text-red-500 font-medium">Out of stock in this size/colour</span>) : <span className="text-slate-400">Select size and colour</span>}</div>
+                          {canBuy && (
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden"><button onClick={() => setBuySel({ ...sel, qty: Math.max(1, (sel.qty || 1) - 1) })} className="px-3 py-2 hover:bg-slate-100">−</button><span className="px-4 font-semibold">{sel.qty || 1}</span><button onClick={() => setBuySel({ ...sel, qty: Math.min(comboStock, (sel.qty || 1) + 1) })} disabled={(sel.qty || 1) >= comboStock} className="px-3 py-2 hover:bg-slate-100 disabled:text-slate-300">+</button></div>
+                              <div className="text-sm text-slate-600">Total: <span className="font-bold text-slate-900">₹{(unit * (sel.qty || 1)).toLocaleString('en-IN')}</span></div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <div className="flex flex-wrap gap-3">
+                        {p.outOfStock || base <= 0
+                          ? null
+                          : <button disabled={!canBuy} onClick={() => addToShopCart(p, sel.size, sel.color, sel.qty || 1)} className={`flex-1 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${canBuy ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><ShoppingBag size={18} /> Add to Cart</button>}
+                        {p.outOfStock
+                          ? <button disabled className="flex-1 bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Out of Stock</button>
+                          : <button onClick={() => addToInquiry(p)} className="flex-1 bg-slate-900 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
+                        <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${p.code} - ${p.name}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> WhatsApp</a>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             <div className="mt-16">
@@ -2329,6 +2420,45 @@ export default function App() {
       )}
 
       {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} customer={customer} onLog={logProforma} onClose={() => setShowProforma(false)} />}
+
+      {showShopCart && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setShowShopCart(false)}>
+          <div className="bg-white w-full max-w-md h-full overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><h2 className="font-bold text-lg">Your Cart ({shopCart.reduce((a, it) => a + it.qty, 0)})</h2><button onClick={() => setShowShopCart(false)}><X size={24} /></button></div>
+            <div className="p-4">
+              {shopCart.length === 0 ? <div className="text-center py-12 text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />Your cart is empty<button onClick={() => { setShowShopCart(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
+                <>
+                  {shopCart.map(it => {
+                    const unit = retailUnitPrice(it, it.qty);
+                    return (
+                      <div key={it.key} className="flex gap-3 py-3 border-b">
+                        <SafeImage src={it.image} alt={it.name} className="w-16 h-16 rounded object-cover" />
+                        <div className="flex-1">
+                          <div className="text-xs font-mono text-slate-500">{it.code}</div>
+                          <div className="font-medium text-sm">{it.name}</div>
+                          <div className="text-xs text-slate-600 mt-0.5">Size {it.size} · {it.color}</div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <button onClick={() => setShopQty(it.key, it.qty - 1)} className="w-7 h-7 border rounded hover:bg-slate-50"><Minus size={12} className="mx-auto" /></button>
+                            <span className="w-10 text-center text-sm font-semibold">{it.qty}</span>
+                            <button onClick={() => setShopQty(it.key, it.qty + 1)} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
+                            <button onClick={() => removeShopItem(it.key)} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
+                          </div>
+                          <div className="text-sm mt-1">₹{unit.toLocaleString('en-IN')} × {it.qty} = <span className="font-semibold">₹{(unit * it.qty).toLocaleString('en-IN')}</span>{unit < (parseFloat(it.retailPrice) || unit) && <span className="text-xs text-green-600 ml-1">(bulk price)</span>}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-between items-center mt-4 py-3 border-t text-lg"><span className="font-semibold">Subtotal</span><span className="font-bold">₹{shopCart.reduce((a, it) => a + retailUnitPrice(it, it.qty) * it.qty, 0).toLocaleString('en-IN')}</span></div>
+                  <div className="text-xs text-slate-500 mb-3">Taxes and delivery are confirmed at checkout.</div>
+                  <button disabled className="w-full bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Checkout (coming next)</button>
+                  <button onClick={() => setShopCart([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear cart</button>
+                  {business.paymentNote && <div className="mt-3 text-xs text-slate-500 flex items-start gap-2"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAccount && <AccountModal customer={customer} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
