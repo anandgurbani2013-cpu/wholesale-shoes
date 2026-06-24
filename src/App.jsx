@@ -139,7 +139,7 @@ function customerProfile(user) {
   return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', city: m.city || '', address: m.address || '' };
 }
 
-function AccountModal({ customer, inquiryHistory, onAuthed, onLogout, onProfileUpdated, onClose }) {
+function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
   const [mode, setMode] = useState('login');
   const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [busy, setBusy] = useState(false);
@@ -147,7 +147,9 @@ function AccountModal({ customer, inquiryHistory, onAuthed, onLogout, onProfileU
   const [notice, setNotice] = useState('');
   const [prof, setProf] = useState(() => (customer ? { ...customer.profile } : { name: '', phone: '', city: '', address: '', email: '' }));
   const [savedMsg, setSavedMsg] = useState('');
+  const [acctTab, setAcctTab] = useState(initialTab || 'profile');
   useEffect(() => { if (customer) setProf({ ...customer.profile }); }, [customer]);
+  useEffect(() => { if (initialTab) setAcctTab(initialTab); }, [initialTab]);
 
   const doLogin = async () => {
     setErr(''); setBusy(true);
@@ -172,56 +174,96 @@ function AccountModal({ customer, inquiryHistory, onAuthed, onLogout, onProfileU
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
 
+  const inquiriesView = (
+    <div>
+      <div className="flex items-center gap-2 mb-4"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My inquiries</h3>{inquiryHistory && inquiryHistory.length > 0 && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{inquiryHistory.length}</span>}</div>
+      {(!inquiryHistory || inquiryHistory.length === 0) ? (
+        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><Inbox size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No inquiries yet</div><div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div></div>
+      ) : (
+        <div className="space-y-3">
+          {inquiryHistory.map(h => (
+            <div key={h.id} className="border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500"><Clock size={13} /> {new Date(h.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                <span className="text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Submitted</span>
+              </div>
+              {h.products && h.products.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mb-2">{h.products.map((p, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{p.name || p.code}{p.quantity ? ` × ${p.quantity}` : ''}</span>)}</div>
+              ) : <div className="text-xs text-slate-400 italic mb-2">General inquiry (no products selected)</div>}
+              {h.message && <div className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-amber-300">{h.message}</div>}
+              {(h.shop || h.city) && <div className="text-xs text-slate-400 mt-2">{[h.shop, h.city].filter(Boolean).join(' · ')}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const ordersView = (
+    <div>
+      <div className="flex items-center gap-2 mb-4"><ShoppingBag size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My orders</h3></div>
+      <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div></div>
+    </div>
+  );
+
+  const profileView = (
+    <div>
+      <div className="flex items-center gap-2 mb-4"><Users size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">Account info</h3></div>
+      <div className="text-sm text-slate-500 mb-3">Signed in as <span className="font-medium text-slate-700">{customer && customer.profile.email}</span></div>
+      <div className="space-y-3">
+        <div><label className="text-sm font-medium text-slate-700 block mb-1">Name</label><input value={prof.name} onChange={e => setProf({...prof, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+        <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={prof.phone} onChange={e => setProf({...prof, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+        <div><label className="text-sm font-medium text-slate-700 block mb-1">City</label><input value={prof.city} onChange={e => setProf({...prof, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+        <div><label className="text-sm font-medium text-slate-700 block mb-1">Address</label><input value={prof.address} onChange={e => setProf({...prof, address: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+        {savedMsg && <div className="text-sm text-green-600">{savedMsg}</div>}
+        <button onClick={saveProfile} disabled={busy} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold">{busy ? 'Saving…' : 'Save profile'}</button>
+      </div>
+    </div>
+  );
+
+  const sectionTitle = acctTab === 'inquiries' ? 'My inquiries' : acctTab === 'orders' ? 'My orders' : 'Account info';
+  const NavBtn = ({ id, icon, label }) => (
+    <button onClick={() => setAcctTab(id)} className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${acctTab === id ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'}`}>{icon} {label}</button>
+  );
+
+  if (customer) {
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-stretch md:items-start justify-center md:p-4 overflow-auto">
+        <div className="bg-white w-full max-w-3xl md:my-8 md:rounded-2xl shadow-2xl flex flex-col min-h-full md:min-h-0">
+          <div className="p-4 md:p-5 border-b flex justify-between items-center">
+            <h2 className="text-lg font-bold text-slate-900"><span className="md:hidden">{sectionTitle}</span><span className="hidden md:inline">My account</span></h2>
+            <button onClick={onClose} aria-label="Close"><X size={22} /></button>
+          </div>
+          <div className="flex flex-1">
+            <aside className="hidden md:flex md:flex-col w-52 border-r border-slate-100 p-3 gap-1">
+              <NavBtn id="profile" icon={<Users size={18} />} label="Account info" />
+              <NavBtn id="inquiries" icon={<ListChecks size={18} />} label="My inquiries" />
+              <NavBtn id="orders" icon={<ShoppingBag size={18} />} label="My orders" />
+              <div className="border-t border-slate-100 my-2"></div>
+              <button onClick={onLogout} className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"><LogOut size={18} /> Log out</button>
+            </aside>
+            <div className="flex-1 p-5 min-w-0">
+              {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">{err}</div>}
+              {acctTab === 'inquiries' ? inquiriesView : acctTab === 'orders' ? ordersView : profileView}
+              <button onClick={onLogout} className="md:hidden w-full mt-6 border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"><LogOut size={16} /> Log out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-auto p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-8">
         <div className="p-6 border-b flex justify-between items-center">
-          <h2 className="text-lg font-bold text-slate-900">{customer ? 'My Account' : (mode === 'login' ? 'Log In' : 'Create Account')}</h2>
+          <h2 className="text-lg font-bold text-slate-900">{mode === 'login' ? 'Log in' : 'Create account'}</h2>
           <button onClick={onClose} aria-label="Close"><X size={22} /></button>
         </div>
         <div className="p-6 space-y-3">
           {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{err}</div>}
           {notice && <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3">{notice}</div>}
-          {customer ? (
-            <>
-              <div className="text-sm text-slate-500">Signed in as <span className="font-medium text-slate-700">{customer.profile.email}</span></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Name</label><input value={prof.name} onChange={e => setProf({...prof, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={prof.phone} onChange={e => setProf({...prof, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">City</label><input value={prof.city} onChange={e => setProf({...prof, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Address</label><input value={prof.address} onChange={e => setProf({...prof, address: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              {savedMsg && <div className="text-sm text-green-600">{savedMsg}</div>}
-              <button onClick={saveProfile} disabled={busy} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold">{busy ? 'Saving…' : 'Save Profile'}</button>
-              <div className="pt-5 mt-3 border-t border-slate-200">
-                <div className="flex items-center gap-2 mb-3"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My Inquiries</h3>{inquiryHistory && inquiryHistory.length > 0 && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{inquiryHistory.length}</span>}</div>
-                {(!inquiryHistory || inquiryHistory.length === 0) ? (
-                  <div className="text-center py-8 px-4 bg-slate-50 rounded-xl">
-                    <Inbox size={26} className="mx-auto text-slate-300 mb-2" />
-                    <div className="text-sm text-slate-500">No inquiries yet</div>
-                    <div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-72 overflow-auto pr-1">
-                    {inquiryHistory.map(h => (
-                      <div key={h.id} className="border border-slate-200 rounded-xl p-4 hover:border-amber-300 transition-colors">
-                        <div className="flex items-center justify-between mb-2.5">
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500"><Clock size={13} /> {new Date(h.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                          <span className="text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Submitted</span>
-                        </div>
-                        {h.products && h.products.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {h.products.map((p, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{p.name || p.code}{p.quantity ? ` × ${p.quantity}` : ''}</span>)}
-                          </div>
-                        ) : <div className="text-xs text-slate-400 italic mb-2">General inquiry (no products selected)</div>}
-                        {h.message && <div className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-amber-300">{h.message}</div>}
-                        {(h.shop || h.city) && <div className="text-xs text-slate-400 mt-2">{[h.shop, h.city].filter(Boolean).join(' · ')}</div>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button onClick={onLogout} className="w-full border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"><LogOut size={16} /> Log Out</button>
-            </>
-          ) : mode === 'login' ? (
+          {mode === 'login' ? (
             <>
               <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
               <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
@@ -1705,6 +1747,7 @@ export default function App() {
   const [showProforma, setShowProforma] = useState(false);
   const [customer, setCustomer] = useState(null); // { access_token, refresh_token, profile }
   const [showAccount, setShowAccount] = useState(false);
+  const [accountTab, setAccountTab] = useState('profile');
   const [showIdleWarn, setShowIdleWarn] = useState(false);
   const [inquiryHistory, setInquiryHistory] = useState([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -2222,13 +2265,28 @@ export default function App() {
           </nav>
           <div className="flex items-center gap-2">
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
-            <button onClick={() => setShowAccount(true)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
+            <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
             <button onClick={openCart} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className="text-slate-700" />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
         </div>
-        {menuOpen && <div className="lg:hidden bg-white border-t">{NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium ${page === item.id ? 'bg-amber-50 text-amber-600' : 'text-slate-700'}`}><item.icon size={18} /> {item.label}</button>)}</div>}
+        {menuOpen && <div className="lg:hidden bg-white border-t">
+          {NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium ${page === item.id ? 'bg-amber-50 text-amber-600' : 'text-slate-700'}`}><item.icon size={18} /> {item.label}</button>)}
+          <div className="border-t border-slate-100 mt-1 pt-1">
+            {customer ? (
+              <>
+                <div className="px-4 pt-2 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">My account</div>
+                <button onClick={() => { setAccountTab('profile'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><Users size={18} /> Account info</button>
+                <button onClick={() => { setAccountTab('inquiries'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><ListChecks size={18} /> My inquiries</button>
+                <button onClick={() => { setAccountTab('orders'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><ShoppingBag size={18} /> My orders</button>
+                <button onClick={() => { setMenuOpen(false); logoutCustomer(); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-red-600"><LogOut size={18} /> Log out</button>
+              </>
+            ) : (
+              <button onClick={() => { setAccountTab('profile'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm font-medium text-slate-700"><Users size={18} /> Login / Register</button>
+            )}
+          </div>
+        </div>}
       </header>
 
       <main>
@@ -2595,7 +2653,7 @@ export default function App() {
       {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} customer={customer} onLog={logProforma} onClose={() => setShowProforma(false)} />}
 
 
-      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} initialTab={accountTab} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
