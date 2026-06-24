@@ -148,6 +148,7 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
   const [prof, setProf] = useState(() => (customer ? { ...customer.profile } : { name: '', phone: '', city: '', address: '', email: '' }));
   const [savedMsg, setSavedMsg] = useState('');
   const [acctTab, setAcctTab] = useState(initialTab || 'profile');
+  const [openInq, setOpenInq] = useState(null);
   useEffect(() => { if (customer) setProf({ ...customer.profile }); }, [customer]);
   useEffect(() => { if (initialTab) setAcctTab(initialTab); }, [initialTab]);
 
@@ -181,19 +182,32 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
         <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><Inbox size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No inquiries yet</div><div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div></div>
       ) : (
         <div className="space-y-3">
-          {inquiryHistory.map(h => (
-            <div key={h.id} className="border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500"><Clock size={13} /> {new Date(h.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                <span className="text-xs font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Submitted</span>
-              </div>
-              {h.products && h.products.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 mb-2">{h.products.map((p, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{p.name || p.code}{p.quantity ? ` × ${p.quantity}` : ''}</span>)}</div>
-              ) : <div className="text-xs text-slate-400 italic mb-2">General inquiry (no products selected)</div>}
-              {h.message && <div className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-amber-300">{h.message}</div>}
-              {(h.shop || h.city) && <div className="text-xs text-slate-400 mt-2">{[h.shop, h.city].filter(Boolean).join(' · ')}</div>}
+          {inquiryHistory.map(h => {
+            const isOpen = openInq === h.id;
+            return (
+            <div key={h.id} className="border border-slate-200 rounded-xl overflow-hidden">
+              <button onClick={() => setOpenInq(isOpen ? null : h.id)} className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-slate-50">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {h.inqNo ? <span className="text-sm font-mono font-bold text-amber-600">{h.inqNo}</span> : <span className="text-sm font-semibold text-slate-700">Inquiry</span>}
+                    <span className="text-[11px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Submitted</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><Clock size={12} /> {new Date(h.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <ChevronRight size={18} className={`text-slate-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-4 -mt-1">
+                  {h.products && h.products.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mb-2">{h.products.map((p, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{p.name || p.code}{p.quantity ? ` × ${p.quantity}` : ''}</span>)}</div>
+                  ) : <div className="text-xs text-slate-400 italic mb-2">General inquiry (no products selected)</div>}
+                  {h.message && <div className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-amber-300">{h.message}</div>}
+                  {(h.shop || h.city) && <div className="text-xs text-slate-400 mt-2">{[h.shop, h.city].filter(Boolean).join(' · ')}</div>}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1040,6 +1054,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' };
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submittedNo, setSubmittedNo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState({ db: null, sheets: null, email: null });
 
@@ -1053,6 +1068,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     setSubmitting(true);
     const whatsappNumber = form.sameWhatsapp ? form.phone : (form.whatsapp || form.phone);
     const inqNo = await nextInquiryNumber();
+    setSubmittedNo(inqNo);
     const inq = { id: `inq_${Date.now()}`, inqNo, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new', type: 'inquiry', source: 'Inquiry Form' };
     
     const dbOk = await saveInquiry(inq);
@@ -1137,6 +1153,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle className="text-green-600" size={40} /></div>
         <h1 className="text-3xl font-bold text-slate-900 mb-3">Inquiry Submitted! 🎉</h1>
+        {submittedNo && <div className="inline-block bg-amber-50 border border-amber-200 text-amber-700 font-mono font-bold px-4 py-1.5 rounded-full mb-4">{submittedNo}</div>}
         <p className="text-slate-600 mb-6">Thank you! Our team will get back to you within 24 hours.</p>
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 text-left max-w-md mx-auto">
           <div className="text-sm font-medium text-slate-700 mb-2">✅ Your Inquiry Has Been:</div>
@@ -1814,7 +1831,7 @@ export default function App() {
   // Record a submitted inquiry to the logged-in customer's private account history
   const recordInquiryHistory = (inq) => {
     if (!customer || !customer.access_token) return;
-    const rec = { id: inq.id, date: inq.date, message: (inq.message || '').trim(), shop: inq.shop || '', city: inq.city || '', products: (inq.products || []).map(p => ({ code: p.code, name: p.name, quantity: p.quantity })) };
+    const rec = { id: inq.id, inqNo: inq.inqNo || '', date: inq.date, message: (inq.message || '').trim(), shop: inq.shop || '', city: inq.city || '', products: (inq.products || []).map(p => ({ code: p.code, name: p.name, quantity: p.quantity })) };
     setInquiryHistory(prev => {
       const next = [rec, ...(Array.isArray(prev) ? prev : [])].slice(0, 30);
       customerAuth.saveInquiryHistory(customer.access_token, next);
