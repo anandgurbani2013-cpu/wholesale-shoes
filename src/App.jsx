@@ -1176,7 +1176,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [editingProduct, setEditingProduct] = useState(null);
   const [editBiz, setEditBiz] = useState(business);
   const [invoiceFor, setInvoiceFor] = useState(null);
-  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', moq: 50, priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, description: '', availabilityNote: '', pricingTiers: [{qty:'50-99 pairs',price:''},{qty:'100-499 pairs',price:''},{qty:'500+ pairs',price:''}] };
+  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', moq: 50, priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, description: '', availabilityNote: '', pricingTiers: [{qty:'50-99 pairs',price:''},{qty:'100-499 pairs',price:''},{qty:'500+ pairs',price:''}], retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
   const [pForm, setPForm] = useState(blankProduct);
 
   useEffect(() => { setEditBiz(business); }, [business]);
@@ -1187,7 +1187,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const saveProduct = async () => {
     if (!pForm.name || !pForm.code) { showToast('Name and code required'); return; }
     const imgs = (pForm.images || []).map(s => (s || '').trim()).filter(Boolean);
-    const cleaned = { ...pForm, images: imgs, image: imgs[0] || '' };
+    const breaks = (pForm.qtyBreaks || []).filter(b => b && String(b.minQty).trim() !== '' && String(b.price).trim() !== '').map(b => ({ minQty: parseInt(b.minQty) || 0, price: parseFloat(b.price) || 0 })).filter(b => b.minQty > 0 && b.price > 0);
+    const cleaned = { ...pForm, images: imgs, image: imgs[0] || '', qtyBreaks: breaks };
     const updated = editingProduct ? products.map(p => p.id === editingProduct.id ? cleaned : p) : [...products, cleaned];
     await saveProducts(updated);
     showToast(editingProduct ? 'Product updated ✓' : 'Product added ✓');
@@ -1375,6 +1376,53 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Availability Note (optional)</label><input value={pForm.availabilityNote || ''} onChange={e => setPForm({...pForm, availabilityNote: e.target.value})} placeholder="e.g., Size 6 available in Red only" className="w-full px-3 py-2 border rounded-lg" /><div className="text-xs text-slate-500 mt-1">Shown on the product page under sizes &amp; colours — use it to note any size/colour limits.</div></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-2">Pricing Tiers</label>{pForm.pricingTiers.map((t, i) => (<div key={i} className="flex gap-2 mb-2"><input value={t.qty} onChange={e => { const tiers = [...pForm.pricingTiers]; tiers[i] = {...tiers[i], qty: e.target.value}; setPForm({...pForm, pricingTiers: tiers}); }} placeholder="Quantity range" className="flex-1 px-3 py-2 border rounded-lg" /><input value={t.price} onChange={e => { const tiers = [...pForm.pricingTiers]; tiers[i] = {...tiers[i], price: e.target.value}; setPForm({...pForm, pricingTiers: tiers}); }} placeholder="Price" className="flex-1 px-3 py-2 border rounded-lg" /></div>))}</div>
                 <div className="flex gap-4 flex-wrap md:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isNew} onChange={e => setPForm({...pForm, isNew: e.target.checked})} /> New Arrival</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.isBestseller} onChange={e => setPForm({...pForm, isBestseller: e.target.checked})} /> Bestseller</label><label className="flex items-center gap-2"><input type="checkbox" checked={pForm.active !== false} onChange={e => setPForm({...pForm, active: e.target.checked})} /> Active (show on site)</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!pForm.outOfStock} onChange={e => setPForm({...pForm, outOfStock: e.target.checked})} /> Out of stock</label></div>
+
+                <div className="md:col-span-2 mt-2 pt-4 border-t border-slate-200">
+                  <div className="font-semibold text-slate-900 mb-1">Retail Buy Pricing &amp; Stock (B2C)</div>
+                  <div className="text-xs text-slate-500 mb-3">For the direct-buy flow. Not shown to customers yet — we switch the storefront over when the buy flow goes live.</div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Retail Price (₹ per pair)</label><input type="number" value={pForm.retailPrice || ''} onChange={e => setPForm({...pForm, retailPrice: e.target.value})} placeholder="e.g., 599" className="w-full px-3 py-2 border rounded-lg" /></div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Quantity-break discounts (optional)</label>
+                    <div className="text-xs text-slate-500 mb-2">Buy this many or more → this price per pair. The best matching break applies automatically.</div>
+                    {(pForm.qtyBreaks && pForm.qtyBreaks.length ? pForm.qtyBreaks : [{ minQty: '', price: '' }]).map((b, i) => (
+                      <div key={i} className="flex gap-2 mb-2 items-center">
+                        <span className="text-sm text-slate-500">Buy</span>
+                        <input type="number" value={b.minQty} onChange={e => { const arr = [...(pForm.qtyBreaks || [])]; arr[i] = { ...arr[i], minQty: e.target.value }; setPForm({...pForm, qtyBreaks: arr}); }} placeholder="11" className="w-20 px-3 py-2 border rounded-lg" />
+                        <span className="text-sm text-slate-500">+ → ₹</span>
+                        <input type="number" value={b.price} onChange={e => { const arr = [...(pForm.qtyBreaks || [])]; arr[i] = { ...arr[i], price: e.target.value }; setPForm({...pForm, qtyBreaks: arr}); }} placeholder="549" className="w-28 px-3 py-2 border rounded-lg" />
+                        <span className="text-sm text-slate-500">/ pair</span>
+                        <button onClick={() => { const arr = (pForm.qtyBreaks || []).filter((_, j) => j !== i); setPForm({...pForm, qtyBreaks: arr}); }} className="text-red-600 hover:bg-red-50 p-2 rounded"><Trash2 size={16} /></button>
+                      </div>
+                    ))}
+                    <button onClick={() => setPForm({...pForm, qtyBreaks: [...(pForm.qtyBreaks || []), { minQty: '', price: '' }]})} className="text-sm text-amber-600 hover:underline flex items-center gap-1"><Plus size={14} /> Add break</button>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Stock by size &amp; colour</label>
+                    <div className="text-xs text-slate-500 mb-2">Pairs available for each size/colour. Define Sizes and Colors above first; leave 0 for combinations you don't stock.</div>
+                    {(pForm.sizes || []).filter(Boolean).length === 0 || (pForm.colors || []).filter(Boolean).length === 0 ? (
+                      <div className="text-sm text-slate-400">Add sizes and colours above to build the stock grid.</div>
+                    ) : (
+                      <div className="overflow-auto">
+                        <table className="text-sm border-collapse">
+                          <thead><tr><th className="p-2 text-left text-slate-500 font-medium">Size \ Colour</th>{(pForm.colors || []).filter(Boolean).map(c => <th key={c} className="p-2 text-slate-500 font-medium">{c}</th>)}</tr></thead>
+                          <tbody>
+                            {(pForm.sizes || []).filter(Boolean).map(sz => (
+                              <tr key={sz}>
+                                <td className="p-2 font-medium text-slate-700">{sz}</td>
+                                {(pForm.colors || []).filter(Boolean).map(c => {
+                                  const key = `${sz}|${c}`;
+                                  return <td key={c} className="p-1"><input type="number" min="0" value={(pForm.stockGrid && pForm.stockGrid[key] != null) ? pForm.stockGrid[key] : ''} onChange={e => { const g = { ...(pForm.stockGrid || {}) }; const v = e.target.value; if (v === '') delete g[key]; else g[key] = parseInt(v) || 0; setPForm({...pForm, stockGrid: g}); }} placeholder="0" className="w-16 px-2 py-1.5 border rounded-lg text-center" /></td>;
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="flex gap-3 mt-6 pt-6 border-t"><button onClick={saveProduct} className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg flex items-center gap-2"><Save size={18} /> Save Product</button><button onClick={() => setTab('products')} className="border px-6 py-2 rounded-lg">Cancel</button></div>
             </div>
