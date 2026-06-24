@@ -573,6 +573,11 @@ const DEFAULT_BUSINESS = {
   gstin: '[YOUR GSTIN]', legalName: '[Legal Business Name]', hsnCode: '6403', gstRate: 18,
   bankName: '[Bank Name]', accountNo: '[Account Number]', ifsc: '[IFSC Code]', invoicePrefix: 'INV-',
   deliveryFee: 0, freeDeliveryAbove: 0, upiId: '', upiName: '',
+  howToOrder: 'How to Order\n\n1. Browse our catalog and open any product.\n2. Choose your size and colour, then tap \'Add to Cart\'.\n3. Open your cart and tap \'Checkout\'.\n4. Enter your delivery details and choose a payment method (Cash on Delivery or UPI).\n5. Place your order — you\'ll get an order number and we\'ll confirm by phone or WhatsApp.\n\nPrefer to ask first? Add items to your inquiry list or message us on WhatsApp and we\'ll be glad to help.',
+  shippingPolicy: 'We deliver across India.\n\n- Orders are usually dispatched within 1-3 business days.\n- Delivery typically takes 4-8 business days depending on your location.\n- Delivery charges (if any) are shown at checkout; orders above the free-delivery amount ship free.\n- For tracking or any delivery question, contact us on WhatsApp or phone with your order number.',
+  returnsPolicy: 'We want you to be happy with your purchase.\n\n- Returns or exchanges are accepted within 7 days of delivery for unused items in their original condition and packaging.\n- To start a return, contact us with your order number on WhatsApp, phone or email.\n- Refunds, where applicable, are processed to the original payment method within 5-7 business days after we receive and inspect the item.\n- Customised or made-to-order items may not be eligible for return.\n\nPlease update this policy to match exactly how you handle returns.',
+  privacyPolicy: 'This Privacy Policy explains how we collect and use your information.\n\n- Information we collect: your name, contact details, delivery address, and the order or inquiry details you provide.\n- How we use it: to process orders and inquiries, arrange delivery, provide support, and contact you about your order.\n- Sharing: we share details only as needed to fulfil your order (for example, with delivery partners) and as required by law. We do not sell your personal information.\n- Your choices: contact us any time to access or update your information.\n- Contact us for any privacy question using the details on our Contact page.\n\nThis is a starting template — please review it for your business and local laws.',
+  termsPolicy: 'By using this website and placing an order, you agree to these terms.\n\n- Product images and descriptions are for reference; slight variations may occur.\n- Prices and availability may change without notice. We confirm each order before dispatch.\n- Payment options and any applicable taxes or delivery charges are shown at checkout.\n- Orders may be cancelled if payment isn\'t received or an item is unavailable.\n- For any question, please use the details on our Contact page.\n\nThis is a starting template — please review it for your business and local laws.',
 };
 
 const NAV_ITEMS = [
@@ -1493,6 +1498,21 @@ function CrudListEditor({ title, icon: Icon, items, onSave, fields, itemLabel = 
 }
 
 // ===== ADMIN PANEL =====
+function PolicyPage({ title, intro, sections }) {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-12">
+      <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">{title}</h1>
+      {intro && <p className="text-slate-600 mb-8">{intro}</p>}
+      {(sections || []).map((sec, i) => (
+        <div key={i} className="mb-8">
+          {sec.heading && <h2 className="text-xl font-bold text-slate-900 mb-3">{sec.heading}</h2>}
+          <div className="text-slate-600 whitespace-pre-line leading-relaxed">{(sec.text && sec.text.trim()) ? sec.text : 'Content coming soon. The shop owner can add this in the admin panel.'}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function InquiryCommentBox({ value, onSave }) {
   const [text, setText] = useState(value || '');
   const [saving, setSaving] = useState(false);
@@ -1937,6 +1957,12 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Payment Note (shown to buyers)</label><input value={editBiz.paymentNote || ''} onChange={e => setEditBiz({...editBiz, paymentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Payment via UPI / bank transfer on order confirmation. GST invoice provided." /><div className="text-xs text-slate-500 mt-1">A short line shown on the inquiry cart and contact page. You can include your UPI ID here if you like.</div></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps — Address or Coordinates</label><input value={editBiz.mapQuery || ''} onChange={e => setEditBiz({...editBiz, mapQuery: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 12 MG Road, Agra, UP 282001  (or  27.1767,78.0081)" /><div className="text-xs text-slate-500 mt-1">Shows a map on the contact page. For a precise pin, use the embed link field below instead.</div></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps Embed Link (optional, more precise)</label><input value={editBiz.mapEmbedUrl || ''} onChange={e => setEditBiz({...editBiz, mapEmbedUrl: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder='Paste the src link from Google Maps → Share → Embed a map' /><div className="text-xs text-slate-500 mt-1">In Google Maps: find your shop → Share → "Embed a map" → copy the link inside src="...". Overrides the address above.</div></div>
+                  <div className="md:col-span-2 mt-2 pt-4 border-t"><h3 className="font-bold text-slate-900 mb-1">Info & Policy Pages</h3><div className="text-xs text-slate-500 mb-3">These appear as pages linked in the website footer. Edit the wording to match your business. For Privacy and Terms, please review with a professional — these are starting templates, not legal advice.</div></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">How to Order</label><textarea value={editBiz.howToOrder || ''} onChange={e => setEditBiz({...editBiz, howToOrder: e.target.value})} rows={6} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Shipping &amp; Delivery</label><textarea value={editBiz.shippingPolicy || ''} onChange={e => setEditBiz({...editBiz, shippingPolicy: e.target.value})} rows={5} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Returns &amp; Refunds</label><textarea value={editBiz.returnsPolicy || ''} onChange={e => setEditBiz({...editBiz, returnsPolicy: e.target.value})} rows={6} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Privacy Policy</label><textarea value={editBiz.privacyPolicy || ''} onChange={e => setEditBiz({...editBiz, privacyPolicy: e.target.value})} rows={7} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Terms &amp; Conditions</label><textarea value={editBiz.termsPolicy || ''} onChange={e => setEditBiz({...editBiz, termsPolicy: e.target.value})} rows={7} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
                   <div className="md:col-span-2 flex items-center gap-2"><input type="checkbox" id="apptToggle" checked={editBiz.appointmentsEnabled !== false} onChange={e => setEditBiz({...editBiz, appointmentsEnabled: e.target.checked})} /><label htmlFor="apptToggle" className="text-sm font-medium text-slate-700">Enable "Book an Appointment" on the contact page</label></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Appointment Note (shown to visitors)</label><input value={editBiz.appointmentNote || ''} onChange={e => setEditBiz({...editBiz, appointmentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Visits Mon–Sat, 11am–7pm. We'll confirm your slot." /></div>
                   <div className="md:col-span-2">
@@ -2853,6 +2879,11 @@ export default function App() {
 
         {page === 'faq' && <div className="max-w-3xl mx-auto px-4 py-12"><h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">FAQ</h1><p className="text-slate-600 mb-12">Common questions from our retailers</p><div className="space-y-3">{faqs.map(f => <FAQItem key={f.id} q={f.q} a={f.a} />)}{faqs.length === 0 && <div className="text-center text-slate-500 py-12">No FAQs yet</div>}</div></div>}
 
+        {page === 'howto' && <PolicyPage title="How to Order & Shipping" sections={[{ text: business.howToOrder }, { heading: 'Shipping & Delivery', text: business.shippingPolicy }]} />}
+        {page === 'returns' && <PolicyPage title="Returns & Refunds" sections={[{ text: business.returnsPolicy }]} />}
+        {page === 'privacy' && <PolicyPage title="Privacy Policy" sections={[{ text: business.privacyPolicy }]} />}
+        {page === 'terms' && <PolicyPage title="Terms & Conditions" sections={[{ text: business.termsPolicy }]} />}
+
         {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} customer={customer} onInquirySubmitted={recordInquiryHistory} />}
       </main>
 
@@ -2867,7 +2898,13 @@ export default function App() {
           <div><h4 className="font-bold mb-3">Categories</h4><ul className="space-y-2 text-sm text-slate-400">{categories.map(c => <li key={c.id}><button onClick={() => { setCatFilter(c.id); navigate('catalog'); }} className="hover:text-amber-400">{c.name}</button></li>)}</ul></div>
           <div><h4 className="font-bold mb-3">Contact</h4><ul className="space-y-2 text-sm text-slate-400"><li className="flex gap-2"><Phone size={14} className="mt-0.5 flex-shrink-0" />{business.phone}</li><li className="flex gap-2"><Mail size={14} className="mt-0.5 flex-shrink-0" />{business.email}</li><li className="flex gap-2"><MapPin size={14} className="mt-0.5 flex-shrink-0" />{business.address}</li><li className="flex gap-2"><Clock size={14} className="mt-0.5 flex-shrink-0" />{business.hours}</li></ul></div>
         </div>
-        <div className="max-w-7xl mx-auto px-4 mt-8 pt-8 border-t border-slate-800 flex flex-col items-center gap-2 text-sm text-slate-400">
+        <div className="max-w-7xl mx-auto px-4 mt-8 pt-8 border-t border-slate-800 flex flex-col items-center gap-3 text-sm text-slate-400">
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+            <button onClick={() => navigate('howto')} className="hover:text-amber-400">How to Order &amp; Shipping</button>
+            <button onClick={() => navigate('returns')} className="hover:text-amber-400">Returns &amp; Refunds</button>
+            <button onClick={() => navigate('privacy')} className="hover:text-amber-400">Privacy Policy</button>
+            <button onClick={() => navigate('terms')} className="hover:text-amber-400">Terms &amp; Conditions</button>
+          </div>
           <div>© {new Date().getFullYear()} {business.name}. All rights reserved.</div>
           {adminAuth ? <button onClick={() => setPage('admin')} className="text-xs text-slate-500 hover:text-amber-400 flex items-center gap-1"><Lock size={11} /> Admin Panel</button> : <button onClick={() => setShowAdminLogin(true)} className="text-xs text-slate-500 hover:text-amber-400 flex items-center gap-1"><Lock size={11} /> Admin Login</button>}
         </div>
