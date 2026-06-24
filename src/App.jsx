@@ -1492,6 +1492,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
       showToast('Order status updated ✓');
     } catch (e) { showToast('Could not update status — check the Supabase update policy'); }
   };
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editBiz, setEditBiz] = useState(business);
   const [invoiceFor, setInvoiceFor] = useState(null);
   const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, codAvailable: true, description: '', availabilityNote: '', retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
   const [pForm, setPForm] = useState(blankProduct);
