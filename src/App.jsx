@@ -302,15 +302,9 @@ async function pushToGoogleSheets(inquiry) {
 // Allocate the next sequential inquiry reference like INQ-00001 (counts existing inquiry records)
 async function nextInquiryNumber() {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries?select=id&data->>type=eq.inquiry`, {
-      method: 'GET',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Prefer: 'count=exact', Range: '0-0' }
-    });
-    let count = 0;
-    const cr = r.headers.get('content-range');
-    if (r.ok && cr && cr.includes('/')) { const total = parseInt(cr.split('/')[1], 10); if (!isNaN(total)) count = total; }
-    else if (!r.ok) throw new Error('count failed');
-    return `INQ-${String(count + 1).padStart(5, '0')}`;
+    const rows = await sb.select('inquiries');
+    const n = (Array.isArray(rows) ? rows : []).filter(x => x && x.data && x.data.type === 'inquiry').length;
+    return `INQ-${String(n + 1).padStart(5, '0')}`;
   } catch (e) {
     return `INQ-${String(Date.now()).slice(-5)}`;
   }
@@ -1618,6 +1612,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div key={i.id} className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
                     <div>
+                      {i.inqNo && <div className="text-xs font-mono font-bold text-amber-600 mb-0.5">{i.inqNo}</div>}
                       <h3 className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">{i.name}{i.source === 'Proforma Download' && <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1"><FileText size={11} /> Proforma Lead</span>}{i.type === 'appointment' && <span className="text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Clock size={11} /> Appointment</span>}</h3>
                       {i.type === 'appointment' && (i.apptDate || i.apptTime) && <div className="text-sm text-purple-700 font-medium mt-1">📅 {i.apptDate}{i.apptTime ? ` at ${i.apptTime}` : ''}</div>}
                       <div className="text-sm text-slate-600">{i.shop || 'No shop'} • {i.city || 'No city'}</div>
