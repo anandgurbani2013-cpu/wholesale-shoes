@@ -1618,9 +1618,9 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [inquiryList, setInquiryList] = useState([]);
-  const [showInquiry, setShowInquiry] = useState(false);
   const [shopCart, setShopCart] = useState([]);
-  const [showShopCart, setShowShopCart] = useState(false);
+  const [showCart, setShowCart] = useState(false);
+  const [cartTab, setCartTab] = useState('cart');
   const [buySel, setBuySel] = useState({ size: '', color: '', qty: 1 });
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
@@ -1911,10 +1911,12 @@ export default function App() {
       if (existing) return prev.map(it => it.key === key ? { ...it, qty: it.qty + q } : it);
       return [...prev, { key, id: p.id, code: p.code, name: p.name, image: (productImages(p)[0] || ''), size, color, qty: q, retailPrice: p.retailPrice, qtyBreaks: p.qtyBreaks }];
     });
-    setShowShopCart(true);
+    setCartTab('cart');
+    setShowCart(true);
   };
   const setShopQty = (key, q) => setShopCart(prev => prev.map(it => it.key === key ? { ...it, qty: Math.max(1, q) } : it));
   const removeShopItem = (key) => setShopCart(prev => prev.filter(it => it.key !== key));
+  const openCart = () => { setCartTab(shopCart.length > 0 ? 'cart' : (inquiryList.length > 0 ? 'inquiry' : 'cart')); setShowCart(true); };
 
   // Persist the current public page so a refresh keeps the visitor in place
   const navHydrated = useRef(false);
@@ -2086,8 +2088,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => setShowAccount(true)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
-            <button onClick={() => setShowInquiry(true)} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Inquiry list"><ListChecks size={22} className="text-slate-700" />{inquiryList.length > 0 && <span className="absolute -top-1 -right-1 bg-slate-700 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{inquiryList.length}</span>}</button>
-            <button onClick={() => setShowShopCart(true)} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Shopping cart"><ShoppingBag size={22} className="text-slate-700" />{shopCart.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0)}</span>}</button>
+            <button onClick={openCart} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className="text-slate-700" />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
@@ -2261,7 +2262,7 @@ export default function App() {
                             <div className="text-xs text-slate-500 mb-1">Colour</div>
                             <div className="flex gap-2 flex-wrap">{(p.colors || []).filter(Boolean).map(c => { const st = colorStock(c); const active = sel.color === c; return <button key={c} disabled={st === 0} onClick={() => setBuySel({ ...sel, color: c, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-slate-900 text-white border-slate-900' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{c}</button>; })}</div>
                           </div>
-                          <div className="text-sm mb-3 min-h-[20px]">{(sel.size && sel.color) ? (comboStock > 0 ? <span className="text-green-600 font-medium">{comboStock} in stock</span> : <span className="text-red-500 font-medium">Out of stock in this size/colour</span>) : <span className="text-slate-400">Select size and colour</span>}</div>
+                          <div className="text-sm mb-3 min-h-[20px]">{(sel.size && sel.color) ? (comboStock > 0 ? <span className="text-green-600 font-medium">{comboStock > 4 ? `${comboStock} in stock` : 'In stock'}</span> : <span className="text-red-500 font-medium">Out of stock in this size/colour</span>) : <span className="text-slate-400">Select size and colour</span>}</div>
                           {canBuy && (
                             <div className="flex items-center gap-3 mb-4">
                               <div className="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden"><button onClick={() => setBuySel({ ...sel, qty: Math.max(1, (sel.qty || 1) - 1) })} className="px-3 py-2 hover:bg-slate-100">−</button><span className="px-4 font-semibold">{sel.qty || 1}</span><button onClick={() => setBuySel({ ...sel, qty: Math.min(comboStock, (sel.qty || 1) + 1) })} disabled={(sel.qty || 1) >= comboStock} className="px-3 py-2 hover:bg-slate-100 disabled:text-slate-300">+</button></div>
@@ -2384,35 +2385,72 @@ export default function App() {
 
       {/* AI Chatbot removed - WhatsApp + Call buttons are more effective for Indian B2B */}
 
-      {showInquiry && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setShowInquiry(false)}>
+      {showCart && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setShowCart(false)}>
           <div className="bg-white w-full max-w-md h-full overflow-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><h2 className="font-bold text-lg">Inquiry List ({inquiryList.length})</h2><button onClick={() => setShowInquiry(false)}><X size={24} /></button></div>
+            <div className="sticky top-0 bg-white border-b z-10">
+              <div className="flex justify-between items-center p-4 pb-2"><h2 className="font-bold text-lg">Your Bag</h2><button onClick={() => setShowCart(false)}><X size={24} /></button></div>
+              <div className="flex px-4">
+                <button onClick={() => setCartTab('cart')} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${cartTab === 'cart' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Cart ({shopCart.reduce((a, it) => a + it.qty, 0)})</button>
+                <button onClick={() => setCartTab('inquiry')} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${cartTab === 'inquiry' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Inquiry ({inquiryList.length})</button>
+              </div>
+            </div>
             <div className="p-4">
-              {inquiryList.length === 0 ? <div className="text-center py-12 text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />Your inquiry list is empty<button onClick={() => { setShowInquiry(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
-                <>
-                  {inquiryList.map(p => (
-                    <div key={p.id} className="flex gap-3 py-3 border-b">
-                      <SafeImage src={p.image} alt={p.name} className="w-16 h-16 rounded object-cover" />
-                      <div className="flex-1">
-                        <div className="text-xs font-mono text-slate-500">{p.code}</div>
-                        <div className="font-medium text-sm">{p.name}</div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(p.moq, x.quantity - 10)} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Minus size={12} className="mx-auto" /></button>
-                          <input type="number" value={p.quantity} onChange={e => { const v = parseInt(e.target.value) || p.moq; setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(p.moq, v)} : x)); }} className="w-16 text-center border rounded py-1 text-sm" />
-                          <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: x.quantity + 10} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
-                          <span className="text-xs text-slate-500">pairs</span>
-                          <button onClick={() => setInquiryList(inquiryList.filter(x => x.id !== p.id))} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
+              {cartTab === 'cart' ? (
+                shopCart.length === 0 ? <div className="text-center py-12 text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />Your cart is empty<button onClick={() => { setShowCart(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
+                  <>
+                    {shopCart.map(it => {
+                      const unit = retailUnitPrice(it, it.qty);
+                      return (
+                        <div key={it.key} className="flex gap-3 py-3 border-b">
+                          <SafeImage src={it.image} alt={it.name} className="w-16 h-16 rounded object-cover" />
+                          <div className="flex-1">
+                            <div className="text-xs font-mono text-slate-500">{it.code}</div>
+                            <div className="font-medium text-sm">{it.name}</div>
+                            <div className="text-xs text-slate-600 mt-0.5">Size {it.size} · {it.color}</div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <button onClick={() => setShopQty(it.key, it.qty - 1)} className="w-7 h-7 border rounded hover:bg-slate-50"><Minus size={12} className="mx-auto" /></button>
+                              <span className="w-10 text-center text-sm font-semibold">{it.qty}</span>
+                              <button onClick={() => setShopQty(it.key, it.qty + 1)} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
+                              <button onClick={() => removeShopItem(it.key)} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
+                            </div>
+                            <div className="text-sm mt-1">₹{unit.toLocaleString('en-IN')} × {it.qty} = <span className="font-semibold">₹{(unit * it.qty).toLocaleString('en-IN')}</span>{unit < (parseFloat(it.retailPrice) || unit) && <span className="text-xs text-green-600 ml-1">(bulk price)</span>}</div>
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">Min: {p.moq} pairs</div>
+                      );
+                    })}
+                    <div className="flex justify-between items-center mt-4 py-3 border-t text-lg"><span className="font-semibold">Subtotal</span><span className="font-bold">₹{shopCart.reduce((a, it) => a + retailUnitPrice(it, it.qty) * it.qty, 0).toLocaleString('en-IN')}</span></div>
+                    <div className="text-xs text-slate-500 mb-3">Taxes and delivery are confirmed at checkout.</div>
+                    <button disabled className="w-full bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Checkout (coming next)</button>
+                    <button onClick={() => setShopCart([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear cart</button>
+                    {business.paymentNote && <div className="mt-3 text-xs text-slate-500 flex items-start gap-2"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
+                  </>
+                )
+              ) : (
+                inquiryList.length === 0 ? <div className="text-center py-12 text-slate-500"><ListChecks size={48} className="mx-auto mb-3 opacity-50" />Your inquiry list is empty<button onClick={() => { setShowCart(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
+                  <>
+                    {inquiryList.map(p => (
+                      <div key={p.id} className="flex gap-3 py-3 border-b">
+                        <SafeImage src={p.image} alt={p.name} className="w-16 h-16 rounded object-cover" />
+                        <div className="flex-1">
+                          <div className="text-xs font-mono text-slate-500">{p.code}</div>
+                          <div className="font-medium text-sm">{p.name}</div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(p.moq, x.quantity - 10)} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Minus size={12} className="mx-auto" /></button>
+                            <input type="number" value={p.quantity} onChange={e => { const v = parseInt(e.target.value) || p.moq; setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(p.moq, v)} : x)); }} className="w-16 text-center border rounded py-1 text-sm" />
+                            <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: x.quantity + 10} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
+                            <span className="text-xs text-slate-500">pairs</span>
+                            <button onClick={() => setInquiryList(inquiryList.filter(x => x.id !== p.id))} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">Min: {p.moq} pairs</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  <button onClick={() => { setShowInquiry(false); navigate('contact'); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold mt-6">Submit Inquiry →</button>
-                  <button onClick={() => { setShowInquiry(false); setShowProforma(true); }} className="w-full mt-3 border border-slate-300 hover:bg-slate-50 text-slate-700 py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><FileText size={18} /> Download Proforma Estimate</button>
-                  <button onClick={() => setInquiryList([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear all items</button>
-                  {business.paymentNote && <div className="mt-3 text-xs text-slate-500 flex items-start gap-2"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
-                </>
+                    ))}
+                    <button onClick={() => { setShowCart(false); navigate('contact'); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold mt-6">Submit Inquiry →</button>
+                    <button onClick={() => { setShowCart(false); setShowProforma(true); }} className="w-full mt-3 border border-slate-300 hover:bg-slate-50 text-slate-700 py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><FileText size={18} /> Download Proforma Estimate</button>
+                    <button onClick={() => setInquiryList([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear all items</button>
+                  </>
+                )
               )}
             </div>
           </div>
@@ -2421,44 +2459,6 @@ export default function App() {
 
       {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} customer={customer} onLog={logProforma} onClose={() => setShowProforma(false)} />}
 
-      {showShopCart && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setShowShopCart(false)}>
-          <div className="bg-white w-full max-w-md h-full overflow-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><h2 className="font-bold text-lg">Your Cart ({shopCart.reduce((a, it) => a + it.qty, 0)})</h2><button onClick={() => setShowShopCart(false)}><X size={24} /></button></div>
-            <div className="p-4">
-              {shopCart.length === 0 ? <div className="text-center py-12 text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />Your cart is empty<button onClick={() => { setShowShopCart(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
-                <>
-                  {shopCart.map(it => {
-                    const unit = retailUnitPrice(it, it.qty);
-                    return (
-                      <div key={it.key} className="flex gap-3 py-3 border-b">
-                        <SafeImage src={it.image} alt={it.name} className="w-16 h-16 rounded object-cover" />
-                        <div className="flex-1">
-                          <div className="text-xs font-mono text-slate-500">{it.code}</div>
-                          <div className="font-medium text-sm">{it.name}</div>
-                          <div className="text-xs text-slate-600 mt-0.5">Size {it.size} · {it.color}</div>
-                          <div className="flex items-center gap-2 mt-2">
-                            <button onClick={() => setShopQty(it.key, it.qty - 1)} className="w-7 h-7 border rounded hover:bg-slate-50"><Minus size={12} className="mx-auto" /></button>
-                            <span className="w-10 text-center text-sm font-semibold">{it.qty}</span>
-                            <button onClick={() => setShopQty(it.key, it.qty + 1)} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
-                            <button onClick={() => removeShopItem(it.key)} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
-                          </div>
-                          <div className="text-sm mt-1">₹{unit.toLocaleString('en-IN')} × {it.qty} = <span className="font-semibold">₹{(unit * it.qty).toLocaleString('en-IN')}</span>{unit < (parseFloat(it.retailPrice) || unit) && <span className="text-xs text-green-600 ml-1">(bulk price)</span>}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className="flex justify-between items-center mt-4 py-3 border-t text-lg"><span className="font-semibold">Subtotal</span><span className="font-bold">₹{shopCart.reduce((a, it) => a + retailUnitPrice(it, it.qty) * it.qty, 0).toLocaleString('en-IN')}</span></div>
-                  <div className="text-xs text-slate-500 mb-3">Taxes and delivery are confirmed at checkout.</div>
-                  <button disabled className="w-full bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Checkout (coming next)</button>
-                  <button onClick={() => setShopCart([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear cart</button>
-                  {business.paymentNote && <div className="mt-3 text-xs text-slate-500 flex items-start gap-2"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {showAccount && <AccountModal customer={customer} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
