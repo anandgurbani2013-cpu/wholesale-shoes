@@ -189,18 +189,18 @@ function AccountModal({ customer, onAuthed, onLogout, onProfileUpdated, onClose 
             </>
           ) : mode === 'login' ? (
             <>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
               <button onClick={doLogin} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Logging in…' : 'Log In'}</button>
               <div className="text-sm text-center text-slate-500">No account? <button onClick={() => { setErr(''); setMode('register'); }} className="text-amber-600 font-medium">Create one</button></div>
             </>
           ) : (
             <>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Name *</label><input value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Email *</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={f.phone} onChange={e => setF({...f, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password *</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm Password *</label><input type="password" value={f.confirm} onChange={e => setF({...f, confirm: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Name *</label><input value={f.name} onChange={e => setF({...f, name: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Email *</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={f.phone} onChange={e => setF({...f, phone: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password *</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm Password *</label><input type="password" value={f.confirm} onChange={e => setF({...f, confirm: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
               <button onClick={doRegister} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Creating…' : 'Create Account'}</button>
               <div className="text-sm text-center text-slate-500">Have an account? <button onClick={() => { setErr(''); setMode('login'); }} className="text-amber-600 font-medium">Log in</button></div>
             </>
@@ -1726,7 +1726,7 @@ export default function App() {
   // After inactivity, show a "stay or log out" prompt instead of logging out silently. Paused while the prompt is open.
   useEffect(() => {
     if (!customer || showIdleWarn) return;
-    const IDLE_MS = 1 * 60 * 1000; // 20 minutes
+    const IDLE_MS = 20 * 60 * 1000; // 20 minutes
     let timer;
     const reset = () => { clearTimeout(timer); timer = setTimeout(() => { setShowIdleWarn(true); }, IDLE_MS); };
     const events = ['mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
@@ -2066,7 +2066,18 @@ export default function App() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="text-center"><Loader2 className="w-16 h-16 text-amber-500 animate-spin mx-auto mb-4" /><p className="text-slate-600">Loading from database...</p></div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-4 border-amber-100"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
+          </div>
+          <p className="mt-5 text-slate-800 font-semibold tracking-wide">{business.name || 'Loading'}</p>
+          <p className="mt-1 text-sm text-slate-400">Loading…</p>
+        </div>
+      </div>
+    );
   }
 
   if (page === 'admin' && adminAuth) {
