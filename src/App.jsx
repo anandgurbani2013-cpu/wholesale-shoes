@@ -156,8 +156,23 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
   const [acctTab, setAcctTab] = useState(initialTab || 'profile');
   const [openInq, setOpenInq] = useState(null);
   const [openOrd, setOpenOrd] = useState(null);
+  const [liveOrders, setLiveOrders] = useState(null);
   useEffect(() => { if (customer) setProf({ ...customer.profile }); }, [customer]);
   useEffect(() => { if (initialTab) setAcctTab(initialTab); }, [initialTab]);
+  useEffect(() => {
+    if (acctTab !== 'orders' || !customer || !customer.access_token || !customer.profile || !customer.profile.id) return;
+    let cancel = false;
+    (async () => {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&user_id=eq.${encodeURIComponent(customer.profile.id)}&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
+        if (!r.ok) return;
+        const rows = await r.json();
+        if (cancel || !Array.isArray(rows)) return;
+        setLiveOrders(rows.map(row => { const d = row.data || {}; return { id: row.id, orderNo: d.orderNo, date: d.date, total: d.total, payment: d.paymentLabel || d.payment, status: row.status || d.status || 'new', items: d.items || [] }; }));
+      } catch (e) {}
+    })();
+    return () => { cancel = true; };
+  }, [acctTab, customer]);
 
   const doLogin = async () => {
     setErr(''); setBusy(true);
@@ -220,14 +235,15 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
     </div>
   );
 
+  const ordersToShow = liveOrders || orderHistory || [];
   const ordersView = (
     <div>
       <div className="flex items-center gap-2 mb-4"><ShoppingBag size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My orders</h3></div>
-      {(!orderHistory || orderHistory.length === 0) ? (
+      {(!ordersToShow || ordersToShow.length === 0) ? (
         <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div></div>
       ) : (
         <div className="space-y-3">
-          {orderHistory.map(o => {
+          {ordersToShow.map(o => {
             const isOpen = openOrd === o.id;
             return (
             <div key={o.id} className="border border-slate-200 rounded-xl overflow-hidden">
@@ -235,7 +251,7 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-mono font-bold text-amber-600">{o.orderNo}</span>
-                    <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{o.status || 'New'}</span>
+                    <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full capitalize">{o.status || 'new'}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><Clock size={12} /> {new Date(o.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
