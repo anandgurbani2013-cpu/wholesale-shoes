@@ -95,6 +95,12 @@ const customerAuth = {
       return r.ok;
     } catch (e) { return false; }
   },
+  async saveInquiry(access_token, inquiry) {
+    try {
+      const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ data: { inquiry } }) });
+      return r.ok;
+    } catch (e) { return false; }
+  },
 };
 
 function mergeCarts(a, b) {
@@ -105,6 +111,21 @@ function mergeCarts(a, b) {
     else map[it.key] = { ...it };
   });
   return Object.values(map);
+}
+
+function mergeInquiry(a, b) {
+  const map = {};
+  [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])].forEach(it => {
+    if (!it || !it.id) return;
+    if (map[it.id]) map[it.id] = { ...map[it.id], quantity: Math.max(map[it.id].quantity || 1, it.quantity || 1) };
+    else map[it.id] = { ...it };
+  });
+  return Object.values(map);
+}
+
+// Keep only the fields the inquiry drawer + proforma need, so account storage stays small
+function slimInquiry(list) {
+  return (Array.isArray(list) ? list : []).map(it => ({ id: it.id, code: it.code, name: it.name, image: it.image, moq: it.moq, quantity: it.quantity, retailPrice: it.retailPrice, qtyBreaks: it.qtyBreaks, priceFrom: it.priceFrom }));
 }
 
 function customerProfile(user) {
@@ -1649,6 +1670,7 @@ export default function App() {
   const [showProforma, setShowProforma] = useState(false);
   const [customer, setCustomer] = useState(null); // { access_token, refresh_token, profile }
   const [showAccount, setShowAccount] = useState(false);
+  const [showIdleWarn, setShowIdleWarn] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -1669,14 +1691,25 @@ export default function App() {
     const c = { access_token: data.access_token, refresh_token: data.refresh_token, profile: customerProfile(data.user) };
     setCustomer(c);
     persistCustomer(c);
-    const accountCart = (data.user && data.user.user_metadata && Array.isArray(data.user.user_metadata.cart)) ? data.user.user_metadata.cart : [];
+    const m = (data.user && data.user.user_metadata) || {};
+    const accountCart = Array.isArray(m.cart) ? m.cart : [];
+    const accountInquiry = Array.isArray(m.inquiry) ? m.inquiry : [];
     setShopCart(local => mergeCarts(local, accountCart));
+    setInquiryList(local => mergeInquiry(local, accountInquiry));
     return true;
   };
-  const logoutCustomer = () => {
-    if (customer && customer.access_token) { customerAuth.saveCart(customer.access_token, shopCart); }
-    setCustomer(null); persistCustomer(null); setShowAccount(false); setShopCart([]); setShowCart(false);
-    try { localStorage.removeItem('wsShopCart'); } catch (e) {}
+  const logoutCustomer = async () => {
+    setShowIdleWarn(false);
+    try {
+      if (customer && customer.access_token) {
+        await Promise.allSettled([
+          customerAuth.saveCart(customer.access_token, shopCart),
+          customerAuth.saveInquiry(customer.access_token, slimInquiry(inquiryList)),
+        ]);
+      }
+    } catch (e) {}
+    try { localStorage.removeItem('wsShopCart'); localStorage.removeItem('wsCart'); localStorage.removeItem('wsCustomerSession'); } catch (e) {}
+    window.location.reload();
   };
   const onCustomerProfileUpdated = (user) => { setCustomer(c => (c ? { ...c, profile: customerProfile(user) } : c)); };
 
@@ -1690,19 +1723,19 @@ export default function App() {
     }
   }, []);
 
-  // Auto-logout customer after inactivity
+  // After inactivity, show a "stay or log out" prompt instead of logging out silently. Paused while the prompt is open.
   useEffect(() => {
-    if (!customer) return;
-    const IDLE_MS = 20 * 60 * 1000; // 20 minutes
+    if (!customer || showIdleWarn) return;
+    const IDLE_MS = 1 * 60 * 1000; // 20 minutes
     let timer;
-    const reset = () => { clearTimeout(timer); timer = setTimeout(() => { logoutCustomer(); }, IDLE_MS); };
+    const reset = () => { clearTimeout(timer); timer = setTimeout(() => { setShowIdleWarn(true); }, IDLE_MS); };
     const events = ['mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
     events.forEach(e => window.addEventListener(e, reset, { passive: true }));
     reset();
     return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, reset)); };
-  }, [customer]);
+  }, [customer, showIdleWarn]);
 
-  // While logged in, save cart changes to the account (debounced) so it follows the customer across devices
+  // While logged in, save cart + inquiry changes to the account (debounced) so they follow the customer across devices
   const cartSyncTimer = useRef(null);
   const cartSyncReady = useRef(false);
   useEffect(() => {
@@ -1712,6 +1745,16 @@ export default function App() {
     cartSyncTimer.current = setTimeout(() => { customerAuth.saveCart(customer.access_token, shopCart); }, 1500);
     return () => clearTimeout(cartSyncTimer.current);
   }, [shopCart, customer]);
+
+  const inqSyncTimer = useRef(null);
+  const inqSyncReady = useRef(false);
+  useEffect(() => {
+    if (!inqSyncReady.current) { inqSyncReady.current = true; return; }
+    if (!customer || !customer.access_token) return;
+    clearTimeout(inqSyncTimer.current);
+    inqSyncTimer.current = setTimeout(() => { customerAuth.saveInquiry(customer.access_token, slimInquiry(inquiryList)); }, 1500);
+    return () => clearTimeout(inqSyncTimer.current);
+  }, [inquiryList, customer]);
 
 
   const [business, setBusiness] = useState(DEFAULT_BUSINESS);
@@ -2494,6 +2537,20 @@ export default function App() {
 
 
       {showAccount && <AccountModal customer={customer} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+
+      {showIdleWarn && customer && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4"><Clock size={24} className="text-amber-600" /></div>
+            <h3 className="font-bold text-lg text-slate-900 mb-1">Still there?</h3>
+            <p className="text-sm text-slate-600 mb-5">You've been inactive for a while. Would you like to stay signed in or log out?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowIdleWarn(false)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg font-semibold">Stay on site</button>
+              <button onClick={logoutCustomer} className="flex-1 border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-semibold">Log out</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdminLogin && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowAdminLogin(false); setPwdError(''); setAdminPwd(''); }}>
