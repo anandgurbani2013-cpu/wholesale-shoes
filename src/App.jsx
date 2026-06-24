@@ -62,6 +62,118 @@ const sb = {
   }
 };
 
+// ===== CUSTOMER AUTH (Supabase Auth, separate from admin) =====
+const customerAuth = {
+  base: `${SUPABASE_URL}/auth/v1`,
+  async signup(email, password, meta) {
+    const r = await fetch(`${this.base}/signup`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, data: meta }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.msg || d.error_description || d.message || 'Sign up failed');
+    return d; // { access_token, refresh_token, user } when email confirmation is OFF
+  },
+  async login(email, password) {
+    const r = await fetch(`${this.base}/token?grant_type=password`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error_description || d.msg || 'Incorrect email or password');
+    return d;
+  },
+  async refresh(refresh_token) {
+    const r = await fetch(`${this.base}/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error('Session expired');
+    return d;
+  },
+  async updateProfile(access_token, meta) {
+    const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ data: meta }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.msg || 'Could not update profile');
+    return d;
+  },
+};
+
+function customerProfile(user) {
+  const m = (user && user.user_metadata) || {};
+  return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', city: m.city || '', address: m.address || '' };
+}
+
+function AccountModal({ customer, onAuthed, onLogout, onProfileUpdated, onClose }) {
+  const [mode, setMode] = useState('login');
+  const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [notice, setNotice] = useState('');
+  const [prof, setProf] = useState(() => (customer ? { ...customer.profile } : { name: '', phone: '', city: '', address: '', email: '' }));
+  const [savedMsg, setSavedMsg] = useState('');
+  useEffect(() => { if (customer) setProf({ ...customer.profile }); }, [customer]);
+
+  const doLogin = async () => {
+    setErr(''); setBusy(true);
+    try { const d = await customerAuth.login(f.email.trim(), f.password); onAuthed(d); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const doRegister = async () => {
+    setErr(''); setNotice('');
+    if (!f.name.trim() || !f.email.trim() || !f.password) { setErr('Please fill name, email and password'); return; }
+    if (f.password.length < 6) { setErr('Password must be at least 6 characters'); return; }
+    if (f.password !== f.confirm) { setErr('Passwords do not match'); return; }
+    setBusy(true);
+    try {
+      const d = await customerAuth.signup(f.email.trim(), f.password, { name: f.name.trim(), phone: f.phone.trim() });
+      if (d.access_token) onAuthed(d);
+      else { setNotice('Account created. Please log in.'); setMode('login'); }
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const saveProfile = async () => {
+    setErr(''); setSavedMsg(''); setBusy(true);
+    try { const u = await customerAuth.updateProfile(customer.access_token, { name: prof.name, phone: prof.phone, city: prof.city, address: prof.address }); onProfileUpdated(u); setSavedMsg('Saved ✓'); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-auto p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-8">
+        <div className="p-6 border-b flex justify-between items-center">
+          <h2 className="text-lg font-bold text-slate-900">{customer ? 'My Account' : (mode === 'login' ? 'Log In' : 'Create Account')}</h2>
+          <button onClick={onClose} aria-label="Close"><X size={22} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{err}</div>}
+          {notice && <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3">{notice}</div>}
+          {customer ? (
+            <>
+              <div className="text-sm text-slate-500">Signed in as <span className="font-medium text-slate-700">{customer.profile.email}</span></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Name</label><input value={prof.name} onChange={e => setProf({...prof, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={prof.phone} onChange={e => setProf({...prof, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">City</label><input value={prof.city} onChange={e => setProf({...prof, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Address</label><input value={prof.address} onChange={e => setProf({...prof, address: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              {savedMsg && <div className="text-sm text-green-600">{savedMsg}</div>}
+              <button onClick={saveProfile} disabled={busy} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold">{busy ? 'Saving…' : 'Save Profile'}</button>
+              <button onClick={onLogout} className="w-full border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"><LogOut size={16} /> Log Out</button>
+            </>
+          ) : mode === 'login' ? (
+            <>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <button onClick={doLogin} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Logging in…' : 'Log In'}</button>
+              <div className="text-sm text-center text-slate-500">No account? <button onClick={() => { setErr(''); setMode('register'); }} className="text-amber-600 font-medium">Create one</button></div>
+            </>
+          ) : (
+            <>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Name *</label><input value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Email *</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={f.phone} onChange={e => setF({...f, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password *</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm Password *</label><input type="password" value={f.confirm} onChange={e => setF({...f, confirm: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <button onClick={doRegister} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Creating…' : 'Create Account'}</button>
+              <div className="text-sm text-center text-slate-500">Have an account? <button onClick={() => { setErr(''); setMode('login'); }} className="text-amber-600 font-medium">Log in</button></div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ===== EXTERNAL SERVICES =====
 async function pushToGoogleSheets(inquiry) {
   try {
@@ -738,7 +850,7 @@ function ProformaModal({ items, business, onLog, onClose }) {
 }
 
 // ===== CONTACT PAGE =====
-function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast }) {
+function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast, customer }) {
   const [form, setForm] = useState(() => {
     try { const s = localStorage.getItem('wsContactForm'); if (s) return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '', ...JSON.parse(s) }; } catch (e) {}
     return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' };
@@ -821,6 +933,14 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     }
   }
   const apptReady = availableDates.length > 0 && apptSlots.length > 0;
+
+  useEffect(() => {
+    if (customer && customer.profile) {
+      const p = customer.profile;
+      setForm(prev => ({ ...prev, name: prev.name || p.name || '', phone: prev.phone || p.phone || '', email: prev.email || p.email || '', city: prev.city || p.city || '' }));
+      setAppt(prev => ({ ...prev, name: prev.name || p.name || '', phone: prev.phone || p.phone || '' }));
+    }
+  }, [customer]);
 
   if (submitted) {
     const StatusItem = ({ status, label }) => {
@@ -1421,6 +1541,8 @@ export default function App() {
   const toastTimer = useRef(null);
   const [dark, setDark] = useState(false);
   const [showProforma, setShowProforma] = useState(false);
+  const [customer, setCustomer] = useState(null); // { access_token, refresh_token, profile }
+  const [showAccount, setShowAccount] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -1429,6 +1551,33 @@ export default function App() {
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const persistCustomer = (session) => {
+    try {
+      if (session) localStorage.setItem('wsCustomerSession', JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }));
+      else localStorage.removeItem('wsCustomerSession');
+    } catch (e) {}
+  };
+  const applyCustomerSession = (data) => {
+    if (!data || !data.access_token) return false;
+    const c = { access_token: data.access_token, refresh_token: data.refresh_token, profile: customerProfile(data.user) };
+    setCustomer(c);
+    persistCustomer(c);
+    return true;
+  };
+  const logoutCustomer = () => { setCustomer(null); persistCustomer(null); setShowAccount(false); };
+  const onCustomerProfileUpdated = (user) => { setCustomer(c => (c ? { ...c, profile: customerProfile(user) } : c)); };
+
+  useEffect(() => {
+    let stored;
+    try { stored = JSON.parse(localStorage.getItem('wsCustomerSession') || 'null'); } catch (e) { stored = null; }
+    if (stored && stored.refresh_token) {
+      customerAuth.refresh(stored.refresh_token)
+        .then(d => applyCustomerSession(d))
+        .catch(() => { try { localStorage.removeItem('wsCustomerSession'); } catch (e) {} });
+    }
+  }, []);
+
 
   const [business, setBusiness] = useState(DEFAULT_BUSINESS);
   const [products, setProducts] = useState([]);
@@ -1811,6 +1960,7 @@ export default function App() {
           </nav>
           <div className="flex items-center gap-2">
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
+            <button onClick={() => setShowAccount(true)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
             <button onClick={() => setShowInquiry(true)} className="relative p-2 hover:bg-amber-50 rounded-lg"><ShoppingBag size={22} className="text-slate-700" />{inquiryList.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{inquiryList.length}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
@@ -2007,7 +2157,7 @@ export default function App() {
 
         {page === 'faq' && <div className="max-w-3xl mx-auto px-4 py-12"><h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">FAQ</h1><p className="text-slate-600 mb-12">Common questions from our retailers</p><div className="space-y-3">{faqs.map(f => <FAQItem key={f.id} q={f.q} a={f.a} />)}{faqs.length === 0 && <div className="text-center text-slate-500 py-12">No FAQs yet</div>}</div></div>}
 
-        {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} />}
+        {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} customer={customer} />}
       </main>
 
       <footer className="bg-slate-900 text-white pt-12 pb-40 mt-16">
@@ -2107,6 +2257,8 @@ export default function App() {
       )}
 
       {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} onLog={logProforma} onClose={() => setShowProforma(false)} />}
+
+      {showAccount && <AccountModal customer={customer} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showAdminLogin && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowAdminLogin(false); setPwdError(''); setAdminPwd(''); }}>
