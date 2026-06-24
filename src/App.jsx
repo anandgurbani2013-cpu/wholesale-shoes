@@ -101,6 +101,12 @@ const customerAuth = {
       return r.ok;
     } catch (e) { return false; }
   },
+  async saveInquiryHistory(access_token, inquiryHistory) {
+    try {
+      const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ data: { inquiryHistory } }) });
+      return r.ok;
+    } catch (e) { return false; }
+  },
 };
 
 function mergeCarts(a, b) {
@@ -133,7 +139,7 @@ function customerProfile(user) {
   return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', city: m.city || '', address: m.address || '' };
 }
 
-function AccountModal({ customer, onAuthed, onLogout, onProfileUpdated, onClose }) {
+function AccountModal({ customer, inquiryHistory, onAuthed, onLogout, onProfileUpdated, onClose }) {
   const [mode, setMode] = useState('login');
   const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [busy, setBusy] = useState(false);
@@ -185,6 +191,24 @@ function AccountModal({ customer, onAuthed, onLogout, onProfileUpdated, onClose 
               <div><label className="text-sm font-medium text-slate-700 block mb-1">Address</label><input value={prof.address} onChange={e => setProf({...prof, address: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
               {savedMsg && <div className="text-sm text-green-600">{savedMsg}</div>}
               <button onClick={saveProfile} disabled={busy} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold">{busy ? 'Saving…' : 'Save Profile'}</button>
+              <div className="pt-4 mt-2 border-t border-slate-200">
+                <div className="font-semibold text-slate-900 mb-2 flex items-center gap-2"><ListChecks size={16} className="text-amber-500" /> My Inquiries</div>
+                {(!inquiryHistory || inquiryHistory.length === 0) ? (
+                  <div className="text-sm text-slate-500">No inquiries yet. When you send an inquiry, it'll show here.</div>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-auto">
+                    {inquiryHistory.map(h => (
+                      <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm">
+                        <div className="text-xs text-slate-500 mb-1">{new Date(h.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                        {h.products && h.products.length > 0 ? (
+                          <div className="text-slate-700">{h.products.map(p => `${p.name}${p.quantity ? ` (${p.quantity})` : ''}`).join(', ')}</div>
+                        ) : <div className="text-slate-500 italic">General inquiry</div>}
+                        {h.message && <div className="text-slate-500 mt-1 line-clamp-2">“{h.message}”</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={onLogout} className="w-full border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"><LogOut size={16} /> Log Out</button>
             </>
           ) : mode === 'login' ? (
@@ -927,7 +951,7 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
 }
 
 // ===== CONTACT PAGE =====
-function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast, customer }) {
+function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast, customer, onInquirySubmitted }) {
   const [form, setForm] = useState(() => {
     try { const s = localStorage.getItem('wsContactForm'); if (s) return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '', ...JSON.parse(s) }; } catch (e) {}
     return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' };
@@ -958,6 +982,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     
     setSubmitting(false);
     setSubmitted(true);
+    if (dbOk || emailOk || sheetsOk) { try { onInquirySubmitted && onInquirySubmitted(inq); } catch (e) {} }
     setInquiryList([]);
     setForm({ name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' });
     try { localStorage.removeItem('wsContactForm'); } catch (e) {}
@@ -1671,6 +1696,7 @@ export default function App() {
   const [customer, setCustomer] = useState(null); // { access_token, refresh_token, profile }
   const [showAccount, setShowAccount] = useState(false);
   const [showIdleWarn, setShowIdleWarn] = useState(false);
+  const [inquiryHistory, setInquiryHistory] = useState([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
@@ -1696,7 +1722,18 @@ export default function App() {
     const accountInquiry = Array.isArray(m.inquiry) ? m.inquiry : [];
     setShopCart(local => mergeCarts(local, accountCart));
     setInquiryList(local => mergeInquiry(local, accountInquiry));
+    setInquiryHistory(Array.isArray(m.inquiryHistory) ? m.inquiryHistory : []);
     return true;
+  };
+  // Record a submitted inquiry to the logged-in customer's private account history
+  const recordInquiryHistory = (inq) => {
+    if (!customer || !customer.access_token) return;
+    const rec = { id: inq.id, date: inq.date, message: inq.message || '', products: (inq.products || []).map(p => ({ code: p.code, name: p.name, quantity: p.quantity })) };
+    setInquiryHistory(prev => {
+      const next = [rec, ...(Array.isArray(prev) ? prev : [])].slice(0, 30);
+      customerAuth.saveInquiryHistory(customer.access_token, next);
+      return next;
+    });
   };
   const logoutCustomer = async () => {
     setShowIdleWarn(false);
@@ -2409,7 +2446,7 @@ export default function App() {
 
         {page === 'faq' && <div className="max-w-3xl mx-auto px-4 py-12"><h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">FAQ</h1><p className="text-slate-600 mb-12">Common questions from our retailers</p><div className="space-y-3">{faqs.map(f => <FAQItem key={f.id} q={f.q} a={f.a} />)}{faqs.length === 0 && <div className="text-center text-slate-500 py-12">No FAQs yet</div>}</div></div>}
 
-        {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} customer={customer} />}
+        {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} customer={customer} onInquirySubmitted={recordInquiryHistory} />}
       </main>
 
       <footer className="bg-slate-900 text-white pt-12 pb-40 mt-16">
@@ -2548,7 +2585,7 @@ export default function App() {
       {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} customer={customer} onLog={logProforma} onClose={() => setShowProforma(false)} />}
 
 
-      {showAccount && <AccountModal customer={customer} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
