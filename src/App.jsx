@@ -153,7 +153,7 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
 
   const doLogin = async () => {
     setErr(''); setBusy(true);
-    try { const d = await customerAuth.login(f.email.trim(), f.password); onAuthed(d); }
+    try { const d = await customerAuth.login(f.email.trim(), f.password); onAuthed(d, 'login'); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const doRegister = async () => {
@@ -164,7 +164,7 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
     setBusy(true);
     try {
       const d = await customerAuth.signup(f.email.trim(), f.password, { name: f.name.trim(), phone: f.phone.trim() });
-      if (d.access_token) onAuthed(d);
+      if (d.access_token) onAuthed(d, 'register');
       else { setNotice('Account created. Please log in.'); setMode('login'); }
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -297,6 +297,25 @@ async function pushToGoogleSheets(inquiry) {
     console.warn('Google Sheets not available in this environment (will work after deployment):', e.message); 
     return null; // null = not attempted/available, vs false = attempted but failed
   }
+}
+
+// Sync a customer's profile (never the password) to the Customers sheet; Apps Script upserts by email
+async function syncCustomerToSheet(profile, event) {
+  try {
+    if (!profile || !profile.email) return null;
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      type: 'customer',
+      event: event || 'login',
+      email: profile.email,
+      name: profile.name || '',
+      phone: profile.phone || '',
+      city: profile.city || '',
+      address: profile.address || '',
+      userId: profile.id || '',
+      date: new Date().toISOString()
+    }) });
+    return true;
+  } catch (e) { return null; }
 }
 
 async function sendInquiryEmail(inquiry) {
@@ -2723,7 +2742,7 @@ export default function App() {
       {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} customer={customer} onLog={logProforma} onClose={() => setShowProforma(false)} />}
 
 
-      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} initialTab={accountTab} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
