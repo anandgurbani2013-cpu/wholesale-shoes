@@ -475,7 +475,6 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const DEFAULT_FAQS = [
-  { id: 'faq_1', q: 'What is the minimum order quantity (MOQ)?', a: 'Our MOQ typically starts at 50 pairs per product.' },
   { id: 'faq_2', q: 'Do you offer customization or private labeling?', a: 'Yes, we offer customization for bulk orders.' },
   { id: 'faq_3', q: 'What are your payment terms?', a: 'Advance payment / Net 30 for approved retailers' },
   { id: 'faq_4', q: 'How long does delivery take?', a: '7-15 business days from order confirmation.' },
@@ -491,7 +490,6 @@ const DEFAULT_TESTIMONIALS = [
 
 const DEFAULT_FEATURES = [
   { id: 'feat_1', icon: '🏆', title: 'Premium Quality', desc: 'Hand-picked materials and expert craftsmanship in every pair' },
-  { id: 'feat_2', icon: '📦', title: 'Low MOQ', desc: 'Competitive minimum order quantities for retailers of all sizes' },
   { id: 'feat_3', icon: '🚚', title: 'Fast Delivery', desc: 'Pan India delivery with 7-15 business days lead time' },
   { id: 'feat_4', icon: '⭐', title: 'Best Pricing', desc: 'Direct from manufacturer with bulk discounts' },
 ];
@@ -1882,7 +1880,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 </div>
               </div>
               <div>
-                <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><Truck size={18} /> Wholesale Terms</h3>
+                <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><Truck size={18} /> Order Terms</h3>
                 <div className="grid md:grid-cols-1 gap-4">
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Payment Terms</label><input value={editBiz.paymentTerms || ''} onChange={e => setEditBiz({...editBiz, paymentTerms: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Lead Time</label><input value={editBiz.leadTime || ''} onChange={e => setEditBiz({...editBiz, leadTime: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
@@ -2577,7 +2575,6 @@ export default function App() {
                 <span className="flex items-center gap-1.5"><CheckCircle size={16} /> GST Registered</span>
                 <span className="flex items-center gap-1.5"><Truck size={16} /> {business.shippingCoverage} Delivery</span>
                 <span className="flex items-center gap-1.5"><Award size={16} /> Quality Assured</span>
-                <span className="flex items-center gap-1.5"><Package size={16} /> Low MOQ</span>
               </div>
             </section>
 
