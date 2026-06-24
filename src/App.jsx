@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -352,7 +352,7 @@ async function sendInquiryEmail(inquiry) {
       body: JSON.stringify({
         access_key: WEB3FORMS_KEY,
         subject: `${inquiry.inqNo ? `[${inquiry.inqNo}] ` : ''}${inquiry.source === 'Proforma Download' ? '📄 Proforma Estimate Lead' : 'New Inquiry'} from ${inquiry.name}${inquiry.shop ? ' - ' + inquiry.shop : ''}`,
-        from_name: 'Wholesale Shoes Website',
+        from_name: 'Shoes Website',
         inquiry_no: inquiry.inqNo || 'N/A',
         source: inquiry.source || 'Inquiry Form',
         name: inquiry.name,
@@ -376,51 +376,6 @@ async function sendInquiryEmail(inquiry) {
   }
 }
 
-async function askAI(messages, businessContext) {
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 500,
-        system: `You are a helpful customer support assistant for ${businessContext.name}, a wholesale men's footwear business. Be friendly, concise, and professional.
-
-Business Info:
-- Name: ${businessContext.name}
-- Phone: ${businessContext.phone}
-- WhatsApp: ${businessContext.whatsapp}
-- Email: ${businessContext.email}
-- Address: ${businessContext.address}
-- Hours: ${businessContext.hours}
-- Payment Terms: ${businessContext.paymentTerms}
-- Lead Time: ${businessContext.leadTime}
-- Shipping: ${businessContext.shippingCoverage}
-- About: ${businessContext.about}
-
-Products (${businessContext.products?.length || 0} total):
-${businessContext.products?.slice(0, 15).map(p => `- ${p.code}: ${p.name} (${businessContext.categories?.find(c => c.id === p.category)?.name || 'N/A'}, MOQ: ${p.moq} pairs, From ₹${p.priceFrom})`).join('\n') || 'No products yet'}
-
-Categories: ${businessContext.categories?.map(c => c.name).join(', ') || 'N/A'}
-
-Guidelines:
-- Answer questions about products, pricing, MOQ, shipping, payment terms
-- If asked about specific product not in list, suggest contacting via WhatsApp
-- For orders/quotes, direct them to use "Add to Inquiry" or WhatsApp
-- Be friendly but brief (2-4 sentences usually)
-- Never make up information you don't have
-- If unsure, recommend WhatsApp: ${businessContext.whatsapp}`,
-        messages: messages
-      })
-    });
-    if (!r.ok) throw new Error('AI request failed');
-    const data = await r.json();
-    return data.content[0].text;
-  } catch (e) {
-    console.error('AI error:', e);
-    return `Sorry, I'm having trouble right now. Please contact us directly on WhatsApp at ${businessContext.whatsapp} or call ${businessContext.phone} for immediate assistance.`;
-  }
-}
 
 // ===== DEFAULT DATA =====
 const DEFAULT_CATEGORIES = [
@@ -482,7 +437,6 @@ const DEFAULT_BUSINESS = {
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'catalog', label: 'Catalog', icon: Grid },
-  { id: 'wholesale', label: 'Wholesale Info', icon: FileText },
   { id: 'about', label: 'About', icon: Info },
   { id: 'faq', label: 'FAQ', icon: HelpCircle },
   { id: 'contact', label: 'Contact', icon: MessageCircle },
@@ -608,75 +562,6 @@ function ProductCard({ product, categories, onView, onAddToInquiry }) {
 }
 
 // ===== AI CHATBOT =====
-function AIChatbot({ business, products, categories }) {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: `Hi! 👋 I'm your virtual assistant from ${business.name}. How can I help you today? Ask me about products, pricing, MOQ, shipping, or anything else!` }
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef(null);
-
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
-
-  const send = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = { role: 'user', content: input };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    setInput('');
-    setLoading(true);
-    const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
-    const response = await askAI(apiMessages, { ...business, products, categories });
-    setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    setLoading(false);
-  };
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="fixed bottom-[160px] lg:bottom-24 right-6 w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 rounded-full shadow-2xl flex items-center justify-center text-white z-40 transition-all hover:scale-110 group" title="Ask AI Assistant">
-        <Bot size={26} />
-        <span className="absolute -top-2 -left-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">AI</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="fixed bottom-[88px] lg:bottom-6 right-6 z-50 bg-white rounded-2xl shadow-2xl w-80 sm:w-96 h-[500px] flex flex-col border border-slate-200">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 rounded-t-2xl flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><Bot size={20} /></div>
-          <div>
-            <div className="font-bold text-sm">AI Assistant</div>
-            <div className="text-xs text-blue-100 flex items-center gap-1"><span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span> Online 24/7</div>
-          </div>
-        </div>
-        <button onClick={() => setOpen(false)} className="hover:bg-white/20 p-1 rounded"><X size={20} /></button>
-      </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm ${m.role === 'user' ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'}`}>{m.content}</div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm">
-              <div className="flex gap-1"><span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span><span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span><span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span></div>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="p-3 border-t bg-white rounded-b-2xl">
-        <div className="flex gap-2">
-          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Ask me anything..." disabled={loading} className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          <button onClick={send} disabled={loading || !input.trim()} className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white p-2 rounded-lg"><Send size={18} /></button>
-        </div>
-        <div className="text-xs text-slate-400 mt-1 text-center">Powered by AI • For urgent help, use WhatsApp</div>
-      </div>
-    </div>
-  );
-}
 
 // ===== GST INVOICE GENERATOR =====
 function GSTInvoiceGenerator({ inquiry, business, onClose }) {
@@ -2487,7 +2372,7 @@ export default function App() {
             <section className="py-16 bg-gradient-to-r from-amber-500 to-amber-600 text-white">
               <div className="max-w-4xl mx-auto px-4 text-center">
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Stock Up?</h2>
-                <p className="text-lg mb-8 opacity-90">Get our latest catalog and competitive wholesale pricing</p>
+                <p className="text-lg mb-8 opacity-90">Get our latest catalog and competitive pricing</p>
                 <div className="flex flex-wrap gap-4 justify-center"><button onClick={() => navigate('catalog')} className="bg-white text-amber-600 hover:bg-slate-50 px-8 py-3 rounded-lg font-semibold">Browse Catalog</button><button onClick={() => navigate('contact')} className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-lg font-semibold">Request Quote</button></div>
               </div>
             </section>
@@ -2496,7 +2381,7 @@ export default function App() {
 
         {page === 'catalog' && (
           <div className="max-w-7xl mx-auto px-4 py-12">
-            <div className="mb-8"><h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Product Catalog</h1><p className="text-slate-600">Browse our complete range of wholesale men's footwear</p></div>
+            <div className="mb-8"><h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Product Catalog</h1><p className="text-slate-600">Browse our complete range of men's footwear</p></div>
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6 sticky top-20 z-30 border">
               <div className="flex flex-col md:flex-row gap-3">
                 <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or code..." className="w-full pl-10 pr-4 py-2 border rounded-lg" /></div>
@@ -2597,20 +2482,6 @@ export default function App() {
           </div>
         )}
 
-        {page === 'wholesale' && (
-          <div className="max-w-5xl mx-auto px-4 py-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">Wholesale Information</h1>
-            <p className="text-slate-600 mb-12">Everything you need to know about ordering from us</p>
-            {steps.length > 0 && <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 mb-8"><h2 className="text-2xl font-bold text-slate-900 mb-6">How to Order</h2><div className="space-y-4">{steps.map((s, i) => <div key={s.id} className="flex gap-4"><div className="w-10 h-10 bg-amber-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">{i + 1}</div><div><div className="font-semibold text-slate-900">{s.title}</div><div className="text-sm text-slate-600">{s.desc}</div></div></div>)}</div></div>}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white border rounded-xl p-6"><Package className="text-amber-500 mb-3" size={32} /><h3 className="font-bold text-slate-900 mb-2">Minimum Order Quantity</h3><p className="text-sm text-slate-600">MOQ varies by product. Larger orders qualify for better pricing.</p></div>
-              <div className="bg-white border rounded-xl p-6"><Truck className="text-amber-500 mb-3" size={32} /><h3 className="font-bold text-slate-900 mb-2">Shipping & Delivery</h3><p className="text-sm text-slate-600">{business.shippingCoverage}. Lead time: {business.leadTime}.</p></div>
-              <div className="bg-white border rounded-xl p-6"><CheckCircle className="text-amber-500 mb-3" size={32} /><h3 className="font-bold text-slate-900 mb-2">Payment Terms</h3><p className="text-sm text-slate-600">{business.paymentTerms}</p></div>
-              <div className="bg-white border rounded-xl p-6"><Star className="text-amber-500 mb-3" size={32} /><h3 className="font-bold text-slate-900 mb-2">Volume Discounts</h3><p className="text-sm text-slate-600">Tiered pricing rewards larger orders.</p></div>
-            </div>
-          </div>
-        )}
-
         {page === 'faq' && <div className="max-w-3xl mx-auto px-4 py-12"><h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">FAQ</h1><p className="text-slate-600 mb-12">Common questions from our retailers</p><div className="space-y-3">{faqs.map(f => <FAQItem key={f.id} q={f.q} a={f.a} />)}{faqs.length === 0 && <div className="text-center text-slate-500 py-12">No FAQs yet</div>}</div></div>}
 
         {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} customer={customer} onInquirySubmitted={recordInquiryHistory} />}
@@ -2682,7 +2553,7 @@ export default function App() {
         
         {/* WhatsApp button - primary */}
         <a 
-          href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent("Hi, I'd like to know more about your wholesale products.")}`} 
+          href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent("Hi, I'd like to know more about your products.")}`} 
           target="_blank" 
           rel="noopener noreferrer" 
           className="group flex items-center"
