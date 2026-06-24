@@ -1498,6 +1498,18 @@ function CrudListEditor({ title, icon: Icon, items, onSave, fields, itemLabel = 
 }
 
 // ===== ADMIN PANEL =====
+function getMapSrc(business) {
+  const rawEmbed = (business.mapEmbedUrl || '').trim();
+  let mapSrc = '';
+  if (rawEmbed) {
+    const m = rawEmbed.match(/src\s*=\s*"([^"]+)"/i);
+    mapSrc = m ? m[1] : rawEmbed;
+  } else if ((business.mapQuery || '').trim()) {
+    mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(business.mapQuery.trim())}&output=embed`;
+  }
+  return { src: mapSrc, valid: /^https?:\/\//i.test(mapSrc) };
+}
+
 function PolicyPage({ title, intro, sections }) {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
@@ -2737,11 +2749,11 @@ export default function App() {
             )}
 
             {features.length > 0 && (
-              <section id="sec-why" className="py-16 bg-white">
+              <section id="sec-why" className="py-16 bg-slate-50">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">Why Choose Us</h2></div>
-                  <div className={`grid gap-6 ${features.length >= 4 ? 'md:grid-cols-4' : features.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-                    {features.map((f) => <div key={f.id} className="text-center p-6 rounded-xl hover:bg-slate-50 transition-colors"><div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">{f.icon}</div><h3 className="font-bold text-slate-900 mb-2">{f.title}</h3><p className="text-sm text-slate-600">{f.desc}</p></div>)}
+                  <div className="flex flex-wrap justify-center gap-6">
+                    {features.map((f) => <div key={f.id} className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:shadow-md transition-shadow basis-full sm:basis-[calc(50%-12px)] lg:basis-[calc(33.333%-16px)]"><div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">{f.icon}</div><h3 className="font-bold text-slate-900 mb-2">{f.title}</h3><p className="text-sm text-slate-600 leading-relaxed">{f.desc}</p></div>)}
                   </div>
                 </div>
               </section>
@@ -2864,18 +2876,32 @@ export default function App() {
           </div>
         )}
 
-        {page === 'about' && (
-          <div className="max-w-5xl mx-auto px-4 py-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">About Us</h1>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Story</h2>
-            <p className="text-slate-700 leading-relaxed mb-8">{business.about}</p>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Mission</h2>
-            <p className="text-slate-700 leading-relaxed mb-8">{business.mission}</p>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Visit Our Facility</h2>
-            <p className="text-slate-700 leading-relaxed">📍 {business.address}</p>
-            <p className="text-slate-700 leading-relaxed">⏰ {business.hours}</p>
+        {page === 'about' && (() => {
+          const map = getMapSrc(business);
+          return (
+          <div className="max-w-6xl mx-auto px-4 py-12">
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-8">About Us</h1>
+            <div className="grid lg:grid-cols-3 gap-8 items-start">
+              <div className="lg:col-span-2">
+                <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Story</h2>
+                <p className="text-slate-700 leading-relaxed mb-8 whitespace-pre-line">{business.about}</p>
+                <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Mission</h2>
+                <p className="text-slate-700 leading-relaxed whitespace-pre-line">{business.mission}</p>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="p-5">
+                  <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><MapPin size={18} className="text-amber-500" /> Visit us</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed flex items-start gap-2 mb-2"><MapPin size={14} className="mt-0.5 flex-shrink-0 text-slate-400" />{business.address}</p>
+                  <p className="text-sm text-slate-600 leading-relaxed flex items-start gap-2"><Clock size={14} className="mt-0.5 flex-shrink-0 text-slate-400" />{business.hours}</p>
+                </div>
+                {map.valid && <iframe title="Our location" src={map.src} className="w-full" style={{ height: 200, border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>}
+                {map.valid && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.mapQuery || business.address || '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 text-sm text-amber-600 hover:bg-amber-50 py-3 font-medium border-t border-slate-100"><MapPin size={16} /> Get directions</a>}
+                {!map.valid && <div className="px-5 pb-5 text-xs text-slate-400">Add your shop's Google Maps address in admin → Business Info to show a map here.</div>}
+              </div>
+            </div>
           </div>
-        )}
+          );
+        })()}
 
         {page === 'faq' && <div className="max-w-3xl mx-auto px-4 py-12"><h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">FAQ</h1><p className="text-slate-600 mb-12">Common questions from our retailers</p><div className="space-y-3">{faqs.map(f => <FAQItem key={f.id} q={f.q} a={f.a} />)}{faqs.length === 0 && <div className="text-center text-slate-500 py-12">No FAQs yet</div>}</div></div>}
 
