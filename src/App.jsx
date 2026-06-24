@@ -1578,6 +1578,18 @@ export default function App() {
     }
   }, []);
 
+  // Auto-logout customer after inactivity
+  useEffect(() => {
+    if (!customer) return;
+    const IDLE_MS = 3 * 60 * 1000; // 3 minutes
+    let timer;
+    const reset = () => { clearTimeout(timer); timer = setTimeout(() => { logoutCustomer(); }, IDLE_MS); };
+    const events = ['mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, reset)); };
+  }, [customer]);
+
 
   const [business, setBusiness] = useState(DEFAULT_BUSINESS);
   const [products, setProducts] = useState([]);
