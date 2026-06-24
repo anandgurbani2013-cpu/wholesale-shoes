@@ -694,9 +694,15 @@ function tierRateForQty(item, qty) {
 }
 
 // ===== PROFORMA ESTIMATE (client-facing, NOT a tax invoice) =====
-function ProformaModal({ items, business, onLog, onClose }) {
+function ProformaModal({ items, business, customer, onLog, onClose }) {
   const [step, setStep] = useState('select');
-  const [buyer, setBuyer] = useState({ name: '', shop: '', city: '', phone: '' });
+  const [buyer, setBuyer] = useState(() => (customer ? { name: customer.profile.name || '', shop: '', city: customer.profile.city || '', phone: customer.profile.phone || '' } : { name: '', shop: '', city: '', phone: '' }));
+  const [useMine, setUseMine] = useState(!!customer);
+  const toggleUseMine = (checked) => {
+    setUseMine(checked);
+    if (checked && customer) setBuyer(b => ({ ...b, name: customer.profile.name || '', city: customer.profile.city || '', phone: customer.profile.phone || '' }));
+    else setBuyer(b => ({ ...b, name: '', city: '', phone: '' }));
+  };
   const [selected, setSelected] = useState(() => items.map(it => it.id));
   const toggle = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const loggedRef = useRef(false);
@@ -736,6 +742,12 @@ function ProformaModal({ items, business, onLog, onClose }) {
           </div>
           <div className="p-6 space-y-4">
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-slate-600">This is a proforma estimate for your planning — not a GST tax invoice. Prices are indicative; final pricing is confirmed when you place an order.</div>
+            {customer && (
+              <label className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2.5 cursor-pointer text-sm text-slate-700">
+                <input type="checkbox" checked={useMine} onChange={e => toggleUseMine(e.target.checked)} />
+                <span>This is for me — use my account details{customer.profile.name ? ` (${customer.profile.name})` : ''}</span>
+              </label>
+            )}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Your Name *</label>
               <input value={buyer.name} onChange={e => setBuyer({...buyer, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
@@ -2268,7 +2280,7 @@ export default function App() {
         </div>
       )}
 
-      {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} onLog={logProforma} onClose={() => setShowProforma(false)} />}
+      {showProforma && inquiryList.length > 0 && <ProformaModal items={inquiryList} business={business} customer={customer} onLog={logProforma} onClose={() => setShowProforma(false)} />}
 
       {showAccount && <AccountModal customer={customer} onAuthed={(d) => { applyCustomerSession(d); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
