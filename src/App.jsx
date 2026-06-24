@@ -1052,8 +1052,12 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
               <div className="font-semibold text-slate-900 mb-1">Pay ₹{done.total.toLocaleString('en-IN')} via UPI</div>
               {upiId ? (<>
                 <div className="text-slate-600">UPI ID: <span className="font-mono font-semibold">{upiId}</span></div>
-                {upiLink && <a href={upiLink} className="inline-block mt-2 bg-slate-900 text-white px-4 py-2 rounded-lg font-semibold">Open UPI app to pay</a>}
-                <div className="text-xs text-slate-500 mt-2">After paying, we'll confirm your payment and dispatch your order.</div>
+                <div className="my-3 flex flex-col items-center">
+                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`} alt="Scan to pay via UPI" width="180" height="180" className="rounded-lg border bg-white p-1" />
+                  <div className="text-xs text-slate-500 mt-1">Scan with any UPI app to pay (amount pre-filled)</div>
+                </div>
+                {upiLink && <a href={upiLink} className="inline-block bg-slate-900 text-white px-4 py-2 rounded-lg font-semibold">Open UPI app to pay (on phone)</a>}
+                <div className="text-xs text-slate-500 mt-2">On a computer, scan the QR with your phone. After paying, we'll confirm your payment and dispatch your order.</div>
               </>) : <div className="text-slate-600">We'll share UPI payment details on WhatsApp shortly.</div>}
             </div>
           )}
