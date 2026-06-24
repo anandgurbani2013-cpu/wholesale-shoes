@@ -176,7 +176,7 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
 
   const inquiriesView = (
     <div>
-      <div className="flex items-center gap-2 mb-4"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My inquiries</h3>{inquiryHistory && inquiryHistory.length > 0 && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{inquiryHistory.length}</span>}</div>
+      <div className="flex items-center gap-2 mb-4"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My inquiries</h3></div>
       {(!inquiryHistory || inquiryHistory.length === 0) ? (
         <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><Inbox size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No inquiries yet</div><div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div></div>
       ) : (
@@ -291,11 +291,28 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
 async function pushToGoogleSheets(inquiry) {
   try {
     const productsStr = inquiry.products?.map(p => `${p.code}-${p.name} (${p.quantity} pairs)`).join('; ') || '';
-    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: inquiry.type || 'inquiry', name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, apptDate: inquiry.apptDate || '', apptTime: inquiry.apptTime || '', source: inquiry.source || 'Inquiry Form' }) });
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: inquiry.type || 'inquiry', inqNo: inquiry.inqNo || '', name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, apptDate: inquiry.apptDate || '', apptTime: inquiry.apptTime || '', source: inquiry.source || 'Inquiry Form' }) });
     return true;
   } catch (e) { 
     console.warn('Google Sheets not available in this environment (will work after deployment):', e.message); 
     return null; // null = not attempted/available, vs false = attempted but failed
+  }
+}
+
+// Allocate the next sequential inquiry reference like INQ-00001 (counts existing inquiry records)
+async function nextInquiryNumber() {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries?select=id&data->>type=eq.inquiry`, {
+      method: 'GET',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Prefer: 'count=exact', Range: '0-0' }
+    });
+    let count = 0;
+    const cr = r.headers.get('content-range');
+    if (r.ok && cr && cr.includes('/')) { const total = parseInt(cr.split('/')[1], 10); if (!isNaN(total)) count = total; }
+    else if (!r.ok) throw new Error('count failed');
+    return `INQ-${String(count + 1).padStart(5, '0')}`;
+  } catch (e) {
+    return `INQ-${String(Date.now()).slice(-5)}`;
   }
 }
 
@@ -326,8 +343,9 @@ async function sendInquiryEmail(inquiry) {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         access_key: WEB3FORMS_KEY,
-        subject: `${inquiry.source === 'Proforma Download' ? '📄 Proforma Estimate Lead' : 'New Inquiry'} from ${inquiry.name}${inquiry.shop ? ' - ' + inquiry.shop : ''}`,
+        subject: `${inquiry.inqNo ? `[${inquiry.inqNo}] ` : ''}${inquiry.source === 'Proforma Download' ? '📄 Proforma Estimate Lead' : 'New Inquiry'} from ${inquiry.name}${inquiry.shop ? ' - ' + inquiry.shop : ''}`,
         from_name: 'Wholesale Shoes Website',
+        inquiry_no: inquiry.inqNo || 'N/A',
         source: inquiry.source || 'Inquiry Form',
         name: inquiry.name,
         shop: inquiry.shop || 'N/A',
@@ -1040,7 +1058,8 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
     if (!form.name || !form.phone) { showToast('Please fill name and phone'); return; }
     setSubmitting(true);
     const whatsappNumber = form.sameWhatsapp ? form.phone : (form.whatsapp || form.phone);
-    const inq = { id: `inq_${Date.now()}`, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new', type: 'inquiry', source: 'Inquiry Form' };
+    const inqNo = await nextInquiryNumber();
+    const inq = { id: `inq_${Date.now()}`, inqNo, ...form, whatsapp: whatsappNumber, products: [...inquiryList], date: new Date().toISOString(), status: 'new', type: 'inquiry', source: 'Inquiry Form' };
     
     const dbOk = await saveInquiry(inq);
     setSubmissionStatus(s => ({ ...s, db: dbOk }));
