@@ -2067,13 +2067,30 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center">
-          <div className="relative w-14 h-14">
-            <div className="absolute inset-0 rounded-full border-4 border-amber-100"></div>
-            <div className="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
+      <div className="min-h-screen bg-white">
+        <style>{`@keyframes wsShimmer{100%{transform:translateX(100%)}}.ws-sk{position:relative;overflow:hidden;background:#ece9e3}.ws-sk::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(245,158,11,.10),rgba(245,158,11,.28),rgba(245,158,11,.10),transparent);animation:wsShimmer 1.4s infinite}`}</style>
+        <div className="border-b border-slate-100">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="ws-sk rounded-lg" style={{ width: 150, height: 34 }}></div>
+            <div className="hidden md:flex gap-5">{[0,1,2,3].map(i => <div key={i} className="ws-sk rounded" style={{ width: 58, height: 14 }}></div>)}</div>
+            <div className="flex gap-2"><div className="ws-sk rounded-full" style={{ width: 34, height: 34 }}></div><div className="ws-sk rounded-full" style={{ width: 34, height: 34 }}></div></div>
           </div>
-          <p className="mt-5 text-slate-500 font-medium tracking-wide">Loading…</p>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 py-10">
+          <div className="ws-sk rounded-lg mb-8" style={{ width: 220, height: 26 }}></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {[0,1,2,3,4,5,6,7].map(i => (
+              <div key={i} className="border border-slate-100 rounded-xl overflow-hidden">
+                <div className="ws-sk" style={{ width: '100%', aspectRatio: '1 / 1' }}></div>
+                <div className="p-4 space-y-2.5">
+                  <div className="ws-sk rounded" style={{ width: '40%', height: 10 }}></div>
+                  <div className="ws-sk rounded" style={{ width: '85%', height: 14 }}></div>
+                  <div className="ws-sk rounded" style={{ width: '50%', height: 18 }}></div>
+                  <div className="ws-sk rounded-lg mt-1" style={{ width: '100%', height: 34 }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
