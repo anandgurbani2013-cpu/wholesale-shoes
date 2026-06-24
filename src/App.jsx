@@ -1714,6 +1714,7 @@ export default function App() {
   }, [shopCart, customer]);
 
 
+  const [business, setBusiness] = useState(DEFAULT_BUSINESS);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [faqs, setFaqs] = useState(DEFAULT_FAQS);
