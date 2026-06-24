@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Bot, Loader2, Sun, Moon } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -2268,7 +2268,34 @@ export default function App() {
             </div>
           </div>
           <nav className="hidden lg:flex items-center gap-6">
-            {NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`text-sm font-medium transition-colors ${page === item.id ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>{item.label}</button>)}
+            <button onClick={() => navigate('home')} className={`text-sm font-medium transition-colors ${page === 'home' ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>Home</button>
+
+            <div className="relative group">
+              <button className={`text-sm font-medium transition-colors flex items-center gap-1 ${page === 'catalog' || page === 'product' ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>Shop <ChevronDown size={14} /></button>
+              <div className="absolute left-0 top-full pt-3 hidden group-hover:block z-50">
+                <div className="bg-white border border-slate-100 rounded-xl shadow-xl py-2 w-56">
+                  <button onClick={() => { setCatFilter('all'); navigate('catalog'); }} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><Grid size={16} /> All products</button>
+                  <div className="border-t border-slate-100 my-1"></div>
+                  {categories.map(c => <button key={c.id} onClick={() => { setCatFilter(c.id); navigate('catalog'); }} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><span className="text-base leading-none">{c.icon}</span> {c.name}</button>)}
+                  <div className="border-t border-slate-100 my-1"></div>
+                  <button onClick={() => goToSection('sec-featured')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><Star size={16} /> Featured products</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <button className={`text-sm font-medium transition-colors flex items-center gap-1 ${page === 'about' || page === 'faq' ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>Company <ChevronDown size={14} /></button>
+              <div className="absolute left-0 top-full pt-3 hidden group-hover:block z-50">
+                <div className="bg-white border border-slate-100 rounded-xl shadow-xl py-2 w-56">
+                  <button onClick={() => navigate('about')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><Info size={16} /> About us</button>
+                  <button onClick={() => goToSection('sec-why')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><CheckCircle size={16} /> Why choose us</button>
+                  <button onClick={() => goToSection('sec-reviews')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><MessageSquare size={16} /> What retailers say</button>
+                  <button onClick={() => navigate('faq')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><HelpCircle size={16} /> FAQ</button>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={() => navigate('contact')} className={`text-sm font-medium transition-colors ${page === 'contact' ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>Contact</button>
           </nav>
           <div className="flex items-center gap-2">
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
