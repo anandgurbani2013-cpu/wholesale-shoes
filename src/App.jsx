@@ -2069,12 +2069,11 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center">
-          <div className="relative w-16 h-16">
+          <div className="relative w-14 h-14">
             <div className="absolute inset-0 rounded-full border-4 border-amber-100"></div>
             <div className="absolute inset-0 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
           </div>
-          <p className="mt-5 text-slate-800 font-semibold tracking-wide">{business.name || 'Loading'}</p>
-          <p className="mt-1 text-sm text-slate-400">Loading…</p>
+          <p className="mt-5 text-slate-500 font-medium tracking-wide">Loading…</p>
         </div>
       </div>
     );
