@@ -89,7 +89,23 @@ const customerAuth = {
     if (!r.ok) throw new Error(d.msg || 'Could not update profile');
     return d;
   },
+  async saveCart(access_token, cart) {
+    try {
+      const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ data: { cart } }) });
+      return r.ok;
+    } catch (e) { return false; }
+  },
 };
+
+function mergeCarts(a, b) {
+  const map = {};
+  [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])].forEach(it => {
+    if (!it || !it.key) return;
+    if (map[it.key]) map[it.key] = { ...map[it.key], qty: Math.max(map[it.key].qty || 1, it.qty || 1) };
+    else map[it.key] = { ...it };
+  });
+  return Object.values(map);
+}
 
 function customerProfile(user) {
   const m = (user && user.user_metadata) || {};
@@ -1653,9 +1669,15 @@ export default function App() {
     const c = { access_token: data.access_token, refresh_token: data.refresh_token, profile: customerProfile(data.user) };
     setCustomer(c);
     persistCustomer(c);
+    const accountCart = (data.user && data.user.user_metadata && Array.isArray(data.user.user_metadata.cart)) ? data.user.user_metadata.cart : [];
+    setShopCart(local => mergeCarts(local, accountCart));
     return true;
   };
-  const logoutCustomer = () => { setCustomer(null); persistCustomer(null); setShowAccount(false); };
+  const logoutCustomer = () => {
+    if (customer && customer.access_token) { customerAuth.saveCart(customer.access_token, shopCart); }
+    setCustomer(null); persistCustomer(null); setShowAccount(false); setShopCart([]); setShowCart(false);
+    try { localStorage.removeItem('wsShopCart'); } catch (e) {}
+  };
   const onCustomerProfileUpdated = (user) => { setCustomer(c => (c ? { ...c, profile: customerProfile(user) } : c)); };
 
   useEffect(() => {
@@ -1671,7 +1693,7 @@ export default function App() {
   // Auto-logout customer after inactivity
   useEffect(() => {
     if (!customer) return;
-    const IDLE_MS = 3 * 60 * 1000; // 3 minutes
+    const IDLE_MS = 20 * 60 * 1000; // 20 minutes
     let timer;
     const reset = () => { clearTimeout(timer); timer = setTimeout(() => { logoutCustomer(); }, IDLE_MS); };
     const events = ['mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
@@ -1680,8 +1702,18 @@ export default function App() {
     return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, reset)); };
   }, [customer]);
 
+  // While logged in, save cart changes to the account (debounced) so it follows the customer across devices
+  const cartSyncTimer = useRef(null);
+  const cartSyncReady = useRef(false);
+  useEffect(() => {
+    if (!cartSyncReady.current) { cartSyncReady.current = true; return; }
+    if (!customer || !customer.access_token) return;
+    clearTimeout(cartSyncTimer.current);
+    cartSyncTimer.current = setTimeout(() => { customerAuth.saveCart(customer.access_token, shopCart); }, 1500);
+    return () => clearTimeout(cartSyncTimer.current);
+  }, [shopCart, customer]);
 
-  const [business, setBusiness] = useState(DEFAULT_BUSINESS);
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [faqs, setFaqs] = useState(DEFAULT_FAQS);
