@@ -131,7 +131,7 @@ function mergeInquiry(a, b) {
 
 // Keep only the fields the inquiry drawer + proforma need, so account storage stays small
 function slimInquiry(list) {
-  return (Array.isArray(list) ? list : []).map(it => ({ id: it.id, code: it.code, name: it.name, image: it.image, moq: it.moq, quantity: it.quantity, retailPrice: it.retailPrice, qtyBreaks: it.qtyBreaks, priceFrom: it.priceFrom, selSize: it.selSize || '', selColor: it.selColor || '' }));
+  return (Array.isArray(list) ? list : []).map(it => ({ id: it.id, code: it.code, name: it.name, image: it.image, quantity: it.quantity, retailPrice: it.retailPrice, qtyBreaks: it.qtyBreaks, priceFrom: it.priceFrom, selSize: it.selSize || '', selColor: it.selColor || '' }));
 }
 
 function customerProfile(user) {
@@ -458,9 +458,8 @@ function getDefaultProducts() {
     id: `prod_${i + 1}`, code: `SH-${String(i + 1).padStart(4, '0')}`, name: `[Product Name ${i + 1}]`,
     category: DEFAULT_CATEGORIES[i % DEFAULT_CATEGORIES.length].id, image: IMG_URLS[i % IMG_URLS.length],
     sizes: ['6', '7', '8', '9', '10', '11'], colors: ['Black', 'Brown', 'Tan'],
-    material: '[Material details]', moq: 50, priceFrom: 'XXX',
+    material: '[Material details]', priceFrom: 'XXX',
     isNew: i < 3, isBestseller: i >= 3 && i < 6, description: '[Product description]',
-    pricingTiers: [{ qty: '50-99 pairs', price: '₹XXX' }, { qty: '100-499 pairs', price: '₹XXX' }, { qty: '500+ pairs', price: '₹XXX' }],
   }));
 }
 
@@ -572,7 +571,7 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
   
   const calcRow = (item) => {
     const price = parseFloat(item.priceFrom) || 0;
-    const subtotal = price * (item.quantity || item.moq);
+    const subtotal = price * (item.quantity || 1);
     const cgst = (subtotal * gstRate) / 200;
     const sgst = (subtotal * gstRate) / 200;
     const total = subtotal + cgst + sgst;
@@ -664,7 +663,7 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
                     <td className="p-2">{i + 1}</td>
                     <td className="p-2"><div className="font-medium">{item.name}</div><div className="text-xs text-slate-500">{item.code}</div></td>
                     <td className="p-2 text-center">{business.hsnCode || '6403'}</td>
-                    <td className="p-2 text-center">{item.quantity || item.moq}</td>
+                    <td className="p-2 text-center">{item.quantity || 1}</td>
                     <td className="p-2 text-right">₹{parseFloat(item.priceFrom || 0).toFixed(2)}</td>
                     <td className="p-2 text-right">₹{r.subtotal.toFixed(2)}</td>
                     <td className="p-2 text-right">₹{r.cgst.toFixed(2)}</td>
@@ -718,24 +717,6 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
   );
 }
 
-// Match a quantity to a product's pricing tier; returns {price, label} or null
-function tierRateForQty(item, qty) {
-  const tiers = Array.isArray(item.pricingTiers) ? item.pricingTiers : [];
-  for (const t of tiers) {
-    const label = (t.qty || '').toString();
-    const nums = label.match(/\d+/g);
-    if (!nums || !nums.length) continue;
-    const hasPlus = /\+|above|over|more|onwards|\&|plus/i.test(label);
-    const min = parseInt(nums[0], 10);
-    const max = nums.length >= 2 ? parseInt(nums[1], 10) : (hasPlus ? Infinity : Infinity);
-    if (qty >= min && qty <= max) {
-      const price = parseFloat((t.price || '').toString().replace(/[^0-9.]/g, ''));
-      if (!isNaN(price) && price > 0) return { price, label };
-    }
-  }
-  return null;
-}
-
 // ===== RETAIL (B2C) PRICING & STOCK HELPERS =====
 function retailUnitPrice(p, qty) {
   const base = parseFloat(p.retailPrice) || 0;
@@ -781,7 +762,7 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
   const gstRate = parseFloat(business.gstRate) || 18;
   const chosen = items.filter(it => selected.includes(it.id));
   const calcRow = (item) => {
-    const qty = item.quantity || item.moq || 0;
+    const qty = item.quantity || 1 || 0;
     const base = parseFloat(item.retailPrice) || parseFloat(item.priceFrom) || 0;
     const price = retailUnitPrice(item, qty) || base;
     const subtotal = price * qty;
@@ -797,7 +778,7 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
     if (!loggedRef.current) {
       loggedRef.current = true;
       try {
-        onLog && onLog({ name: buyer.name.trim(), shop: buyer.shop.trim(), city: buyer.city.trim(), phone: buyer.phone.trim(), products: chosen.map(it => ({ code: it.code, name: it.name, quantity: it.quantity || it.moq })) });
+        onLog && onLog({ name: buyer.name.trim(), shop: buyer.shop.trim(), city: buyer.city.trim(), phone: buyer.phone.trim(), products: chosen.map(it => ({ code: it.code, name: it.name, quantity: it.quantity || 1 })) });
       } catch (e) { console.warn('Proforma lead log failed:', e); }
     }
     setStep('view');
@@ -835,7 +816,7 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
                   <label key={it.id} className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2 cursor-pointer">
                     <input type="checkbox" checked={selected.includes(it.id)} onChange={() => toggle(it.id)} />
                     <span className="flex-1 text-sm"><span className="font-medium">{it.name}</span> <span className="text-slate-500">({it.code})</span></span>
-                    <span className="text-xs text-slate-500">{it.quantity || it.moq} pairs</span>
+                    <span className="text-xs text-slate-500">{it.quantity || 1} pairs</span>
                   </label>
                 ))}
               </div>
@@ -1252,7 +1233,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [editingProduct, setEditingProduct] = useState(null);
   const [editBiz, setEditBiz] = useState(business);
   const [invoiceFor, setInvoiceFor] = useState(null);
-  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', moq: 50, priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, description: '', availabilityNote: '', pricingTiers: [{qty:'50-99 pairs',price:''},{qty:'100-499 pairs',price:''},{qty:'500+ pairs',price:''}], retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
+  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, description: '', availabilityNote: '', retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
   const [pForm, setPForm] = useState(blankProduct);
 
   useEffect(() => { setEditBiz(business); }, [business]);
@@ -1403,14 +1384,13 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-50 border-b"><tr><th className="text-left p-4 text-sm font-semibold">Image</th><th className="text-left p-4 text-sm font-semibold">Code</th><th className="text-left p-4 text-sm font-semibold">Name</th><th className="text-left p-4 text-sm font-semibold">Category</th><th className="text-left p-4 text-sm font-semibold">MOQ</th><th className="text-left p-4 text-sm font-semibold">Tags</th><th className="text-left p-4 text-sm font-semibold">Actions</th></tr></thead>
+                  <thead className="bg-slate-50 border-b"><tr><th className="text-left p-4 text-sm font-semibold">Image</th><th className="text-left p-4 text-sm font-semibold">Code</th><th className="text-left p-4 text-sm font-semibold">Name</th><th className="text-left p-4 text-sm font-semibold">Category</th><th className="text-left p-4 text-sm font-semibold">Tags</th><th className="text-left p-4 text-sm font-semibold">Actions</th></tr></thead>
                   <tbody>
                     {products.map(p => (
                       <tr key={p.id} className="border-b hover:bg-slate-50">
                         <td className="p-4"><SafeImage src={p.image} alt={p.name} className="w-12 h-12 rounded object-cover" /></td>
                         <td className="p-4 text-sm font-mono">{p.code}</td><td className="p-4 text-sm font-medium">{p.name}</td>
                         <td className="p-4 text-sm">{categories.find(c => c.id === p.category)?.name || 'None'}</td>
-                        <td className="p-4 text-sm">{p.moq}</td>
                         <td className="p-4"><div className="flex gap-1 flex-wrap">{p.isNew && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">New</span>}{p.isBestseller && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">Best</span>}{p.active === false && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">Hidden</span>}{p.outOfStock && <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Out of stock</span>}</div></td>
                         <td className="p-4"><div className="flex gap-2"><button onClick={() => editProduct(p)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><Edit size={16} /></button><button onClick={() => deleteProduct(p.id)} className="text-red-600 hover:bg-red-50 p-2 rounded"><Trash2 size={16} /></button></div></td>
                       </tr>
@@ -1431,7 +1411,6 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Product Code *</label><input value={pForm.code} onChange={e => setPForm({...pForm, code: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Product Name *</label><input value={pForm.name} onChange={e => setPForm({...pForm, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Category</label><select value={pForm.category} onChange={e => setPForm({...pForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-lg">{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">MOQ (pairs)</label><input type="number" value={pForm.moq} onChange={e => setPForm({...pForm, moq: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Price From (₹)</label><input value={pForm.priceFrom} onChange={e => setPForm({...pForm, priceFrom: e.target.value})} placeholder="e.g., 500" className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Product Images</label>
