@@ -131,7 +131,7 @@ function mergeInquiry(a, b) {
 
 // Keep only the fields the inquiry drawer + proforma need, so account storage stays small
 function slimInquiry(list) {
-  return (Array.isArray(list) ? list : []).map(it => ({ id: it.id, code: it.code, name: it.name, image: it.image, moq: it.moq, quantity: it.quantity, retailPrice: it.retailPrice, qtyBreaks: it.qtyBreaks, priceFrom: it.priceFrom }));
+  return (Array.isArray(list) ? list : []).map(it => ({ id: it.id, code: it.code, name: it.name, image: it.image, moq: it.moq, quantity: it.quantity, retailPrice: it.retailPrice, qtyBreaks: it.qtyBreaks, priceFrom: it.priceFrom, selSize: it.selSize || '', selColor: it.selColor || '' }));
 }
 
 function customerProfile(user) {
@@ -199,7 +199,7 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
               {isOpen && (
                 <div className="px-4 pb-4 -mt-1">
                   {h.products && h.products.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 mb-2">{h.products.map((p, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{p.name || p.code}{p.quantity ? ` × ${p.quantity}` : ''}</span>)}</div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">{h.products.map((p, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{p.name || p.code}{p.quantity ? ` × ${p.quantity}` : ''}{(p.selSize||p.selColor) ? ` (${[p.selSize,p.selColor].filter(Boolean).join('/')})` : ''}</span>)}</div>
                   ) : <div className="text-xs text-slate-400 italic mb-2">General inquiry (no products selected)</div>}
                   {h.message && <div className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border-l-2 border-amber-300">{h.message}</div>}
                   {(h.shop || h.city) && <div className="text-xs text-slate-400 mt-2">{[h.shop, h.city].filter(Boolean).join(' · ')}</div>}
@@ -304,7 +304,7 @@ function AccountModal({ customer, inquiryHistory, initialTab, onAuthed, onLogout
 // ===== EXTERNAL SERVICES =====
 async function pushToGoogleSheets(inquiry) {
   try {
-    const productsStr = inquiry.products?.map(p => `${p.code}-${p.name} (${p.quantity} pairs)`).join('; ') || '';
+    const productsStr = inquiry.products?.map(p => `${p.code}-${p.name}${(p.selSize||p.selColor)?` [${[p.selSize,p.selColor].filter(Boolean).join('/')}]`:''} (${p.quantity} pairs)`).join('; ') || '';
     await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: inquiry.type || 'inquiry', inqNo: inquiry.inqNo || '', name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, apptDate: inquiry.apptDate || '', apptTime: inquiry.apptTime || '', source: inquiry.source || 'Inquiry Form' }) });
     return true;
   } catch (e) { 
@@ -345,7 +345,7 @@ async function syncCustomerToSheet(profile, event) {
 
 async function sendInquiryEmail(inquiry) {
   try {
-    const productsStr = inquiry.products?.map(p => `${p.code}-${p.name} (${p.quantity} pairs)`).join('; ') || 'None';
+    const productsStr = inquiry.products?.map(p => `${p.code}-${p.name}${(p.selSize||p.selColor)?` [${[p.selSize,p.selColor].filter(Boolean).join('/')}]`:''} (${p.quantity} pairs)`).join('; ') || 'None';
     const r = await fetch('https://api.web3forms.com/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -1088,7 +1088,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
           {inquiryList.length > 0 && (
             <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
               <div className="font-semibold text-slate-900 mb-2">📦 Products in Your Inquiry ({inquiryList.length})</div>
-              <div className="text-sm text-slate-600">{inquiryList.map(p => `${p.code} (${p.quantity} pairs)`).join(', ')}</div>
+              <div className="text-sm text-slate-600">{inquiryList.map(p => `${p.code}${(p.selSize||p.selColor)?` (${[p.selSize,p.selColor].filter(Boolean).join('/')})`:''} ×${p.quantity}`).join(', ')}</div>
             </div>
           )}
           <button onClick={submit} disabled={submitting} className="mt-6 w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2">
@@ -1531,7 +1531,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   {i.products && i.products.length > 0 && (
                     <div>
                       <div className="text-sm font-medium text-slate-700 mb-2">Products of Interest:</div>
-                      <div className="space-y-1">{i.products.map((p, idx) => (<div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{p.code} - {p.name}</span><span className="font-medium">{p.quantity} pairs</span></div>))}</div>
+                      <div className="space-y-1">{i.products.map((p, idx) => (<div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{p.code} - {p.name}{(p.selSize||p.selColor) ? ` — ${[p.selSize,p.selColor].filter(Boolean).join('/')}` : ''}</span><span className="font-medium">{p.quantity} pairs</span></div>))}</div>
                     </div>
                   )}
                   <div className="mt-4 flex gap-2 flex-wrap">
@@ -1716,7 +1716,7 @@ export default function App() {
   // Record a submitted inquiry to the logged-in customer's private account history
   const recordInquiryHistory = (inq) => {
     if (!customer || !customer.access_token) return;
-    const rec = { id: inq.id, inqNo: inq.inqNo || '', date: inq.date, message: (inq.message || '').trim(), shop: inq.shop || '', city: inq.city || '', products: (inq.products || []).map(p => ({ code: p.code, name: p.name, quantity: p.quantity })) };
+    const rec = { id: inq.id, inqNo: inq.inqNo || '', date: inq.date, message: (inq.message || '').trim(), shop: inq.shop || '', city: inq.city || '', products: (inq.products || []).map(p => ({ code: p.code, name: p.name, quantity: p.quantity, selSize: p.selSize || '', selColor: p.selColor || '' })) };
     setInquiryHistory(prev => {
       const next = [rec, ...(Array.isArray(prev) ? prev : [])].slice(0, 30);
       customerAuth.saveInquiryHistory(customer.access_token, next);
@@ -1930,9 +1930,9 @@ export default function App() {
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => { if (sort === 'newest') return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0); if (sort === 'bestsellers') return (b.isBestseller ? 1 : 0) - (a.isBestseller ? 1 : 0); return 0; });
 
-  const addToInquiry = (p) => {
+  const addToInquiry = (p, size = '', color = '', qty = 1) => {
     if (inquiryList.find(x => x.id === p.id)) { showToast('Already in inquiry list'); return; }
-    setInquiryList([...inquiryList, { ...p, quantity: p.moq }]);
+    setInquiryList([...inquiryList, { ...p, quantity: Math.max(1, qty || 1), selSize: size || '', selColor: color || '' }]);
     showToast('Added to inquiry list ✓');
   };
 
@@ -2454,7 +2454,7 @@ export default function App() {
                           : <button disabled={!canBuy} onClick={() => addToShopCart(p, sel.size, sel.color, sel.qty || 1)} className={`flex-1 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${canBuy ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><ShoppingBag size={18} /> Add to Cart</button>}
                         {p.outOfStock
                           ? <button disabled className="flex-1 bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Out of Stock</button>
-                          : <button onClick={() => addToInquiry(p)} className="flex-1 bg-slate-900 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
+                          : <button onClick={() => { const hasOpts = ((p.sizes || []).filter(Boolean).length > 0 || (p.colors || []).filter(Boolean).length > 0); if (base > 0 && hasOpts && (!sel.size || !sel.color)) { showToast('Please select size and colour first'); return; } addToInquiry(p, sel.size, sel.color, (sel.size && sel.color) ? (sel.qty || 1) : 1); }} className="flex-1 bg-slate-900 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
                         <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${p.code} - ${p.name}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> WhatsApp</a>
                       </div>
                     </div>
@@ -2620,13 +2620,13 @@ export default function App() {
                           <div className="text-xs font-mono text-slate-500">{p.code}</div>
                           <div className="font-medium text-sm">{p.name}</div>
                           <div className="flex items-center gap-2 mt-2">
-                            <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(p.moq, x.quantity - 10)} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Minus size={12} className="mx-auto" /></button>
-                            <input type="number" value={p.quantity} onChange={e => { const v = parseInt(e.target.value) || p.moq; setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(p.moq, v)} : x)); }} className="w-16 text-center border rounded py-1 text-sm" />
-                            <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: x.quantity + 10} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
+                            <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(1, (x.quantity || 1) - 1)} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Minus size={12} className="mx-auto" /></button>
+                            <input type="number" value={p.quantity} onChange={e => { const v = parseInt(e.target.value) || 1; setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: Math.max(1, v)} : x)); }} className="w-16 text-center border rounded py-1 text-sm" />
+                            <button onClick={() => setInquiryList(inquiryList.map(x => x.id === p.id ? {...x, quantity: (x.quantity || 1) + 1} : x))} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
                             <span className="text-xs text-slate-500">pairs</span>
                             <button onClick={() => setInquiryList(inquiryList.filter(x => x.id !== p.id))} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
                           </div>
-                          <div className="text-xs text-slate-500 mt-1">Min: {p.moq} pairs</div>
+                          {(p.selSize || p.selColor) && <div className="text-xs text-slate-500 mt-1">{[p.selSize, p.selColor].filter(Boolean).join(' · ')}</div>}
                         </div>
                       </div>
                     ))}
