@@ -216,8 +216,8 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
 
   const doLogin = async () => {
     setErr(''); setBusy(true);
-    try { const d = await customerAuth.login(f.email.trim(), f.password); onAuthed(d, 'login'); }
-    catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { const d = await customerAuth.login(f.email.trim(), f.password); onAuthed(d, 'login'); setTimeout(() => { try { window.location.reload(); } catch (e) {} }, 250); }
+    catch (e) { setErr(e.message); setBusy(false); }
   };
   const [loginMethod, setLoginMethod] = useState('password');
   const [codeSent, setCodeSent] = useState(false);
