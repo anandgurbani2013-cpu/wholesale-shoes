@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -164,7 +164,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     let cancel = false;
     (async () => {
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&user_id=eq.${encodeURIComponent(customer.profile.id)}&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&user_id=eq.${encodeURIComponent(customer.profile.id)}&order=created_at.asc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
         if (!r.ok) return;
         const rows = await r.json();
         if (cancel || !Array.isArray(rows)) return;
@@ -214,7 +214,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   };
 
   const inqLiveIds = new Set((liveInq || []).map(x => x.id));
-  const inqToShow = [...(liveInq || []), ...((inquiryHistory || []).filter(h => !inqLiveIds.has(h.id)))].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const inqToShow = [...(liveInq || []), ...((inquiryHistory || []).filter(h => !inqLiveIds.has(h.id)))].sort((a, b) => new Date(a.date) - new Date(b.date));
   const inquiriesView = (
     <div>
       <div className="flex items-center gap-2 mb-4"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My inquiries</h3></div>
@@ -226,17 +226,17 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
             const isOpen = openInq === h.id;
             return (
             <div key={h.id} className="border border-slate-200 rounded-xl overflow-hidden">
-              <button onClick={() => setOpenInq(isOpen ? null : h.id)} className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-slate-50">
+              <div role="button" tabIndex={0} onClick={() => setOpenInq(isOpen ? null : h.id)} className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-slate-50 cursor-pointer">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {h.inqNo ? <span className="text-sm font-mono font-bold text-amber-600">{h.inqNo}</span> : <span className="text-sm font-semibold text-slate-700">Inquiry</span>}
+                    {h.inqNo ? <span className="text-sm font-mono font-bold text-amber-600"><CopyableCode code={h.inqNo} /></span> : <span className="text-sm font-semibold text-slate-700">Inquiry</span>}
                     {h.status ? <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${h.status === 'resolved' ? 'bg-green-50 text-green-700' : h.status === 'in progress' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>{h.status}</span> : <span className="text-[11px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Submitted</span>}
                     {h.adminComment && <span className="text-[10px] font-semibold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">💬 Update</span>}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><Clock size={12} /> {new Date(h.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
                 <ChevronRight size={18} className={`text-slate-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-              </button>
+              </div>
               {isOpen && (
                 <div className="px-4 pb-4 -mt-1">
                   {h.products && h.products.length > 0 ? (
@@ -255,7 +255,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     </div>
   );
 
-  const ordersToShow = liveOrders || orderHistory || [];
+  const ordersToShow = (liveOrders || orderHistory || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
   const ordersView = (
     <div>
       <div className="flex items-center gap-2 mb-4"><ShoppingBag size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My orders</h3></div>
@@ -267,10 +267,10 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
             const isOpen = openOrd === o.id;
             return (
             <div key={o.id} className="border border-slate-200 rounded-xl overflow-hidden">
-              <button onClick={() => setOpenOrd(isOpen ? null : o.id)} className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-slate-50">
+              <div role="button" tabIndex={0} onClick={() => setOpenOrd(isOpen ? null : o.id)} className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-slate-50 cursor-pointer">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-mono font-bold text-amber-600">{o.orderNo}</span>
+                    <span className="text-sm font-mono font-bold text-amber-600"><CopyableCode code={o.orderNo} /></span>
                     <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full capitalize">{o.status || 'new'}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1"><Clock size={12} /> {new Date(o.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
@@ -279,7 +279,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                   <span className="font-bold text-slate-900 text-sm">₹{Number(o.total).toLocaleString('en-IN')}</span>
                   <ChevronRight size={18} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                 </div>
-              </button>
+              </div>
               {isOpen && (
                 <div className="px-4 pb-4 -mt-1">
                   {o.items && o.items.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{o.items.map((it, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{it.name}{(it.size || it.color) ? ` (${[it.size, it.color].filter(Boolean).join('/')})` : ''} ×{it.qty}</span>)}</div>}
@@ -913,7 +913,7 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
   const calcRow = (item) => {
     const qty = item.quantity || 1 || 0;
     const base = parseFloat(item.retailPrice) || parseFloat(item.priceFrom) || 0;
-    const price = retailUnitPrice(item, qty) || base;
+    const price = discountedUnitPrice(item, qty) || base;
     const subtotal = price * qty;
     const cgst = subtotal * gstRate / 200;
     const sgst = subtotal * gstRate / 200;
@@ -1556,6 +1556,54 @@ function PolicyPage({ title, intro, sections }) {
   );
 }
 
+function CopyableCode({ code, className = '' }) {
+  const [copied, setCopied] = useState(false);
+  if (!code) return null;
+  const copy = async (e) => {
+    if (e) e.stopPropagation();
+    try { await navigator.clipboard.writeText(code); }
+    catch (_) { try { const ta = document.createElement('textarea'); ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); } catch (e2) {} }
+    setCopied(true); setTimeout(() => setCopied(false), 1200);
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 ${className}`}>
+      <span className="select-all">{code}</span>
+      <button type="button" onClick={copy} title="Copy" className="text-slate-400 hover:text-amber-600 active:scale-95">{copied ? <CheckCircle size={13} /> : <Copy size={13} />}</button>
+    </span>
+  );
+}
+
+function OrderStatusControl({ value, statuses, onSave }) {
+  const [status, setStatus] = useState(value || 'new');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setStatus(value || 'new'); }, [value]);
+  const dirty = status !== (value || 'new');
+  return (
+    <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">Status:
+      <select value={status} onChange={e => setStatus(e.target.value)} className="border rounded-lg px-2 py-1 text-sm font-medium capitalize">{statuses.map(st => <option key={st} value={st}>{st}</option>)}</select>
+      <button type="button" disabled={!dirty || saving} onClick={async () => { setSaving(true); await onSave(status); setSaving(false); }} className={`px-3 py-1 rounded-lg text-sm font-semibold ${dirty && !saving ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>{saving ? '…' : 'Save'}</button>
+    </label>
+  );
+}
+
+function InquiryStatusControl({ inquiry, onSave }) {
+  const norm = s => ['new', 'in progress', 'resolved'].includes(s) ? s : 'new';
+  const [status, setStatus] = useState(norm(inquiry.status));
+  const [comment, setComment] = useState(inquiry.adminComment || '');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setStatus(norm(inquiry.status)); setComment(inquiry.adminComment || ''); }, [inquiry.id, inquiry.status, inquiry.adminComment]);
+  const dirty = status !== norm(inquiry.status) || comment !== (inquiry.adminComment || '');
+  return (
+    <div className="mt-4 border-t pt-3 space-y-2">
+      <div className="flex items-center gap-2"><label className="text-sm text-slate-600">Status:</label>
+        <select value={status} onChange={e => setStatus(e.target.value)} className="text-sm border rounded-lg px-3 py-1 capitalize"><option value="new">New</option><option value="in progress">In Progress</option><option value="resolved">Resolved</option></select>
+      </div>
+      <div><label className="block text-xs font-medium text-slate-500 mb-1">Comment for customer (shown in their account)</label><textarea value={comment} onChange={e => setComment(e.target.value)} rows={2} placeholder="e.g., We've received your inquiry and will share a quote shortly." className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
+      <button type="button" disabled={!dirty || saving} onClick={async () => { setSaving(true); await onSave(status, comment); setSaving(false); }} className={`text-sm px-4 py-1.5 rounded-lg font-semibold ${dirty && !saving ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>{saving ? 'Saving…' : 'Save status & comment'}</button>
+    </div>
+  );
+}
+
 function InquiryCommentBox({ value, onSave }) {
   const [text, setText] = useState(value || '');
   const [saving, setSaving] = useState(false);
@@ -1572,6 +1620,8 @@ function InquiryCommentBox({ value, onSave }) {
 function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, updateInquiry, adminToken, navigate, showToast, setAdminAuth, logout }) {
   const [tab, setTab] = useState('dashboard');
   const [orders, setOrders] = useState([]);
+  const [inqSearch, setInqSearch] = useState('');
+  const [orderSearch, setOrderSearch] = useState('');
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
   useEffect(() => {
@@ -1581,7 +1631,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     (async () => {
       setOrdersLoading(true); setOrdersError('');
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } });
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.asc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const rows = await r.json();
         if (!cancel) setOrders(Array.isArray(rows) ? rows : []);
@@ -1861,24 +1911,24 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
 
         {tab === 'categories' && <CrudListEditor title="Categories" icon={Tag} items={categories} onSave={saveCategoriesWithCheck} itemLabel="Category" idPrefix="cat" fields={[{ key: 'id', label: 'ID (no spaces, lowercase)', required: true, hint: 'Used internally. Example: formal' }, { key: 'name', label: 'Category Name', required: true }, { key: 'icon', label: 'Icon (emoji)', required: true, placeholder: 'e.g., 👞' }]} renderItem={(item) => (<div className="flex items-center gap-3"><div className="text-3xl">{item.icon}</div><div><div className="font-semibold text-slate-900">{item.name}</div><div className="text-xs text-slate-500 font-mono">ID: {item.id} • {products.filter(p => p.category === item.id).length} products</div></div></div>)} />}
 
-        {tab === 'inquiries' && (
+        {tab === 'inquiries' && (() => {
+          const q = inqSearch.trim().toLowerCase();
+          const list = inquiries.filter(i => !q || (i.name || '').toLowerCase().includes(q) || (i.inqNo || '').toLowerCase().includes(q)).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+          return (
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">Inquiries ({inquiries.length})</h1>
+            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">Inquiries ({list.length})</h1><input value={inqSearch} onChange={e => setInqSearch(e.target.value)} placeholder="Search name or inquiry no." className="px-3 py-2 border rounded-lg text-sm w-64 max-w-full" /></div>
             <div className="space-y-4">
-              {inquiries.map(i => (
+              {list.map(i => (
                 <div key={i.id} className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
                     <div>
-                      {i.inqNo && <div className="text-xs font-mono font-bold text-amber-600 mb-0.5">{i.inqNo}</div>}
+                      {i.inqNo && <div className="text-xs font-mono font-bold text-amber-600 mb-0.5"><CopyableCode code={i.inqNo} /></div>}
                       <h3 className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">{i.name}{i.source === 'Proforma Download' && <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex items-center gap-1"><FileText size={11} /> Proforma Lead</span>}{i.type === 'appointment' && <span className="text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Clock size={11} /> Appointment</span>}</h3>
                       {i.type === 'appointment' && (i.apptDate || i.apptTime) && <div className="text-sm text-purple-700 font-medium mt-1">📅 {i.apptDate}{i.apptTime ? ` at ${i.apptTime}` : ''}</div>}
                       <div className="text-sm text-slate-600">{i.shop || 'No shop'} • {i.city || 'No city'}</div>
                       <div className="text-sm text-slate-500 mt-1">📞 {i.phone} {i.whatsapp && i.whatsapp !== i.phone && `• 💬 ${i.whatsapp}`} {i.email && `• ✉️ ${i.email}`}</div>
                     </div>
                     <div className="text-right">
-                      <select value={['new','in progress','resolved'].includes(i.status) ? i.status : 'new'} onChange={e => updateInquiry(i.id, e.target.value, i.adminComment || '')} className="text-sm border rounded-lg px-3 py-1 mb-2 capitalize">
-                        <option value="new">New</option><option value="in progress">In Progress</option><option value="resolved">Resolved</option>
-                      </select>
                       <div className="text-xs text-slate-500">{new Date(i.date).toLocaleString()}</div>
                     </div>
                   </div>
@@ -1889,7 +1939,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                       <div className="space-y-1">{i.products.map((p, idx) => (<div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{p.code} - {p.name}{(p.selSize||p.selColor) ? ` — ${[p.selSize,p.selColor].filter(Boolean).join('/')}` : ''}</span><span className="font-medium">{p.quantity} pairs</span></div>))}</div>
                     </div>
                   )}
-                  <InquiryCommentBox value={i.adminComment} onSave={(text) => updateInquiry(i.id, ['new','in progress','resolved'].includes(i.status) ? i.status : 'new', text)} />
+                  <InquiryStatusControl inquiry={i} onSave={(status, comment) => updateInquiry(i.id, status, comment)} />
                   <div className="mt-4 flex gap-2 flex-wrap">
                     <a href={`tel:${i.phone}`} className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">📞 Call</a>
                     {(i.whatsapp || i.phone) && <a href={`https://wa.me/${(i.whatsapp || i.phone + '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">💬 WhatsApp</a>}
@@ -1899,23 +1949,27 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   </div>
                 </div>
               ))}
-              {inquiries.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><Inbox size={48} className="mx-auto mb-3 opacity-50" />No inquiries yet</div>}
+              {list.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><Inbox size={48} className="mx-auto mb-3 opacity-50" />{inqSearch ? 'No inquiries match your search' : 'No inquiries yet'}</div>}
             </div>
           </div>
-        )}
+          );
+        })()}
 
-        {tab === 'orders' && (
+        {tab === 'orders' && (() => {
+          const q = orderSearch.trim().toLowerCase();
+          const list = orders.filter(row => { const o = row.data || {}; return !q || (o.name || '').toLowerCase().includes(q) || (o.orderNo || '').toLowerCase().includes(q); }).slice().sort((a, b) => new Date((a.data || {}).date || a.created_at) - new Date((b.data || {}).date || b.created_at));
+          return (
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">Orders ({orders.length})</h1>
+            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">Orders ({list.length})</h1><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Search name or order no." className="px-3 py-2 border rounded-lg text-sm w-64 max-w-full" /></div>
             {ordersError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-sm">{ordersError}</div>}
             {ordersLoading && <div className="bg-white rounded-xl p-12 text-center text-slate-500">Loading orders…</div>}
-            {!ordersLoading && !ordersError && orders.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />No orders yet</div>}
+            {!ordersLoading && !ordersError && list.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />{orderSearch ? 'No orders match your search' : 'No orders yet'}</div>}
             <div className="space-y-4">
-              {orders.map(row => { const o = row.data || {}; return (
+              {list.map(row => { const o = row.data || {}; return (
                 <div key={row.id} className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-start flex-wrap gap-2 mb-3">
                     <div>
-                      <div className="font-mono font-bold text-amber-600">{o.orderNo}</div>
+                      <div className="font-mono font-bold text-amber-600"><CopyableCode code={o.orderNo} /></div>
                       <h3 className="font-bold text-slate-900">{o.name}</h3>
                       <div className="text-sm text-slate-500 mt-0.5">📞 {o.phone}{o.whatsapp && o.whatsapp !== o.phone && ` • 💬 ${o.whatsapp}`}{o.email && ` • ✉️ ${o.email}`}</div>
                       <div className="text-sm text-slate-500">{[o.address, o.city, o.pincode].filter(Boolean).join(', ')}</div>
@@ -1937,17 +1991,14 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="mt-3 flex gap-2 flex-wrap items-center">
                     <a href={`tel:${o.phone}`} className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">📞 Call</a>
                     {(o.whatsapp || o.phone) && <a href={`https://wa.me/${(o.whatsapp || o.phone + '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">💬 WhatsApp</a>}
-                    <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">Status:
-                      <select value={row.status || 'new'} onChange={e => updateOrderStatus(row.id, e.target.value)} className="border rounded-lg px-2 py-1 text-sm font-medium capitalize">
-                        {ORDER_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
-                      </select>
-                    </label>
+                    <OrderStatusControl value={row.status} statuses={ORDER_STATUSES} onSave={(st) => updateOrderStatus(row.id, st)} />
                   </div>
                 </div>
               ); })}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {tab === 'faqs' && <CrudListEditor title="FAQs" icon={HelpCircle} items={faqs} onSave={async (l) => { await saveFaqs(l); showToast('FAQs updated ✓'); }} itemLabel="FAQ" idPrefix="faq" fields={[{ key: 'q', label: 'Question', required: true }, { key: 'a', label: 'Answer', required: true, type: 'textarea' }]} renderItem={(item) => (<div><div className="font-semibold text-slate-900 mb-1">{item.q}</div><div className="text-sm text-slate-600 line-clamp-2">{item.a}</div></div>)} />}
 
