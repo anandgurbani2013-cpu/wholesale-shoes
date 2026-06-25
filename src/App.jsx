@@ -1426,7 +1426,6 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
           <h2 className="text-xl font-bold mb-6">Send Inquiry</h2>
           <div className="grid md:grid-cols-2 gap-4">
             <div><label className="text-sm font-medium text-slate-700 block mb-1">Your Name *</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-            <div><label className="text-sm font-medium text-slate-700 block mb-1">Shop Name</label><input value={form.shop} onChange={e => setForm({...form, shop: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div><label className="text-sm font-medium text-slate-700 block mb-1">City</label><input value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone *</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div className="md:col-span-2">
