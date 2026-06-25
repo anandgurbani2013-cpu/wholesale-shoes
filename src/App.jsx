@@ -2881,7 +2881,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             {history.length > 0 && <button onClick={goBack} className="px-2 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
             <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-3">
-              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <CrestEmblem className="w-12 h-12" />}
+              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <CrestEmblem className="w-12 h-12" dark />}
               <div><div className="text-lg font-bold text-slate-900 leading-tight">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block">{business.tagline}</div></div>
             </div>
           </div>
