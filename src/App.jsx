@@ -507,15 +507,22 @@ async function pushToGoogleSheets(inquiry) {
   }
 }
 
-// Allocate the next sequential inquiry reference like INQ-00001 (counts existing inquiry records)
+// Allocate the next sequential inquiry reference like INQ-00001 via a Supabase counter
+// (a SECURITY DEFINER function), so it does NOT need to read the inquiries table.
 async function nextInquiryNumber() {
   try {
-    const rows = await sb.select('inquiries');
-    const n = (Array.isArray(rows) ? rows : []).filter(x => x && x.data && x.data.type === 'inquiry').length;
-    return `INQ-${String(n + 1).padStart(5, '0')}`;
-  } catch (e) {
-    return `INQ-${String(Date.now()).slice(-5)}`;
-  }
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/next_inquiry_number`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (r.ok) {
+      const v = await r.json();
+      if (typeof v === 'string' && v) return v;
+      if (v && typeof v.next_inquiry_number === 'string') return v.next_inquiry_number;
+    }
+  } catch (e) { /* fall through to a safe unique fallback */ }
+  return `INQ-${String(Date.now()).slice(-5)}`;
 }
 
 // Order reference, e.g. ORD-240626-165830 (date + time, unique per second)
@@ -1853,10 +1860,11 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   // Test Supabase write
                   try {
                     const testId = `test_${Date.now()}`;
-                    const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries`, { method: 'POST', headers: { ...sb.headers, 'Prefer': 'return=representation' }, body: JSON.stringify([{ id: testId, data: { test: true }, status: 'test' }]) });
+                    const ah = { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' };
+                    const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries`, { method: 'POST', headers: { ...ah, 'Prefer': 'return=minimal' }, body: JSON.stringify([{ id: testId, data: { test: true }, status: 'test' }]) });
                     if (r.ok) {
                       tests.push('✅ Supabase Write: Working');
-                      await fetch(`${SUPABASE_URL}/rest/v1/inquiries?id=eq.${testId}`, { method: 'DELETE', headers: sb.headers });
+                      await fetch(`${SUPABASE_URL}/rest/v1/inquiries?id=eq.${testId}`, { method: 'DELETE', headers: ah });
                     } else tests.push(`❌ Supabase Write: HTTP ${r.status} - ${(await r.text()).slice(0,150)}`);
                   } catch (e) { tests.push(`❌ Supabase Write: ${e.message}`); }
                   
@@ -2361,6 +2369,17 @@ export default function App() {
   const [adminAuth, setAdminAuth] = useState(false);
   const [adminToken, setAdminToken] = useState('');
   const adminTokenRef = useRef('');
+  const loadInquiriesAsAdmin = async () => {
+    const tok = adminTokenRef.current;
+    if (!tok) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries?select=*`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${tok}` } });
+      if (!r.ok) return;
+      const rows = await r.json();
+      if (Array.isArray(rows)) setInquiries(rows.map(x => ({ ...x.data, status: x.status })));
+    } catch (e) {}
+  };
+  useEffect(() => { if (adminAuth && adminToken) loadInquiriesAsAdmin(); }, [adminAuth, adminToken]);
   const [adminPwd, setAdminPwd] = useState('');
   const [pwdError, setPwdError] = useState('');
 
@@ -2385,7 +2404,7 @@ export default function App() {
           sb.select('testimonials').catch(e => { console.error('testimonials:', e); return []; }),
           sb.select('features').catch(e => { console.error('features:', e); return []; }),
           sb.select('steps').catch(e => { console.error('steps:', e); return []; }),
-          sb.select('inquiries').catch(e => { console.error('inquiries:', e); return []; }),
+          Promise.resolve([]), // inquiries are loaded admin-only (authenticated) — see effect below
         ]);
 
         if (bizRows.length > 0) setBusiness({ ...DEFAULT_BUSINESS, ...bizRows[0].data });
@@ -2451,13 +2470,18 @@ export default function App() {
 
   const saveInquiry = async (inq) => {
     setInquiries(prev => [inq, ...prev]);
-    try { 
-      await sb.upsert('inquiries', [{ id: inq.id, data: inq, status: inq.status }]); 
-      return true; 
-    } catch (e) { 
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify([{ id: inq.id, data: inq, status: inq.status }]),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status} - ${(await r.text()).slice(0, 200)}`);
+      return true;
+    } catch (e) {
       console.error('Save inquiry error:', e.message);
       alert(`Database error: ${e.message}\n\nCheck console (F12) for details. Inquiry saved locally only.`);
-      return false; 
+      return false;
     }
   };
 
@@ -2486,15 +2510,23 @@ export default function App() {
   const saveInquiries = async (list) => {
     setInquiries(list);
     try {
-      await sb.deleteAll('inquiries');
-      if (list.length > 0) await sb.upsert('inquiries', list.map(i => ({ id: i.id, data: i, status: i.status })));
+      const tok = adminTokenRef.current;
+      const h = { apikey: SUPABASE_KEY, Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' };
+      await fetch(`${SUPABASE_URL}/rest/v1/inquiries?id=neq.NONEXISTENT`, { method: 'DELETE', headers: h });
+      if (list.length > 0) await fetch(`${SUPABASE_URL}/rest/v1/inquiries`, { method: 'POST', headers: { ...h, Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(list.map(i => ({ id: i.id, data: i, status: i.status }))) });
     } catch (e) { console.error(e); }
   };
   const updateInquiry = async (inqId, status, adminComment) => {
     const cur = inquiries.find(i => i.id === inqId) || {};
     const data = { ...cur, status, adminComment };
     setInquiries(prev => prev.map(i => i.id === inqId ? { ...i, status, adminComment } : i));
-    try { await sb.upsert('inquiries', [{ id: inqId, data, status }]); syncStatusToSheet({ type: cur.type || 'inquiry', id: inqId, humanId: cur.inqNo || '', status }); showToast('Inquiry updated ✓'); }
+    try {
+      const tok = adminTokenRef.current;
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/inquiries?id=eq.${encodeURIComponent(inqId)}`, { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ data, status }) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      syncStatusToSheet({ type: cur.type || 'inquiry', id: inqId, humanId: cur.inqNo || '', status });
+      showToast('Inquiry updated ✓');
+    }
     catch (e) { showToast('Could not update inquiry'); }
   };
 
