@@ -554,9 +554,9 @@ async function pushOrderToSheets(order) {
     return true;
   } catch (e) { return null; }
 }
-async function syncStatusToSheet({ type, id, humanId, status }) {
+async function syncStatusToSheet({ type, id, humanId, status, email, name, courier, trackingNo, trackingLink }) {
   try {
-    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'updateStatus', type: type || 'inquiry', id: id || '', humanId: humanId || '', status: status || '' }) });
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'updateStatus', type: type || 'inquiry', id: id || '', humanId: humanId || '', status: status || '', email: email || '', name: name || '', courier: courier || '', trackingNo: trackingNo || '', trackingLink: trackingLink || '' }) });
     return true;
   } catch (e) { return null; }
 }
@@ -1653,6 +1653,34 @@ function CopyableCode({ code, className = '' }) {
   );
 }
 
+function OrderFulfill({ row, statuses, onSave }) {
+  const o = row.data || {};
+  const [status, setStatus] = useState(row.status || 'new');
+  const [courier, setCourier] = useState(o.courier || '');
+  const [trackingNo, setTrackingNo] = useState(o.trackingNo || '');
+  const [trackingLink, setTrackingLink] = useState(o.trackingLink || '');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setStatus(row.status || 'new'); setCourier(o.courier || ''); setTrackingNo(o.trackingNo || ''); setTrackingLink(o.trackingLink || ''); }, [row.id, row.status]);
+  const dirty = status !== (row.status || 'new') || courier !== (o.courier || '') || trackingNo !== (o.trackingNo || '') || trackingLink !== (o.trackingLink || '');
+  const showShip = status === 'shipped' || status === 'out for delivery';
+  return (
+    <div className="w-full mt-2 border-t pt-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-sm text-slate-600 flex items-center gap-2">Status:
+          <select value={status} onChange={e => setStatus(e.target.value)} className="border rounded-lg px-2 py-1 text-sm font-medium capitalize">{statuses.map(st => <option key={st} value={st}>{st}</option>)}</select>
+        </label>
+        {showShip && (<>
+          <input value={courier} onChange={e => setCourier(e.target.value)} placeholder="Courier (e.g. Delhivery)" className="border rounded-lg px-2 py-1 text-sm" />
+          <input value={trackingNo} onChange={e => setTrackingNo(e.target.value)} placeholder="Tracking no." className="border rounded-lg px-2 py-1 text-sm" />
+          <input value={trackingLink} onChange={e => setTrackingLink(e.target.value)} placeholder="Tracking link (https://…)" className="border rounded-lg px-2 py-1 text-sm flex-1 min-w-[160px]" />
+        </>)}
+        <button type="button" disabled={!dirty || saving} onClick={async () => { setSaving(true); await onSave({ status, courier, trackingNo, trackingLink }); setSaving(false); }} className={`px-3 py-1 rounded-lg text-sm font-semibold ${dirty && !saving ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>{saving ? '…' : 'Save & email'}</button>
+      </div>
+      <div className="text-xs text-slate-400 mt-1">Saving updates the status and emails the customer.{showShip ? ' Tracking details are included in the email.' : ''}</div>
+    </div>
+  );
+}
+
 function OrderStatusControl({ value, statuses, onSave }) {
   const [status, setStatus] = useState(value || 'new');
   const [saving, setSaving] = useState(false);
@@ -1723,19 +1751,24 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     })();
     return () => { cancel = true; };
   }, [tab, adminToken]);
-  const ORDER_STATUSES = ['new', 'confirmed', 'dispatched', 'delivered', 'cancelled'];
-  const updateOrderStatus = async (rowId, status) => {
-    setOrders(prev => prev.map(r => r.id === rowId ? { ...r, status } : r));
+  const ORDER_STATUSES = ['new', 'confirmed', 'shipped', 'out for delivery', 'delivered', 'cancelled'];
+  const updateOrderStatus = async (rowId, payload) => {
+    const status = (payload && payload.status) || 'new';
+    const courier = (payload && payload.courier) || '';
+    const trackingNo = (payload && payload.trackingNo) || '';
+    const trackingLink = (payload && payload.trackingLink) || '';
+    const ord = orders.find(r => r.id === rowId);
+    const newData = { ...((ord && ord.data) || {}), courier, trackingNo, trackingLink };
+    setOrders(prev => prev.map(r => r.id === rowId ? { ...r, status, data: newData } : r));
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(rowId)}`, {
         method: 'PATCH',
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, data: newData }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const ord = orders.find(r => r.id === rowId);
-      syncStatusToSheet({ type: 'order', id: rowId, humanId: (ord && ord.data && ord.data.orderNo) || '', status });
-      showToast('Order status updated ✓');
+      syncStatusToSheet({ type: 'order', id: rowId, humanId: (ord && ord.data && ord.data.orderNo) || '', status, email: (ord && ord.data && ord.data.email) || '', name: (ord && ord.data && ord.data.name) || '', courier, trackingNo, trackingLink });
+      showToast('Order updated — customer emailed ✓');
     } catch (e) { showToast('Could not update status — check the Supabase update policy'); }
   };
   const [editingProduct, setEditingProduct] = useState(null);
@@ -2072,7 +2105,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="mt-3 flex gap-2 flex-wrap items-center">
                     <a href={`tel:${o.phone}`} className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">📞 Call</a>
                     {(o.whatsapp || o.phone) && <a href={`https://wa.me/${(o.whatsapp || o.phone + '').replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded hover:bg-green-100">💬 WhatsApp</a>}
-                    <OrderStatusControl value={row.status} statuses={ORDER_STATUSES} onSave={(st) => updateOrderStatus(row.id, st)} />
+                    <OrderFulfill row={row} statuses={ORDER_STATUSES} onSave={(payload) => updateOrderStatus(row.id, payload)} />
                   </div>
                 </div>
               ); })}
