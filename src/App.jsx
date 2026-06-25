@@ -145,7 +145,7 @@ function customerProfile(user) {
   return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', city: m.city || '', address: m.address || '' };
 }
 
-function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
+function AccountModal({ customer, business, inquiryHistory, orderHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
   const [mode, setMode] = useState('login');
   const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
   const [busy, setBusy] = useState(false);
@@ -168,7 +168,7 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
         if (!r.ok) return;
         const rows = await r.json();
         if (cancel || !Array.isArray(rows)) return;
-        setLiveOrders(rows.map(row => { const d = row.data || {}; return { id: row.id, orderNo: d.orderNo, date: d.date, total: d.total, payment: d.paymentLabel || d.payment, status: row.status || d.status || 'new', items: d.items || [] }; }));
+        setLiveOrders(rows.map(row => { const d = row.data || {}; return { ...d, id: row.id, status: row.status || d.status || 'new', payment: d.paymentLabel || d.payment, paymentLabel: d.paymentLabel || d.payment }; }));
       } catch (e) {}
     })();
     return () => { cancel = true; };
@@ -284,6 +284,7 @@ function AccountModal({ customer, inquiryHistory, orderHistory, initialTab, onAu
                 <div className="px-4 pb-4 -mt-1">
                   {o.items && o.items.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{o.items.map((it, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{it.name}{(it.size || it.color) ? ` (${[it.size, it.color].filter(Boolean).join('/')})` : ''} ×{it.qty}</span>)}</div>}
                   <div className="flex justify-between items-center text-sm border-t pt-2 mt-1"><span className="text-slate-500">{o.payment}</span><span className="font-bold text-slate-900">₹{Number(o.total).toLocaleString('en-IN')}</span></div>
+                  <button onClick={() => openOrderInvoice(o, business || {})} className="mt-3 text-sm text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1.5"><Download size={15} /> Download invoice (PDF)</button>
                 </div>
               )}
             </div>
@@ -1456,8 +1457,8 @@ function CrudListEditor({ title, icon: Icon, items, onSave, fields, itemLabel = 
           <div className="space-y-4">
             {fields.map(f => (
               <div key={f.key}>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{f.label}{f.required && ' *'}</label>
-                {f.type === 'textarea' ? <textarea value={form[f.key] || ''} onChange={e => setForm({...form, [f.key]: e.target.value})} rows="3" className="w-full px-3 py-2 border rounded-lg" placeholder={f.placeholder} /> : f.type === 'number' ? <input type="number" min={f.min} max={f.max} value={form[f.key] ?? ''} onChange={e => setForm({...form, [f.key]: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder={f.placeholder} /> : <input value={form[f.key] || ''} onChange={e => setForm({...form, [f.key]: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder={f.placeholder} />}
+                {f.type !== 'checkbox' && <label className="block text-sm font-medium text-slate-700 mb-1">{f.label}{f.required && ' *'}</label>}
+                {f.type === 'checkbox' ? <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form[f.key] !== false} onChange={e => setForm({...form, [f.key]: e.target.checked})} className="w-4 h-4" /> <span className="text-sm font-medium text-slate-700">{f.label}</span></label> : f.type === 'textarea' ? <textarea value={form[f.key] || ''} onChange={e => setForm({...form, [f.key]: e.target.value})} rows="3" className="w-full px-3 py-2 border rounded-lg" placeholder={f.placeholder} /> : f.type === 'number' ? <input type="number" min={f.min} max={f.max} value={form[f.key] ?? ''} onChange={e => setForm({...form, [f.key]: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder={f.placeholder} /> : <input value={form[f.key] || ''} onChange={e => setForm({...form, [f.key]: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder={f.placeholder} />}
                 {f.hint && <div className="text-xs text-slate-500 mt-1">{f.hint}</div>}
               </div>
             ))}
@@ -1498,6 +1499,30 @@ function CrudListEditor({ title, icon: Icon, items, onSave, fields, itemLabel = 
 }
 
 // ===== ADMIN PANEL =====
+function openOrderInvoice(order, business) {
+  const items = order.items || [];
+  const hasAmounts = items.some(it => it.unit != null || it.lineTotal != null);
+  const money = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const rows = items.map(it => {
+    const line = it.lineTotal != null ? it.lineTotal : (it.unit || 0) * (it.qty || 1);
+    return `<tr><td>${esc(it.code ? it.code + ' ' : '')}${esc(it.name)}${(it.size || it.color) ? ` <span class="muted">(${esc([it.size, it.color].filter(Boolean).join(' / '))})</span>` : ''}</td><td class="c">${it.qty || 1}</td>${hasAmounts ? `<td class="r">${it.unit != null ? money(it.unit) : '—'}</td><td class="r">${money(line)}</td>` : ''}</tr>`;
+  }).join('');
+  const cs = hasAmounts ? 3 : 1;
+  const addr = esc([order.address, order.city, order.pincode].filter(Boolean).join(', '));
+  const sub = order.subtotal != null ? `<tr><td class="r" colspan="${cs}">Subtotal</td><td class="r">${money(order.subtotal)}</td></tr>` : '';
+  const gst = (order.gst != null && order.gst !== 0) ? `<tr><td class="r" colspan="${cs}">GST (${order.gstRate || 0}%)</td><td class="r">${money(order.gst)}</td></tr>` : '';
+  const del = order.delivery != null ? `<tr><td class="r" colspan="${cs}">Delivery</td><td class="r">${order.delivery ? money(order.delivery) : 'Free'}</td></tr>` : '';
+  const foot = hasAmounts
+    ? `<tfoot>${sub}${gst}${del}<tr class="tot"><td class="r" colspan="${cs}">Total</td><td class="r">${money(order.total)}</td></tr></tfoot>`
+    : `<tfoot><tr class="tot"><td class="r">Total</td><td class="r">${money(order.total)}</td></tr></tfoot>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(order.orderNo)}</title><style>*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}body{margin:0;padding:32px;color:#1e293b}.wrap{max-width:720px;margin:0 auto}.head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:20px}.biz{font-size:20px;font-weight:bold;color:#0f172a}.muted{color:#64748b;font-size:12px;font-weight:normal}h1{font-size:22px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-size:12px;text-transform:uppercase;color:#64748b}.c{text-align:center}.r{text-align:right}.tot td{font-weight:bold;font-size:15px;border-top:2px solid #0f172a;border-bottom:none}.grid{display:flex;gap:32px;font-size:13px;margin-bottom:8px}.grid h3{font-size:12px;text-transform:uppercase;color:#64748b;margin:0 0 4px}.pay{margin-top:16px;font-size:13px}.ft{margin-top:32px;text-align:center;color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px}.btn{display:inline-block;margin:0 0 16px;background:#f59e0b;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer}@media print{.btn{display:none}body{padding:0}}</style></head><body><div class="wrap"><button class="btn" onclick="window.print()">Download / Print PDF</button><div class="head"><div><div class="biz">${esc(business.name)}</div><div class="muted">${esc(business.address)}</div>${business.gstin ? `<div class="muted">GSTIN: ${esc(business.gstin)}</div>` : ''}${business.email ? `<div class="muted">${esc(business.email)}</div>` : ''}${business.phone ? `<div class="muted">${esc(business.phone)}</div>` : ''}</div><div style="text-align:right"><h1>Invoice</h1><div class="muted">${esc(order.orderNo)}</div><div class="muted">${order.date ? new Date(order.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</div></div></div><div class="grid"><div><h3>Bill to</h3><div>${esc(order.name)}</div><div class="muted">${addr}</div>${order.phone ? `<div class="muted">${esc(order.phone)}</div>` : ''}</div><div><h3>Status</h3><div style="text-transform:capitalize">${esc(order.status || 'New')}</div></div></div><table><thead><tr><th>Item</th><th class="c">Qty</th>${hasAmounts ? '<th class="r">Unit</th><th class="r">Amount</th>' : ''}</tr></thead><tbody>${rows}</tbody>${foot}</table><div class="pay">Payment method: <strong>${esc(order.paymentLabel || order.payment)}</strong></div>${order.note ? `<div class="pay">Note: ${esc(order.note)}</div>` : ''}<div class="ft">Thank you for shopping with ${esc(business.name || 'us')}.</div></div><script>setTimeout(function(){window.print();},500);</script></body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { alert('Please allow pop-ups for this site to download the invoice.'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
 function getMapSrc(business) {
   const rawEmbed = (business.mapEmbedUrl || '').trim();
   let mapSrc = '';
@@ -1918,7 +1943,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
 
         {tab === 'faqs' && <CrudListEditor title="FAQs" icon={HelpCircle} items={faqs} onSave={async (l) => { await saveFaqs(l); showToast('FAQs updated ✓'); }} itemLabel="FAQ" idPrefix="faq" fields={[{ key: 'q', label: 'Question', required: true }, { key: 'a', label: 'Answer', required: true, type: 'textarea' }]} renderItem={(item) => (<div><div className="font-semibold text-slate-900 mb-1">{item.q}</div><div className="text-sm text-slate-600 line-clamp-2">{item.a}</div></div>)} />}
 
-        {tab === 'testimonials' && <CrudListEditor title="Testimonials" icon={MessageSquare} items={testimonials} onSave={async (l) => { await saveTestimonials(l); showToast('Testimonials updated ✓'); }} itemLabel="Testimonial" idPrefix="test" fields={[{ key: 'name', label: 'Customer Name', required: true }, { key: 'shop', label: 'Shop Name' }, { key: 'city', label: 'City' }, { key: 'content', label: 'Testimonial Content', required: true, type: 'textarea' }, { key: 'rating', label: 'Rating (1-5)', type: 'number', required: true, min: 1, max: 5, default: 5 }]} renderItem={(item) => (<div><div className="flex items-center gap-2 mb-1"><div className="font-semibold text-slate-900">{item.name}</div><div className="text-amber-400 text-sm">{'★'.repeat(item.rating || 5)}</div></div><div className="text-xs text-slate-500 mb-1">{item.shop}{item.shop && item.city && ' • '}{item.city}</div><div className="text-sm text-slate-600 line-clamp-2 italic">"{item.content}"</div></div>)} />}
+        {tab === 'testimonials' && <CrudListEditor title="Testimonials" icon={MessageSquare} items={testimonials} onSave={async (l) => { await saveTestimonials(l); showToast('Testimonials updated ✓'); }} itemLabel="Testimonial" idPrefix="test" fields={[{ key: 'name', label: 'Customer Name', required: true }, { key: 'shop', label: 'Shop Name' }, { key: 'city', label: 'City' }, { key: 'content', label: 'Testimonial Content', required: true, type: 'textarea' }, { key: 'rating', label: 'Rating (1-5)', type: 'number', required: true, min: 1, max: 5, default: 5 }, { key: 'active', label: 'Show on site', type: 'checkbox', default: true }]} renderItem={(item) => (<div><div className="flex items-center gap-2 mb-1"><div className="font-semibold text-slate-900">{item.name}</div><div className="text-amber-400 text-sm">{'★'.repeat(item.rating || 5)}</div>{item.active === false && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded">Hidden</span>}</div><div className="text-xs text-slate-500 mb-1">{item.shop}{item.shop && item.city && ' • '}{item.city}</div><div className="text-sm text-slate-600 line-clamp-2 italic">"{item.content}"</div></div>)} />}
 
         {tab === 'features' && <CrudListEditor title="Why Choose Us" icon={Sparkles} items={features} onSave={async (l) => { await saveFeatures(l); showToast('Features updated ✓'); }} itemLabel="Feature" idPrefix="feat" fields={[{ key: 'icon', label: 'Icon (emoji)', required: true }, { key: 'title', label: 'Title', required: true }, { key: 'desc', label: 'Description', required: true, type: 'textarea' }]} renderItem={(item) => (<div className="flex items-start gap-3"><div className="text-3xl">{item.icon}</div><div><div className="font-semibold text-slate-900">{item.title}</div><div className="text-sm text-slate-600 line-clamp-2">{item.desc}</div></div></div>)} />}
 
@@ -2330,6 +2355,7 @@ export default function App() {
   const yearsInBusiness = Math.max(0, new Date().getFullYear() - (parseInt(business.foundedYear) || 2013));
 
   const visibleProducts = products.filter(p => p.active !== false);
+  const visibleTestimonials = testimonials.filter(t => t.active !== false);
 
   const filtered = visibleProducts
     .filter(p => catFilter === 'all' || p.category === catFilter)
@@ -2759,12 +2785,12 @@ export default function App() {
               </section>
             )}
 
-            {testimonials.length > 0 && (
+            {visibleTestimonials.length > 0 && (
               <section id="sec-reviews" className="py-16 bg-slate-50">
                 <div className="max-w-7xl mx-auto px-4">
-                  <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">What Retailers Say</h2></div>
-                  <div className={`grid gap-6 ${testimonials.length >= 3 ? 'md:grid-cols-3' : testimonials.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1 max-w-2xl mx-auto'}`}>
-                    {testimonials.slice(0, 6).map(t => (
+                  <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">What Our Customers Say</h2></div>
+                  <div className={`grid gap-6 ${visibleTestimonials.length >= 3 ? 'md:grid-cols-3' : visibleTestimonials.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1 max-w-2xl mx-auto'}`}>
+                    {visibleTestimonials.slice(0, 6).map(t => (
                       <div key={t.id} className="bg-white p-6 rounded-xl shadow-sm">
                         <div className="flex text-amber-400 mb-3">{[1,2,3,4,5].map(s => <Star key={s} size={18} fill={s <= (t.rating || 5) ? 'currentColor' : 'none'} className={s <= (t.rating || 5) ? '' : 'text-slate-300'} />)}</div>
                         <p className="text-slate-700 mb-4 italic">"{t.content}"</p>
@@ -3077,7 +3103,7 @@ export default function App() {
 
 
       {showCheckout && <CheckoutModal business={business} shopCart={shopCart} products={products} customer={customer} onPlaceOrder={placeOrder} onClose={() => setShowCheckout(false)} />}
-      {showAccount && <AccountModal customer={customer} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+      {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
