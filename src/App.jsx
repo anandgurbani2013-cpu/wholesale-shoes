@@ -688,10 +688,20 @@ function getDefaultProducts() {
 }
 
 // ===== UTILS =====
+// Convert a normal Google Drive share link into a direct image link that renders
+// in <img> tags. Uses Drive's thumbnail endpoint (most reliable for browsers).
+// Non-Drive URLs (or blank) are returned unchanged.
+function directImageUrl(url) {
+  url = String(url || '');
+  const m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m && m[1]) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200';
+  return url;
+}
 function SafeImage({ src, alt, className }) {
   const [error, setError] = useState(false);
   useEffect(() => { setError(false); }, [src]);
-  return <img src={error || !src ? PLACEHOLDER_IMG : src} alt={alt} className={className} onError={() => setError(true)} />;
+  const real = directImageUrl(src);
+  return <img src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={className} onError={() => setError(true)} />;
 }
 
 function WhatsAppIcon({ size = 24 }) {
@@ -2132,7 +2142,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Business Name</label><input value={editBiz.name || ''} onChange={e => setEditBiz({...editBiz, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Tagline</label><input value={editBiz.tagline || ''} onChange={e => setEditBiz({...editBiz, tagline: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Logo Text</label><input value={editBiz.logoText || ''} onChange={e => setEditBiz({...editBiz, logoText: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Logo Image URL (optional)</label><input value={editBiz.logoImage || ''} onChange={e => setEditBiz({...editBiz, logoImage: e.target.value})} placeholder="https://... (leave blank to use logo text)" className="w-full px-3 py-2 border rounded-lg" />{editBiz.logoImage && <img src={editBiz.logoImage} alt="logo preview" className="mt-2 w-16 h-16 rounded-lg object-cover border" />}<div className="text-xs text-slate-500 mt-1">If set, this image replaces the text logo in the header & footer.</div></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Logo Image URL (optional)</label><input value={editBiz.logoImage || ''} onChange={e => setEditBiz({...editBiz, logoImage: e.target.value})} placeholder="https://... (leave blank to use logo text)" className="w-full px-3 py-2 border rounded-lg" />{editBiz.logoImage && <img src={directImageUrl(editBiz.logoImage)} alt="logo preview" className="mt-2 w-16 h-16 rounded-lg object-cover border" />}<div className="text-xs text-slate-500 mt-1">If set, this image replaces the text logo in the header & footer.</div></div>
                 </div>
               </div>
               <div>
@@ -2843,7 +2853,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             {history.length > 0 && <button onClick={goBack} className="px-2 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
             <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-3">
-              {business.logoImage ? <img src={business.logoImage} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">{business.logoText}</div>}
+              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">{business.logoText}</div>}
               <div><div className="text-lg font-bold text-slate-900 leading-tight">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block">{business.tagline}</div></div>
             </div>
           </div>
@@ -3156,7 +3166,7 @@ export default function App() {
       <footer className="bg-slate-900 text-white pt-12 pb-40 mt-16">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
           <div>
-            <div className="flex items-center gap-2 mb-4">{business.logoImage ? <img src={business.logoImage} alt={business.name} className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold">{business.logoText}</div>}<div className="font-bold">{business.name}</div></div>
+            <div className="flex items-center gap-2 mb-4">{business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold">{business.logoText}</div>}<div className="font-bold">{business.name}</div></div>
             <p className="text-sm text-slate-400 mb-4">{business.tagline}</p>
             <div className="flex gap-3"><a href={business.facebook} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Facebook size={16} /></a><a href={business.instagram} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Instagram size={16} /></a><a href={business.linkedin} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Linkedin size={16} /></a></div>
           </div>
