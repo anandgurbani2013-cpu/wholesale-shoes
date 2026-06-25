@@ -1057,10 +1057,7 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
               <label className="block text-sm font-medium text-slate-700 mb-1">Your Name *</label>
               <input value={buyer.name} onChange={e => setBuyer({...buyer, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Shop</label><input value={buyer.shop} onChange={e => setBuyer({...buyer, shop: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">City</label><input value={buyer.city} onChange={e => setBuyer({...buyer, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-            </div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">City</label><input value={buyer.city} onChange={e => setBuyer({...buyer, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Phone *</label><input value={buyer.phone} onChange={e => setBuyer({...buyer, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
             <div>
               <div className="text-sm font-medium text-slate-700 mb-2">Include these products:</div>
@@ -3121,14 +3118,14 @@ export default function App() {
                           )}
                         </>
                       )}
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
                         {p.outOfStock || base <= 0
                           ? null
-                          : <button disabled={!canBuy} onClick={() => addToShopCart(p, sel.size, sel.color, sel.qty || 1)} className={`flex-1 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${canBuy ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><ShoppingBag size={18} /> Add to Cart</button>}
+                          : <button disabled={!canBuy} onClick={() => addToShopCart(p, sel.size, sel.color, sel.qty || 1)} className={`w-full sm:flex-1 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${canBuy ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><ShoppingBag size={18} /> Add to Cart</button>}
                         {p.outOfStock
-                          ? <button disabled className="flex-1 bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Out of Stock</button>
-                          : <button onClick={() => { const hasOpts = ((p.sizes || []).filter(Boolean).length > 0 || (p.colors || []).filter(Boolean).length > 0); if (base > 0 && hasOpts && (!sel.size || !sel.color)) { showToast('Please select size and colour first'); return; } addToInquiry(p, sel.size, sel.color, (sel.size && sel.color) ? (sel.qty || 1) : 1); }} className="flex-1 bg-slate-900 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
-                        <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${p.code} - ${p.name}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> WhatsApp</a>
+                          ? <button disabled className="w-full sm:flex-1 bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Out of Stock</button>
+                          : <button onClick={() => { const hasOpts = ((p.sizes || []).filter(Boolean).length > 0 || (p.colors || []).filter(Boolean).length > 0); if (base > 0 && hasOpts && (!sel.size || !sel.color)) { showToast('Please select size and colour first'); return; } addToInquiry(p, sel.size, sel.color, (sel.size && sel.color) ? (sel.qty || 1) : 1); }} className="w-full sm:flex-1 bg-slate-900 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
+                        <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${p.code} - ${p.name}`)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> WhatsApp</a>
                       </div>
                     </div>
                   );
