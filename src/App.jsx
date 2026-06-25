@@ -703,6 +703,18 @@ function SafeImage({ src, alt, className }) {
   const real = directImageUrl(src);
   return <img src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={className} onError={() => setError(true)} />;
 }
+// Inline heritage crest (shield + interlocking AF). Scales crisp at any size.
+function CrestEmblem({ className }) {
+  return (
+    <svg viewBox="0 0 120 122" className={className} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Anand Footwear">
+      <path d="M18 8 L102 8 L102 58 Q102 95 60 114 Q18 95 18 58 Z" fill="none" stroke="#caa043" strokeWidth="3" />
+      <g transform="translate(-65,-53) scale(0.4)">
+        <g stroke="#dcb863" strokeWidth="14" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M232 340 L300 188 L368 340" /><path d="M261 287 L339 287" /></g>
+        <g stroke="#f6f1e7" strokeWidth="13" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M340 199 L340 333" /><path d="M340 205 L394 205" /><path d="M340 268 L384 268" /></g>
+      </g>
+    </svg>
+  );
+}
 
 function WhatsAppIcon({ size = 24 }) {
   return (
@@ -2865,7 +2877,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             {history.length > 0 && <button onClick={goBack} className="px-2 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
             <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-3">
-              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">{business.logoText}</div>}
+              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <CrestEmblem className="w-12 h-12" />}
               <div><div className="text-lg font-bold text-slate-900 leading-tight">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block">{business.tagline}</div></div>
             </div>
           </div>
@@ -3178,7 +3190,7 @@ export default function App() {
       <footer className="bg-slate-900 text-white pt-12 pb-40 mt-16">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8">
           <div>
-            <div className="flex items-center gap-2 mb-4">{business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex items-center justify-center text-white font-bold">{business.logoText}</div>}<div className="font-bold">{business.name}</div></div>
+            <div className="flex items-center gap-2 mb-4">{business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-10 h-10 rounded-lg object-cover" /> : <CrestEmblem className="w-10 h-10" />}<div className="font-bold">{business.name}</div></div>
             <p className="text-sm text-slate-400 mb-4">{business.tagline}</p>
             <div className="flex gap-3"><a href={business.facebook} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Facebook size={16} /></a><a href={business.instagram} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Instagram size={16} /></a><a href={business.linkedin} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Linkedin size={16} /></a></div>
           </div>
