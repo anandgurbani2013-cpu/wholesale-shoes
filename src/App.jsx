@@ -573,7 +573,7 @@ const DEFAULT_BUSINESS = {
   facebook: '#', instagram: '#', linkedin: '#',
   gstin: '[YOUR GSTIN]', legalName: '[Legal Business Name]', hsnCode: '6403', gstRate: 18,
   bankName: '[Bank Name]', accountNo: '[Account Number]', ifsc: '[IFSC Code]', invoicePrefix: 'INV-',
-  deliveryFee: 0, freeDeliveryAbove: 0, upiId: '', upiName: '',
+  deliveryFee: '', freeDeliveryAbove: 0, upiId: '', upiName: '',
   howToOrder: 'How to Order\n\n1. Browse our catalog and open any product.\n2. Choose your size and colour, then tap \'Add to Cart\'.\n3. Open your cart and tap \'Checkout\'.\n4. Enter your delivery details and choose a payment method (Cash on Delivery or UPI).\n5. Place your order — you\'ll get an order number and we\'ll confirm by phone or WhatsApp.\n\nPrefer to ask first? Add items to your inquiry list or message us on WhatsApp and we\'ll be glad to help.',
   shippingPolicy: 'We deliver across India.\n\n- Orders are usually dispatched within 1-3 business days.\n- Delivery typically takes 4-8 business days depending on your location.\n- Delivery charges (if any) are shown at checkout; orders above the free-delivery amount ship free.\n- For tracking or any delivery question, contact us on WhatsApp or phone with your order number.',
   returnsPolicy: 'We want you to be happy with your purchase.\n\n- Returns or exchanges are accepted within 7 days of delivery for unused items in their original condition and packaging.\n- To start a return, contact us with your order number on WhatsApp, phone or email.\n- Refunds, where applicable, are processed to the original payment method within 5-7 business days after we receive and inspect the item.\n- Customised or made-to-order items may not be eligible for return.\n\nPlease update this policy to match exactly how you handle returns.',
@@ -696,7 +696,7 @@ function ProductCard({ product, categories, onView, onAddToInquiry }) {
         <h3 className="font-semibold text-slate-900 mb-1 truncate">{product.name}</h3>
         <div className="text-xs text-slate-600 mb-3">{categories.find(c => c.id === product.category)?.name || 'Uncategorized'}</div>
         <div className="flex justify-between items-center mb-3">
-          <div><div className="text-lg font-bold text-slate-900">₹{(parseFloat(product.retailPrice) || product.priceFrom || 0).toLocaleString('en-IN')}</div><div className="text-xs text-slate-500">per pair</div></div>
+          {(() => { const b = parseFloat(product.retailPrice) || product.priceFrom || 0; const d = discPctFor(product); const dp = d > 0 ? Math.round(b * (1 - d / 100)) : b; return <div>{d > 0 ? <div className="flex items-center gap-2 flex-wrap"><span className="text-lg font-bold text-slate-900">₹{dp.toLocaleString('en-IN')}</span><span className="text-sm text-slate-400 line-through">₹{b.toLocaleString('en-IN')}</span><span className="text-xs font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">{d}% off</span></div> : <div className="text-lg font-bold text-slate-900">₹{b.toLocaleString('en-IN')}</div>}<div className="text-xs text-slate-500">per pair</div></div>; })()}
           {productTotalStock(product) === 0 && !product.outOfStock && (parseFloat(product.retailPrice) > 0) && <div className="text-right"><div className="text-xs text-red-500 font-semibold">Sold out</div></div>}
         </div>
         {product.outOfStock
@@ -876,6 +876,8 @@ function retailUnitPrice(p, qty) {
   }
   return price;
 }
+function discPctFor(p) { const d = parseFloat(p && p.discountPercent); return (isFinite(d) && d > 0) ? Math.min(d, 90) : 0; }
+function discountedUnitPrice(p, qty) { const base = retailUnitPrice(p, qty); const d = discPctFor(p); return d > 0 ? Math.round(base * (1 - d / 100)) : base; }
 function sortedBreaks(p) {
   return (Array.isArray(p.qtyBreaks) ? p.qtyBreaks : [])
     .filter(b => b && parseInt(b.minQty) > 0 && parseFloat(b.price) > 0)
@@ -1072,11 +1074,13 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
 
   const gstRate = parseFloat(business.gstRate) || 0;
   const subtotal = shopCart.reduce((a, it) => a + retailUnitPrice(it, it.qty) * it.qty, 0);
-  const gst = Math.round(subtotal * gstRate / 100);
-  const fee = parseFloat(business.deliveryFee) || 0;
+  const discount = shopCart.reduce((a, it) => a + (retailUnitPrice(it, it.qty) - discountedUnitPrice(it, it.qty)) * it.qty, 0);
+  const taxable = subtotal - discount;
+  const gst = Math.round(taxable * gstRate / 100);
+  const shipRaw = (business.deliveryFee == null ? '' : String(business.deliveryFee)).trim();
   const freeAbove = parseFloat(business.freeDeliveryAbove) || 0;
-  const delivery = (freeAbove > 0 && subtotal >= freeAbove) ? 0 : fee;
-  const total = subtotal + gst + delivery;
+  const delivery = (freeAbove > 0 && taxable >= freeAbove) ? 0 : (shipRaw === '' ? Math.round(taxable * 0.05) : (parseFloat(shipRaw) || 0));
+  const total = taxable + gst + delivery;
   const upiId = (business.upiId || '').trim();
 
   const place = async () => {
@@ -1084,12 +1088,12 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
     if (!form.name.trim() || !form.phone.trim() || !form.address.trim() || !form.city.trim() || !form.pincode.trim()) { setErr('Please fill name, phone, address, city and pincode.'); return; }
     if (pay === 'cod' && !codAllowed) { setErr('Cash on Delivery is not available for some items. Please choose UPI.'); return; }
     setPlacing(true);
-    const items = shopCart.map(it => { const unit = retailUnitPrice(it, it.qty); return { code: it.code, name: it.name, size: it.size, color: it.color, qty: it.qty, unit, lineTotal: unit * it.qty }; });
+    const items = shopCart.map(it => { const orig = retailUnitPrice(it, it.qty); const unit = discountedUnitPrice(it, it.qty); return { code: it.code, name: it.name, size: it.size, color: it.color, qty: it.qty, unit, origUnit: orig, lineTotal: unit * it.qty }; });
     const order = {
       id: `ord_${Date.now()}`, orderNo: makeOrderNo(), type: 'order', date: new Date().toISOString(),
       name: form.name.trim(), phone: form.phone.trim(), whatsapp: (form.whatsapp || form.phone).trim(), email: form.email.trim(),
       address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), note: form.note.trim(),
-      items, subtotal, gst, gstRate, delivery, total,
+      items, subtotal, discount, gst, gstRate, delivery, shipping: delivery, total,
       payment: pay, paymentLabel: pay === 'cod' ? 'Cash on Delivery' : 'UPI (to be confirmed)', status: 'new'
     };
     try { await onPlaceOrder(order); setDone(order); } catch (e) { setErr('Could not place the order. Please try again or contact us on WhatsApp.'); }
@@ -1142,11 +1146,12 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
         <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><h2 className="font-bold text-slate-900">Checkout</h2><button onClick={onClose} aria-label="Close"><X size={22} /></button></div>
         <div className="p-5">
           <div className="bg-slate-50 rounded-xl p-3 mb-4 text-sm">
-            {shopCart.map(it => { const u = retailUnitPrice(it, it.qty); return <div key={it.key} className="flex justify-between py-0.5 gap-2"><span className="text-slate-600">{it.name} <span className="text-xs text-slate-400">({it.size}/{it.color}) ×{it.qty}</span></span><span className="font-medium whitespace-nowrap">₹{(u * it.qty).toLocaleString('en-IN')}</span></div>; })}
+            {shopCart.map(it => { const u = discountedUnitPrice(it, it.qty); return <div key={it.key} className="flex justify-between py-0.5 gap-2"><span className="text-slate-600">{it.name} <span className="text-xs text-slate-400">({it.size}/{it.color}) ×{it.qty}</span></span><span className="font-medium whitespace-nowrap">₹{(u * it.qty).toLocaleString('en-IN')}</span></div>; })}
             <div className="border-t mt-2 pt-2 space-y-0.5">
               <div className="flex justify-between text-slate-600"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
+              {discount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>−₹{discount.toLocaleString('en-IN')}</span></div>}
               <div className="flex justify-between text-slate-600"><span>GST ({gstRate}%)</span><span>₹{gst.toLocaleString('en-IN')}</span></div>
-              <div className="flex justify-between text-slate-600"><span>Delivery</span><span>{delivery ? `₹${delivery.toLocaleString('en-IN')}` : 'Free'}</span></div>
+              <div className="flex justify-between text-slate-600"><span>Shipping</span><span>{delivery ? `₹${delivery.toLocaleString('en-IN')}` : 'Free'}</span></div>
               <div className="flex justify-between font-bold text-slate-900 text-base pt-1"><span>Total</span><span>₹{total.toLocaleString('en-IN')}</span></div>
             </div>
           </div>
@@ -1512,9 +1517,10 @@ function openOrderInvoice(order, business) {
   const addr = esc([order.address, order.city, order.pincode].filter(Boolean).join(', '));
   const sub = order.subtotal != null ? `<tr><td class="r" colspan="${cs}">Subtotal</td><td class="r">${money(order.subtotal)}</td></tr>` : '';
   const gst = (order.gst != null && order.gst !== 0) ? `<tr><td class="r" colspan="${cs}">GST (${order.gstRate || 0}%)</td><td class="r">${money(order.gst)}</td></tr>` : '';
-  const del = order.delivery != null ? `<tr><td class="r" colspan="${cs}">Delivery</td><td class="r">${order.delivery ? money(order.delivery) : 'Free'}</td></tr>` : '';
+  const del = order.delivery != null ? `<tr><td class="r" colspan="${cs}">Shipping</td><td class="r">${order.delivery ? money(order.delivery) : 'Free'}</td></tr>` : '';
+  const disc = (order.discount != null && order.discount !== 0) ? `<tr><td class="r" colspan="${cs}">Discount</td><td class="r">−${money(order.discount)}</td></tr>` : '';
   const foot = hasAmounts
-    ? `<tfoot>${sub}${gst}${del}<tr class="tot"><td class="r" colspan="${cs}">Total</td><td class="r">${money(order.total)}</td></tr></tfoot>`
+    ? `<tfoot>${sub}${disc}${gst}${del}<tr class="tot"><td class="r" colspan="${cs}">Total</td><td class="r">${money(order.total)}</td></tr></tfoot>`
     : `<tfoot><tr class="tot"><td class="r">Total</td><td class="r">${money(order.total)}</td></tr></tfoot>`;
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(order.orderNo)}</title><style>*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}body{margin:0;padding:32px;color:#1e293b}.wrap{max-width:720px;margin:0 auto}.head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #f59e0b;padding-bottom:16px;margin-bottom:20px}.biz{font-size:20px;font-weight:bold;color:#0f172a}.muted{color:#64748b;font-size:12px;font-weight:normal}h1{font-size:22px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}th,td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-size:12px;text-transform:uppercase;color:#64748b}.c{text-align:center}.r{text-align:right}.tot td{font-weight:bold;font-size:15px;border-top:2px solid #0f172a;border-bottom:none}.grid{display:flex;gap:32px;font-size:13px;margin-bottom:8px}.grid h3{font-size:12px;text-transform:uppercase;color:#64748b;margin:0 0 4px}.pay{margin-top:16px;font-size:13px}.ft{margin-top:32px;text-align:center;color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px}.btn{display:inline-block;margin:0 0 16px;background:#f59e0b;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer}@media print{.btn{display:none}body{padding:0}}</style></head><body><div class="wrap"><button class="btn" onclick="window.print()">Download / Print PDF</button><div class="head"><div><div class="biz">${esc(business.name)}</div><div class="muted">${esc(business.address)}</div>${business.gstin ? `<div class="muted">GSTIN: ${esc(business.gstin)}</div>` : ''}${business.email ? `<div class="muted">${esc(business.email)}</div>` : ''}${business.phone ? `<div class="muted">${esc(business.phone)}</div>` : ''}</div><div style="text-align:right"><h1>Invoice</h1><div class="muted">${esc(order.orderNo)}</div><div class="muted">${order.date ? new Date(order.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</div></div></div><div class="grid"><div><h3>Bill to</h3><div>${esc(order.name)}</div><div class="muted">${addr}</div>${order.phone ? `<div class="muted">${esc(order.phone)}</div>` : ''}</div><div><h3>Status</h3><div style="text-transform:capitalize">${esc(order.status || 'New')}</div></div></div><table><thead><tr><th>Item</th><th class="c">Qty</th>${hasAmounts ? '<th class="r">Unit</th><th class="r">Amount</th>' : ''}</tr></thead><tbody>${rows}</tbody>${foot}</table><div class="pay">Payment method: <strong>${esc(order.paymentLabel || order.payment)}</strong></div>${order.note ? `<div class="pay">Note: ${esc(order.note)}</div>` : ''}<div class="ft">Thank you for shopping with ${esc(business.name || 'us')}.</div></div><script>setTimeout(function(){window.print();},500);</script></body></html>`;
   const w = window.open('', '_blank');
@@ -1601,7 +1607,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [editingProduct, setEditingProduct] = useState(null);
   const [editBiz, setEditBiz] = useState(business);
   const [invoiceFor, setInvoiceFor] = useState(null);
-  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, codAvailable: true, description: '', availabilityNote: '', retailPrice: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
+  const blankProduct = { id: '', code: '', name: '', category: categories[0]?.id || '', image: '', images: [''], sizes: ['6','7','8','9','10','11'], colors: ['Black'], material: '', priceFrom: '', isNew: false, isBestseller: false, active: true, outOfStock: false, codAvailable: true, description: '', availabilityNote: '', retailPrice: '', discountPercent: '', qtyBreaks: [{ minQty: 11, price: '' }], stockGrid: {} };
   const [pForm, setPForm] = useState(blankProduct);
 
   useEffect(() => { setEditBiz(business); }, [business]);
@@ -1805,6 +1811,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="text-xs text-slate-500 mb-3">For the direct-buy flow. Not shown to customers yet — we switch the storefront over when the buy flow goes live.</div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Retail Price (₹ per pair)</label><input type="number" value={pForm.retailPrice || ''} onChange={e => setPForm({...pForm, retailPrice: e.target.value})} placeholder="e.g., 599" className="w-full px-3 py-2 border rounded-lg" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Discount (%)</label><input type="number" min="0" max="90" value={pForm.discountPercent || ''} onChange={e => setPForm({...pForm, discountPercent: e.target.value})} placeholder="blank = no discount, e.g. 10" className="w-full px-3 py-2 border rounded-lg" /><div className="text-xs text-slate-500 mt-1">Leave blank for no discount. Shows a struck-through price and the discounted price to customers.</div></div>
                   </div>
                   <div className="mt-3">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Quantity-break discounts (optional)</label>
@@ -1922,8 +1929,9 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="space-y-1">{(o.items || []).map((it, idx) => <div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{it.code} - {it.name} ({it.size}/{it.color})</span><span className="font-medium">×{it.qty} · ₹{Number(it.lineTotal || 0).toLocaleString('en-IN')}</span></div>)}</div>
                   <div className="text-xs text-slate-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
                     <span>Subtotal ₹{Number(o.subtotal || 0).toLocaleString('en-IN')}</span>
+                    {o.discount > 0 && <span>Discount −₹{Number(o.discount).toLocaleString('en-IN')}</span>}
                     <span>GST ({o.gstRate}%) ₹{Number(o.gst || 0).toLocaleString('en-IN')}</span>
-                    <span>Delivery {o.delivery ? `₹${Number(o.delivery).toLocaleString('en-IN')}` : 'Free'}</span>
+                    <span>Shipping {o.delivery ? `₹${Number(o.delivery).toLocaleString('en-IN')}` : 'Free'}</span>
                     {o.note && <span>Note: {o.note}</span>}
                   </div>
                   <div className="mt-3 flex gap-2 flex-wrap items-center">
@@ -1987,8 +1995,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Legal Business Name</label><input value={editBiz.legalName || ''} onChange={e => setEditBiz({...editBiz, legalName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">HSN Code</label><input value={editBiz.hsnCode || ''} onChange={e => setEditBiz({...editBiz, hsnCode: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 6403" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">GST Rate (%)</label><input type="number" value={editBiz.gstRate || ''} onChange={e => setEditBiz({...editBiz, gstRate: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 18" /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Delivery Fee (₹)</label><input type="number" value={editBiz.deliveryFee || ''} onChange={e => setEditBiz({...editBiz, deliveryFee: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 60" /><div className="text-xs text-slate-500 mt-1">Flat delivery charge added at checkout.</div></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Free Delivery Above (₹)</label><input type="number" value={editBiz.freeDeliveryAbove || ''} onChange={e => setEditBiz({...editBiz, freeDeliveryAbove: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 999" /><div className="text-xs text-slate-500 mt-1">Order subtotal at/above this = free delivery. 0 = always charge the fee.</div></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Shipping Fee (₹)</label><input type="number" value={editBiz.deliveryFee ?? ''} onChange={e => setEditBiz({...editBiz, deliveryFee: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="blank = 5% of order" /><div className="text-xs text-slate-500 mt-1">Leave blank to charge 5% of the order as shipping. Enter a number for a flat fee (0 = free).</div></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Free Shipping Above (₹)</label><input type="number" value={editBiz.freeDeliveryAbove || ''} onChange={e => setEditBiz({...editBiz, freeDeliveryAbove: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 999" /><div className="text-xs text-slate-500 mt-1">Order amount at/above this = free shipping. 0 = always charge shipping.</div></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">UPI ID (for online payment)</label><input value={editBiz.upiId || ''} onChange={e => setEditBiz({...editBiz, upiId: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., yourname@okhdfc" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">UPI Payee Name</label><input value={editBiz.upiName || ''} onChange={e => setEditBiz({...editBiz, upiName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="Name shown in customer's UPI app" /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Payment Note (shown to buyers)</label><input value={editBiz.paymentNote || ''} onChange={e => setEditBiz({...editBiz, paymentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Payment via UPI / bank transfer on order confirmation. GST invoice provided." /><div className="text-xs text-slate-500 mt-1">A short line shown on the inquiry cart and contact page. You can include your UPI ID here if you like.</div></div>
@@ -2443,7 +2451,7 @@ export default function App() {
       const key = `${p.id}|${size}|${color}`;
       const existing = prev.find(it => it.key === key);
       if (existing) return prev.map(it => it.key === key ? { ...it, qty: it.qty + q } : it);
-      return [...prev, { key, id: p.id, code: p.code, name: p.name, image: (productImages(p)[0] || ''), size, color, qty: q, retailPrice: p.retailPrice, qtyBreaks: p.qtyBreaks }];
+      return [...prev, { key, id: p.id, code: p.code, name: p.name, image: (productImages(p)[0] || ''), size, color, qty: q, retailPrice: p.retailPrice, qtyBreaks: p.qtyBreaks, discountPercent: p.discountPercent }];
     });
     setCartTab('cart');
     setShowCart(true);
@@ -2853,12 +2861,15 @@ export default function App() {
                   const colorStock = (c) => sel.size ? stockFor(p, sel.size, c) : (p.sizes || []).reduce((a, s) => a + stockFor(p, s, c), 0);
                   const comboStock = (sel.size && sel.color) ? stockFor(p, sel.size, sel.color) : 0;
                   const unit = retailUnitPrice(p, sel.qty || 1);
+                  const dPct = discPctFor(p);
+                  const dUnit = discountedUnitPrice(p, sel.qty || 1);
+                  const dBase = dPct > 0 ? Math.round(base * (1 - dPct / 100)) : base;
                   const canBuy = !p.outOfStock && sel.size && sel.color && comboStock > 0;
                   return (
                     <div className="mb-6">
                       {base > 0 && (
                         <div className="mb-4">
-                          <div className="flex items-baseline gap-2"><span className="text-3xl font-bold text-slate-900">₹{(canBuy ? unit : base).toLocaleString('en-IN')}</span><span className="text-slate-500 text-sm">/ pair</span>{canBuy && unit < base && <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">bulk price applied</span>}</div>
+                          <div className="flex items-baseline gap-2 flex-wrap"><span className="text-3xl font-bold text-slate-900">₹{(canBuy ? dUnit : dBase).toLocaleString('en-IN')}</span>{dPct > 0 && <span className="text-lg text-slate-400 line-through">₹{(canBuy ? unit : base).toLocaleString('en-IN')}</span>}<span className="text-slate-500 text-sm">/ pair</span>{dPct > 0 && <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">{dPct}% off</span>}{canBuy && unit < base && <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">bulk price applied</span>}</div>
                           {brks.length > 0 && <div className="text-sm text-amber-700 bg-amber-50 inline-block px-3 py-1 rounded-lg mt-2">{brks.map(b => `Buy ${b.minQty}+ at ₹${b.price.toLocaleString('en-IN')}`).join('  ·  ')} — applied automatically</div>}
                         </div>
                       )}
@@ -2876,7 +2887,7 @@ export default function App() {
                           {canBuy && (
                             <div className="flex items-center gap-3 mb-4">
                               <div className="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden"><button onClick={() => setBuySel({ ...sel, qty: Math.max(1, (sel.qty || 1) - 1) })} className="px-3 py-2 hover:bg-slate-100">−</button><span className="px-4 font-semibold">{sel.qty || 1}</span><button onClick={() => setBuySel({ ...sel, qty: Math.min(comboStock, (sel.qty || 1) + 1) })} disabled={(sel.qty || 1) >= comboStock} className="px-3 py-2 hover:bg-slate-100 disabled:text-slate-300">+</button></div>
-                              <div className="text-sm text-slate-600">Total: <span className="font-bold text-slate-900">₹{(unit * (sel.qty || 1)).toLocaleString('en-IN')}</span></div>
+                              <div className="text-sm text-slate-600">Total: <span className="font-bold text-slate-900">₹{(dUnit * (sel.qty || 1)).toLocaleString('en-IN')}</span></div>
                             </div>
                           )}
                         </>
@@ -3042,7 +3053,9 @@ export default function App() {
                 shopCart.length === 0 ? <div className="text-center py-12 text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />Your cart is empty<button onClick={() => { setShowCart(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
                   <>
                     {shopCart.map(it => {
-                      const unit = retailUnitPrice(it, it.qty);
+                      const orig = retailUnitPrice(it, it.qty);
+                      const unit = discountedUnitPrice(it, it.qty);
+                      const dPct = discPctFor(it);
                       return (
                         <div key={it.key} className="flex gap-3 py-3 border-b">
                           <SafeImage src={it.image} alt={it.name} className="w-16 h-16 rounded object-cover" />
@@ -3056,13 +3069,14 @@ export default function App() {
                               <button onClick={() => setShopQty(it.key, it.qty + 1)} className="w-7 h-7 border rounded hover:bg-slate-50"><Plus size={12} className="mx-auto" /></button>
                               <button onClick={() => removeShopItem(it.key)} className="ml-auto text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
                             </div>
-                            <div className="text-sm mt-1">₹{unit.toLocaleString('en-IN')} × {it.qty} = <span className="font-semibold">₹{(unit * it.qty).toLocaleString('en-IN')}</span>{unit < (parseFloat(it.retailPrice) || unit) && <span className="text-xs text-green-600 ml-1">(bulk price)</span>}</div>
+                            <div className="text-sm mt-1">₹{unit.toLocaleString('en-IN')} × {it.qty} = <span className="font-semibold">₹{(unit * it.qty).toLocaleString('en-IN')}</span>{dPct > 0 && <span className="text-xs text-green-600 ml-1">({dPct}% off)</span>}{unit < orig && dPct === 0 && <span className="text-xs text-amber-600 ml-1">(bulk price)</span>}</div>
                           </div>
                         </div>
                       );
                     })}
-                    <div className="flex justify-between items-center mt-4 py-3 border-t text-lg"><span className="font-semibold">Subtotal</span><span className="font-bold">₹{shopCart.reduce((a, it) => a + retailUnitPrice(it, it.qty) * it.qty, 0).toLocaleString('en-IN')}</span></div>
-                    <div className="text-xs text-slate-500 mb-3">Taxes and delivery are confirmed at checkout.</div>
+                    <div className="flex justify-between items-center mt-4 py-3 border-t text-lg"><span className="font-semibold">Subtotal</span><span className="font-bold">₹{shopCart.reduce((a, it) => a + discountedUnitPrice(it, it.qty) * it.qty, 0).toLocaleString('en-IN')}</span></div>
+                    {(() => { const sav = shopCart.reduce((a, it) => a + (retailUnitPrice(it, it.qty) - discountedUnitPrice(it, it.qty)) * it.qty, 0); return sav > 0 ? <div className="text-sm text-green-600 -mt-2 mb-1">You save ₹{sav.toLocaleString('en-IN')}</div> : null; })()}
+                    <div className="text-xs text-slate-500 mb-3">Taxes and shipping are confirmed at checkout.</div>
                     <button onClick={() => { setShowCart(false); setShowCheckout(true); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold">Checkout →</button>
                     <button onClick={() => setShopCart([])} className="w-full text-slate-500 hover:text-red-500 text-sm mt-3 py-2">Clear cart</button>
                     {business.paymentNote && <div className="mt-3 text-xs text-slate-500 flex items-start gap-2"><Info size={14} className="text-amber-500 flex-shrink-0 mt-0.5" /><span>{business.paymentNote}</span></div>}
