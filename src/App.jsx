@@ -1662,7 +1662,7 @@ function OrderFulfill({ row, statuses, onSave }) {
   const [saving, setSaving] = useState(false);
   useEffect(() => { setStatus(row.status || 'new'); setCourier(o.courier || ''); setTrackingNo(o.trackingNo || ''); setTrackingLink(o.trackingLink || ''); }, [row.id, row.status]);
   const dirty = status !== (row.status || 'new') || courier !== (o.courier || '') || trackingNo !== (o.trackingNo || '') || trackingLink !== (o.trackingLink || '');
-  const showShip = status === 'shipped' || status === 'out for delivery';
+  const showShip = status === 'shipped';
   return (
     <div className="w-full mt-2 border-t pt-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -1751,7 +1751,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     })();
     return () => { cancel = true; };
   }, [tab, adminToken]);
-  const ORDER_STATUSES = ['new', 'confirmed', 'shipped', 'out for delivery', 'delivered', 'cancelled'];
+  const ORDER_STATUSES = ['new', 'confirmed', 'shipped', 'delivered', 'cancelled'];
   const updateOrderStatus = async (rowId, payload) => {
     const status = (payload && payload.status) || 'new';
     const courier = (payload && payload.courier) || '';
