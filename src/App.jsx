@@ -380,7 +380,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
 async function pushToGoogleSheets(inquiry) {
   try {
     const productsStr = inquiry.products?.map(p => `${p.code}-${p.name}${(p.selSize||p.selColor)?` [${[p.selSize,p.selColor].filter(Boolean).join('/')}]`:''} (${p.quantity} pairs)`).join('; ') || '';
-    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: inquiry.type || 'inquiry', inqNo: inquiry.inqNo || '', name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, apptDate: inquiry.apptDate || '', apptTime: inquiry.apptTime || '', source: inquiry.source || 'Inquiry Form' }) });
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: inquiry.type || 'inquiry', id: inquiry.id || '', status: inquiry.status || 'new', inqNo: inquiry.inqNo || '', name: inquiry.name, shop: inquiry.shop, city: inquiry.city, phone: inquiry.phone, whatsapp: inquiry.whatsapp, email: inquiry.email, message: inquiry.message, products: productsStr, apptDate: inquiry.apptDate || '', apptTime: inquiry.apptTime || '', source: inquiry.source || 'Inquiry Form' }) });
     return true;
   } catch (e) { 
     console.warn('Google Sheets not available in this environment (will work after deployment):', e.message); 
@@ -408,9 +408,15 @@ async function pushOrderToSheets(order) {
   try {
     const productsStr = (order.items || []).map(it => `${it.code}-${it.name} [${it.size}/${it.color}] x${it.qty} @ ₹${it.unit}`).join('; ');
     await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-      type: 'order', orderId: order.orderNo, name: order.name, phone: order.phone, whatsapp: order.whatsapp, email: order.email,
+      type: 'order', id: order.id, status: order.status || 'new', orderId: order.orderNo, name: order.name, phone: order.phone, whatsapp: order.whatsapp, email: order.email,
       address: order.address, city: order.city, pincode: order.pincode, products: productsStr, total: order.total, payment: order.paymentLabel, message: order.note || ''
     }) });
+    return true;
+  } catch (e) { return null; }
+}
+async function syncStatusToSheet({ type, id, humanId, status }) {
+  try {
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'updateStatus', type: type || 'inquiry', id: id || '', humanId: humanId || '', status: status || '' }) });
     return true;
   } catch (e) { return null; }
 }
@@ -1652,6 +1658,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
+      const ord = orders.find(r => r.id === rowId);
+      syncStatusToSheet({ type: 'order', id: rowId, humanId: (ord && ord.data && ord.data.orderNo) || '', status });
       showToast('Order status updated ✓');
     } catch (e) { showToast('Could not update status — check the Supabase update policy'); }
   };
@@ -2407,7 +2415,7 @@ export default function App() {
     const cur = inquiries.find(i => i.id === inqId) || {};
     const data = { ...cur, status, adminComment };
     setInquiries(prev => prev.map(i => i.id === inqId ? { ...i, status, adminComment } : i));
-    try { await sb.upsert('inquiries', [{ id: inqId, data, status }]); showToast('Inquiry updated ✓'); }
+    try { await sb.upsert('inquiries', [{ id: inqId, data, status }]); syncStatusToSheet({ type: cur.type || 'inquiry', id: inqId, humanId: cur.inqNo || '', status }); showToast('Inquiry updated ✓'); }
     catch (e) { showToast('Could not update inquiry'); }
   };
 
