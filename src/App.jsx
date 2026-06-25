@@ -226,7 +226,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     setErr(''); setNotice('');
     if (!f.email.trim()) { setErr('Please enter your email first'); return; }
     setBusy(true);
-    try { await customerAuth.sendOtp(f.email.trim()); setCodeSent(true); setNotice('We emailed you a 6-digit code. Enter it below.'); }
+    try { await customerAuth.sendOtp(f.email.trim()); setCodeSent(true); setNotice('We emailed you a 6-digit code. Enter it below. If you don\'t see it, check your Spam folder and mark it "Not spam".'); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const doVerifyOtp = async () => {
@@ -240,7 +240,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     setErr(''); setNotice('');
     if (!f.email.trim()) { setErr('Enter your email above first, then tap "Forgot password?"'); return; }
     setBusy(true);
-    try { await customerAuth.sendReset(f.email.trim(), window.location.origin); setNotice('If that email has an account, we sent a reset link. Check your inbox.'); }
+    try { await customerAuth.sendReset(f.email.trim(), window.location.origin); setNotice('If that email has an account, we sent a reset link. Check your inbox — and your Spam folder, marking it "Not spam" if you find it there.'); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const doRegister = async () => {
@@ -1195,6 +1195,7 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
             </div>
           )}
           <p className="text-xs text-slate-500 mb-4">We've received your order and will contact you to confirm.{customer ? ' You can see it under My orders.' : ''}</p>
+          <p className="text-xs text-slate-400 mb-4">We've emailed your confirmation. If you don't see it, please check your Spam or Promotions folder and mark it "Not spam" so you don't miss future updates.</p>
           <div className="flex gap-3 justify-center">
             <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I just placed order ${done.orderNo}.`)}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"><WhatsAppIcon size={16} /> WhatsApp</a>
             <button onClick={onClose} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg font-semibold">Done</button>
@@ -1368,6 +1369,7 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
         <h1 className="text-3xl font-bold text-slate-900 mb-3">Inquiry Submitted! 🎉</h1>
         {submittedNo && <div className="inline-block bg-amber-50 border border-amber-200 text-amber-700 font-mono font-bold px-4 py-1.5 rounded-full mb-4">{submittedNo}</div>}
         <p className="text-slate-600 mb-6">Thank you! Our team will get back to you within 24 hours.</p>
+        <p className="text-xs text-slate-400 mb-6 max-w-md mx-auto">We've emailed you a confirmation. If it's not in your inbox, please check your Spam or Promotions folder and mark it "Not spam" so you don't miss our reply.</p>
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 text-left max-w-md mx-auto">
           <div className="text-sm font-medium text-slate-700 mb-2">✅ Your Inquiry Has Been:</div>
           <div className="space-y-1 text-sm">
