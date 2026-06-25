@@ -404,6 +404,10 @@ function makeOrderNo() {
   const d = new Date(); const p = n => String(n).padStart(2, '0');
   return `ORD-${p(d.getDate())}${p(d.getMonth() + 1)}${String(d.getFullYear()).slice(2)}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
+function makeProformaNo() {
+  // Unique, non-repeating reference: millisecond timestamp (always moves forward) + random suffix
+  return `PRO-${Date.now()}${String(Math.floor(Math.random() * 900 + 100))}`;
+}
 async function pushOrderToSheets(order) {
   try {
     const productsStr = (order.items || []).map(it => `${it.code}-${it.name} [${it.size}/${it.color}] x${it.qty} @ ₹${it.unit}`).join('; ');
@@ -2388,6 +2392,7 @@ export default function App() {
   const logProforma = async (lead) => {
     const inq = {
       id: `pf_${Date.now()}`,
+      inqNo: makeProformaNo(),
       name: lead.name,
       shop: lead.shop || '',
       city: lead.city || '',
