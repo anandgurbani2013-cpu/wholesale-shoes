@@ -233,8 +233,8 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     setErr('');
     if (!code.trim()) { setErr('Enter the code from your email'); return; }
     setBusy(true);
-    try { const d = await customerAuth.verifyOtp(f.email.trim(), code.trim()); onAuthed(d, 'login'); }
-    catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { const d = await customerAuth.verifyOtp(f.email.trim(), code.trim()); onAuthed(d, 'login'); setTimeout(() => { try { window.location.reload(); } catch (e) {} }, 250); }
+    catch (e) { setErr(e.message); setBusy(false); }
   };
   const doForgot = async () => {
     setErr(''); setNotice('');
@@ -453,6 +453,7 @@ function RecoveryModal({ accessToken, refreshToken, onAuthed, onClose }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState(false);
+  const finish = () => { try { window.location.replace(window.location.origin + window.location.pathname); } catch (e) { try { onClose(); } catch (e2) {} } };
   const submit = async () => {
     setErr('');
     if (pw.length < 6) { setErr('Password must be at least 6 characters'); return; }
@@ -460,9 +461,9 @@ function RecoveryModal({ accessToken, refreshToken, onAuthed, onClose }) {
     setBusy(true);
     try {
       const user = await customerAuth.setPassword(accessToken, pw);
-      setDone(true);
       try { if (onAuthed) onAuthed({ access_token: accessToken, refresh_token: refreshToken, user }, 'login'); } catch (e) {}
-      setTimeout(() => { try { onClose(); } catch (e) {} }, 1800);
+      setDone(true);
+      setTimeout(finish, 1600);
     }
     catch (e) { setErr(e.message || 'Could not update password. The reset link may have expired — request a new one.'); }
     finally { setBusy(false); }
@@ -478,7 +479,7 @@ function RecoveryModal({ accessToken, refreshToken, onAuthed, onClose }) {
           {done ? (
             <>
               <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3 flex items-center gap-2"><CheckCircle size={18} /> Password updated — you're logged in!</div>
-              <button onClick={onClose} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2.5 rounded-lg font-semibold transition-colors">Continue</button>
+              <button onClick={finish} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2.5 rounded-lg font-semibold transition-colors">Continue</button>
             </>
           ) : (
             <>
