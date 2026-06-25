@@ -77,6 +77,30 @@ const customerAuth = {
     if (!r.ok) throw new Error(d.error_description || d.msg || 'Incorrect email or password');
     return d;
   },
+  async sendOtp(email) {
+    const r = await fetch(`${this.base}/otp`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, create_user: false }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.msg || d.error_description || d.message || 'Could not send the code');
+    return d;
+  },
+  async verifyOtp(email, token) {
+    const r = await fetch(`${this.base}/verify`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'email', email, token }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.msg || d.error_description || 'Invalid or expired code');
+    return d; // { access_token, refresh_token, user }
+  },
+  async sendReset(email, redirectTo) {
+    const r = await fetch(`${this.base}/recover`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(redirectTo ? { email, redirect_to: redirectTo } : { email }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.msg || d.error_description || 'Could not send reset email');
+    return true;
+  },
+  async setPassword(access_token, password) {
+    const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ password }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.msg || d.error_description || 'Could not update password');
+    return d;
+  },
   async refresh(refresh_token) {
     const r = await fetch(`${this.base}/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token }) });
     const d = await r.json();
@@ -193,6 +217,30 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   const doLogin = async () => {
     setErr(''); setBusy(true);
     try { const d = await customerAuth.login(f.email.trim(), f.password); onAuthed(d, 'login'); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const [loginMethod, setLoginMethod] = useState('password');
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState('');
+  const doSendOtp = async () => {
+    setErr(''); setNotice('');
+    if (!f.email.trim()) { setErr('Please enter your email first'); return; }
+    setBusy(true);
+    try { await customerAuth.sendOtp(f.email.trim()); setCodeSent(true); setNotice('We emailed you a 6-digit code. Enter it below.'); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const doVerifyOtp = async () => {
+    setErr('');
+    if (!code.trim()) { setErr('Enter the code from your email'); return; }
+    setBusy(true);
+    try { const d = await customerAuth.verifyOtp(f.email.trim(), code.trim()); onAuthed(d, 'login'); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  const doForgot = async () => {
+    setErr(''); setNotice('');
+    if (!f.email.trim()) { setErr('Enter your email above first, then tap "Forgot password?"'); return; }
+    setBusy(true);
+    try { await customerAuth.sendReset(f.email.trim(), window.location.origin); setNotice('If that email has an account, we sent a reset link. Check your inbox.'); }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const doRegister = async () => {
@@ -354,9 +402,31 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
           {notice && <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3">{notice}</div>}
           {mode === 'login' ? (
             <>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <button onClick={doLogin} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Logging in…' : 'Log In'}</button>
+              <div className="flex gap-2">
+                <button onClick={() => { setErr(''); setNotice(''); setLoginMethod('password'); }} className={`flex-1 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${loginMethod === 'password' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}>Password</button>
+                <button onClick={() => { setErr(''); setNotice(''); setLoginMethod('code'); setCodeSent(false); setCode(''); }} className={`flex-1 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${loginMethod === 'code' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}>Email me a code</button>
+              </div>
+              {loginMethod === 'password' ? (
+                <>
+                  <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div className="text-right -mt-1"><button onClick={doForgot} disabled={busy} className="text-xs text-amber-600 font-medium hover:underline">Forgot password?</button></div>
+                  <button onClick={doLogin} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Logging in…' : 'Log In'}</button>
+                </>
+              ) : (
+                <>
+                  <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) (codeSent ? doVerifyOtp() : doSendOtp()); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  {!codeSent ? (
+                    <button onClick={doSendOtp} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Sending…' : 'Send me the code'}</button>
+                  ) : (
+                    <>
+                      <div><label className="text-sm font-medium text-slate-700 block mb-1">Enter the 6-digit code</label><input value={code} onChange={e => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} inputMode="numeric" maxLength={6} onKeyDown={e => { if (e.key === 'Enter' && !busy) doVerifyOtp(); }} className="w-full px-3 py-2 border rounded-lg text-center text-lg tracking-widest font-semibold" placeholder="••••••" /></div>
+                      <button onClick={doVerifyOtp} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Verifying…' : 'Log in with code'}</button>
+                      <div className="text-xs text-center text-slate-500">Didn't get it? <button onClick={doSendOtp} disabled={busy} className="text-amber-600 font-medium hover:underline">Resend code</button></div>
+                    </>
+                  )}
+                </>
+              )}
               <div className="text-sm text-center text-slate-500">No account? <button onClick={() => { setErr(''); setMode('register'); }} className="text-amber-600 font-medium">Create one</button></div>
             </>
           ) : (
@@ -377,6 +447,49 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
 }
 
 // ===== EXTERNAL SERVICES =====
+function RecoveryModal({ accessToken, onClose }) {
+  const [pw, setPw] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState(false);
+  const submit = async () => {
+    setErr('');
+    if (pw.length < 6) { setErr('Password must be at least 6 characters'); return; }
+    if (pw !== confirm) { setErr('Passwords do not match'); return; }
+    setBusy(true);
+    try { await customerAuth.setPassword(accessToken, pw); setDone(true); }
+    catch (e) { setErr(e.message || 'Could not update password. The reset link may have expired — request a new one.'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[60] flex items-start justify-center overflow-auto p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-8">
+        <div className="p-6 border-b flex justify-between items-center">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Lock size={18} className="text-amber-500" /> Choose a new password</h2>
+          <button onClick={onClose} aria-label="Close"><X size={22} /></button>
+        </div>
+        <div className="p-6 space-y-3">
+          {done ? (
+            <>
+              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3">Your password has been updated. You can now log in with it.</div>
+              <button onClick={onClose} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2.5 rounded-lg font-semibold transition-colors">Done</button>
+            </>
+          ) : (
+            <>
+              {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{err}</div>}
+              <p className="text-sm text-slate-600">You opened a secure reset link. Set your new password below.</p>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">New password</label><input type="password" value={pw} onChange={e => setPw(e.target.value)} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm new password</label><input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !busy) submit(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <button onClick={submit} disabled={busy} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Updating…' : 'Update password'}</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 async function pushToGoogleSheets(inquiry) {
   try {
     const productsStr = inquiry.products?.map(p => `${p.code}-${p.name}${(p.selSize||p.selColor)?` [${[p.selSize,p.selColor].filter(Boolean).join('/')}]`:''} (${p.quantity} pairs)`).join('; ') || '';
@@ -2096,6 +2209,18 @@ export default function App() {
   const [showProforma, setShowProforma] = useState(false);
   const [customer, setCustomer] = useState(null); // { access_token, refresh_token, profile }
   const [showAccount, setShowAccount] = useState(false);
+  const [recovery, setRecovery] = useState(null);
+  useEffect(() => {
+    try {
+      const h = window.location.hash || '';
+      if (h.includes('type=recovery') && h.includes('access_token=')) {
+        const params = new URLSearchParams(h.replace(/^#/, ''));
+        const at = params.get('access_token');
+        if (at) setRecovery({ accessToken: at });
+        try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) {}
+      }
+    } catch (e) {}
+  }, []);
   const [accountTab, setAccountTab] = useState('profile');
   const [showIdleWarn, setShowIdleWarn] = useState(false);
   const [inquiryHistory, setInquiryHistory] = useState([]);
@@ -3121,6 +3246,7 @@ export default function App() {
 
 
       {showCheckout && <CheckoutModal business={business} shopCart={shopCart} products={products} customer={customer} onPlaceOrder={placeOrder} onClose={() => setShowCheckout(false)} />}
+      {recovery && <RecoveryModal accessToken={recovery.accessToken} onClose={() => setRecovery(null)} />}
       {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
