@@ -435,49 +435,8 @@ async function syncStatusToSheet({ type, id, humanId, status }) {
   } catch (e) { return null; }
 }
 async function sendOrderEmail(order) {
-  try {
-    const itemsStr = (order.items || []).map(it => `• ${it.code} ${it.name} (${it.size}/${it.color}) x${it.qty} = ₹${it.lineTotal}`).join('\n');
-    const message = [
-      `New order ${order.orderNo}`,
-      ``,
-      `Customer: ${order.name}`,
-      `Phone: ${order.phone}`,
-      `WhatsApp: ${order.whatsapp || order.phone}`,
-      `Email: ${order.email || 'N/A'}`,
-      `Address: ${[order.address, order.city, order.pincode].filter(Boolean).join(', ')}`,
-      ``,
-      `Items:`,
-      itemsStr,
-      ``,
-      `Subtotal: ₹${order.subtotal}`,
-      `GST (${order.gstRate}%): ₹${order.gst}`,
-      `Delivery: ${order.delivery ? '₹' + order.delivery : 'Free'}`,
-      `Total: ₹${order.total}`,
-      `Payment: ${order.paymentLabel}`,
-      `Note: ${order.note || 'None'}`,
-      `Placed: ${new Date(order.date).toLocaleString('en-IN')}`,
-    ].join('\n');
-    const r = await fetch('https://api.web3forms.com/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        access_key: WEB3FORMS_KEY,
-        subject: `New Order ${order.orderNo} from ${order.name}`,
-        from_name: 'Anand Footwear Website',
-        order_no: order.orderNo,
-        name: order.name,
-        phone: order.phone,
-        email: order.email || 'N/A',
-        total: `₹${order.total}`,
-        payment: order.paymentLabel,
-        message,
-      }),
-    });
-    const data = await r.json();
-    if (data.success) return true;
-    console.error('Web3Forms order error:', data);
-    return false;
-  } catch (e) { console.error('Order email failed:', e.message); return false; }
+  // Web3Forms removed — order emails are now sent for free by Google Apps Script when the row is written to the Sheet.
+  return true;
 }
 async function saveOrderToSupabase(order, accessToken) {
   try {
@@ -507,36 +466,8 @@ async function syncCustomerToSheet(profile, event) {
 }
 
 async function sendInquiryEmail(inquiry) {
-  try {
-    const productsStr = inquiry.products?.map(p => `${p.code}-${p.name}${(p.selSize||p.selColor)?` [${[p.selSize,p.selColor].filter(Boolean).join('/')}]`:''} (${p.quantity} pairs)`).join('; ') || 'None';
-    const r = await fetch('https://api.web3forms.com/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        access_key: WEB3FORMS_KEY,
-        subject: `${inquiry.inqNo ? `[${inquiry.inqNo}] ` : ''}${inquiry.source === 'Proforma Download' ? '📄 Proforma Estimate Lead' : 'New Inquiry'} from ${inquiry.name}${inquiry.shop ? ' - ' + inquiry.shop : ''}`,
-        from_name: 'Shoes Website',
-        inquiry_no: inquiry.inqNo || 'N/A',
-        source: inquiry.source || 'Inquiry Form',
-        name: inquiry.name,
-        shop: inquiry.shop || 'N/A',
-        city: inquiry.city || 'N/A',
-        phone: inquiry.phone,
-        whatsapp: inquiry.whatsapp || inquiry.phone,
-        email: inquiry.email || 'N/A',
-        message: inquiry.message || 'No message',
-        products: productsStr,
-        date: new Date(inquiry.date).toLocaleString('en-IN'),
-      }),
-    });
-    const data = await r.json();
-    if (data.success) return true;
-    console.error('Web3Forms error:', data);
-    return false;
-  } catch (e) {
-    console.error('Email send failed:', e.message);
-    return false;
-  }
+  // Web3Forms removed — inquiry emails are now sent for free by Google Apps Script when the row is written to the Sheet.
+  return true;
 }
 
 
@@ -1814,13 +1745,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                     tests.push('🟡 Google Sheets: Request sent (cannot verify - works on real deployment)');
                   } catch (e) { tests.push(`❌ Google Sheets: ${e.message} (blocked in artifact)`); }
                   
-                  // Test Web3Forms
-                  try {
-                    const r = await fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ access_key: WEB3FORMS_KEY, subject: 'Connection Test', from_name: 'Website Test', name: 'Connection Test', message: 'Automated connection test from admin panel.' }) });
-                    const d = await r.json();
-                    if (d.success) tests.push('✅ Web3Forms Email: Connected (check inbox for test email)');
-                    else tests.push(`❌ Web3Forms: ${d.message}`);
-                  } catch (e) { tests.push(`❌ Web3Forms: ${e.message}`); }
+                  // Email now goes through Google Apps Script (Sheet) — Web3Forms removed
+                  tests.push('ℹ️ Emails are sent free by Google Apps Script when a row reaches the Sheet. Test by placing a real order/inquiry.');
                   
                   alert(tests.join('\n'));
                 }} className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">🧪 Test All Connections</button>
