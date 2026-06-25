@@ -648,7 +648,7 @@ const DEFAULT_BUSINESS = {
   heroSubtitle: 'Your trusted partner for bulk men\'s shoe supply.',
   heroBadge: '{years} Years of Excellence',
   facebook: '#', instagram: '#', linkedin: '#',
-  gstin: '[YOUR GSTIN]', legalName: '[Legal Business Name]', hsnCode: '6403', gstRate: 18,
+  gstin: '', legalName: '[Legal Business Name]', hsnCode: '6403', gstRate: 18,
   bankName: '[Bank Name]', accountNo: '[Account Number]', ifsc: '[IFSC Code]', invoicePrefix: 'INV-',
   deliveryFee: '', freeDeliveryAbove: 0, upiId: '', upiName: '',
   howToOrder: 'How to Order\n\n1. Browse our catalog and open any product.\n2. Choose your size and colour, then tap \'Add to Cart\'.\n3. Open your cart and tap \'Checkout\'.\n4. Enter your delivery details and choose a payment method (Cash on Delivery or UPI).\n5. Place your order — you\'ll get an order number and we\'ll confirm by phone or WhatsApp.\n\nPrefer to ask first? Add items to your inquiry list or message us on WhatsApp and we\'ll be glad to help.',
@@ -656,8 +656,9 @@ const DEFAULT_BUSINESS = {
   returnsPolicy: 'We want you to be happy with your purchase.\n\n- Returns or exchanges are accepted within 7 days of delivery for unused items in their original condition and packaging.\n- To start a return, contact us with your order number on WhatsApp, phone or email.\n- Refunds, where applicable, are processed to the original payment method within 5-7 business days after we receive and inspect the item.\n- Customised or made-to-order items may not be eligible for return.\n\nPlease update this policy to match exactly how you handle returns.',
   privacyPolicy: 'This Privacy Policy explains how we collect and use your information.\n\n- Information we collect: your name, contact details, delivery address, and the order or inquiry details you provide.\n- How we use it: to process orders and inquiries, arrange delivery, provide support, and contact you about your order.\n- Sharing: we share details only as needed to fulfil your order (for example, with delivery partners) and as required by law. We do not sell your personal information.\n- Your choices: contact us any time to access or update your information.\n- Contact us for any privacy question using the details on our Contact page.\n\nThis is a starting template — please review it for your business and local laws.',
   termsPolicy: 'By using this website and placing an order, you agree to these terms.\n\n- Product images and descriptions are for reference; slight variations may occur.\n- Prices and availability may change without notice. We confirm each order before dispatch.\n- Payment options and any applicable taxes or delivery charges are shown at checkout.\n- Orders may be cancelled if payment isn\'t received or an item is unavailable.\n- For any question, please use the details on our Contact page.\n\nThis is a starting template — please review it for your business and local laws.',
+  cancellationPolicy: 'You can cancel an order before it is dispatched.\n\n- To cancel, contact us as soon as possible on WhatsApp, phone or email with your order number.\n- Once an order has been dispatched, it cannot be cancelled, but you may be able to return it as per our Return & Refund Policy.\n- If a prepaid order is cancelled before dispatch, any amount paid is refunded to the original payment method within 5-7 business days.\n- We may cancel an order if the item is unavailable or payment is not received, and will inform you in that case.\n\nThis is a starting template — please review it for your business and local laws.',
+  grievanceName: '', grievanceEmail: '', grievancePhone: '', grievanceAddress: '',
 };
-
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'catalog', label: 'Catalog', icon: Grid },
@@ -1493,6 +1494,19 @@ function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navig
         </div>
       </div>
 
+      {(business.grievanceName || business.grievanceEmail || business.grievancePhone || business.grievanceAddress) && (
+        <div className="max-w-2xl mx-auto mt-10 bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 className="font-bold text-slate-900 mb-1">Grievance Officer</h3>
+          <p className="text-sm text-slate-500 mb-4">For any complaint, you may reach our grievance officer:</p>
+          <div className="space-y-2 text-sm text-slate-700">
+            {business.grievanceName && <div className="flex gap-2"><span className="text-slate-500 w-20 flex-shrink-0">Name</span><span className="font-medium">{business.grievanceName}</span></div>}
+            {business.grievanceEmail && <div className="flex gap-2"><span className="text-slate-500 w-20 flex-shrink-0">Email</span><a href={`mailto:${business.grievanceEmail}`} className="font-medium text-amber-600 break-all">{business.grievanceEmail}</a></div>}
+            {business.grievancePhone && <div className="flex gap-2"><span className="text-slate-500 w-20 flex-shrink-0">Phone</span><a href={`tel:${business.grievancePhone}`} className="font-medium">{business.grievancePhone}</a></div>}
+            {business.grievanceAddress && <div className="flex gap-2"><span className="text-slate-500 w-20 flex-shrink-0">Address</span><span className="font-medium whitespace-pre-line">{business.grievanceAddress}</span></div>}
+          </div>
+        </div>
+      )}
+
       {business.appointmentsEnabled && (
         <div className="max-w-2xl mx-auto mt-10 rounded-2xl overflow-hidden shadow-lg border border-slate-200">
           <div className="bg-slate-900 px-6 py-5 flex items-center gap-3">
@@ -2208,6 +2222,12 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Returns &amp; Refunds</label><textarea value={editBiz.returnsPolicy || ''} onChange={e => setEditBiz({...editBiz, returnsPolicy: e.target.value})} rows={6} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Privacy Policy</label><textarea value={editBiz.privacyPolicy || ''} onChange={e => setEditBiz({...editBiz, privacyPolicy: e.target.value})} rows={7} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Terms &amp; Conditions</label><textarea value={editBiz.termsPolicy || ''} onChange={e => setEditBiz({...editBiz, termsPolicy: e.target.value})} rows={7} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Cancellation Policy</label><textarea value={editBiz.cancellationPolicy || ''} onChange={e => setEditBiz({...editBiz, cancellationPolicy: e.target.value})} rows={6} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+                  <div className="md:col-span-2 mt-2 pt-4 border-t"><h3 className="font-bold text-slate-900 mb-1">Grievance Officer &amp; Legal (optional)</h3><div className="text-xs text-slate-500 mb-3">For India e-commerce rules. The Grievance Officer block shows on the Contact page only when you fill at least one field below — until then nothing appears. You can use a role label instead of a personal name (e.g., "Grievance Officer, {business.name}").</div></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Grievance Officer Name / Label</label><input value={editBiz.grievanceName || ''} onChange={e => setEditBiz({...editBiz, grievanceName: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Grievance Officer" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Grievance Email</label><input value={editBiz.grievanceEmail || ''} onChange={e => setEditBiz({...editBiz, grievanceEmail: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., support@yourdomain.com" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Grievance Phone</label><input value={editBiz.grievancePhone || ''} onChange={e => setEditBiz({...editBiz, grievancePhone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., +91 8218596945" /></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Grievance / Business Address (optional)</label><textarea value={editBiz.grievanceAddress || ''} onChange={e => setEditBiz({...editBiz, grievanceAddress: e.target.value})} rows={2} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Leave blank to hide" /></div>
                   <div className="md:col-span-2 flex items-center gap-2"><input type="checkbox" id="apptToggle" checked={editBiz.appointmentsEnabled !== false} onChange={e => setEditBiz({...editBiz, appointmentsEnabled: e.target.checked})} /><label htmlFor="apptToggle" className="text-sm font-medium text-slate-700">Enable "Book an Appointment" on the contact page</label></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Appointment Note (shown to visitors)</label><input value={editBiz.appointmentNote || ''} onChange={e => setEditBiz({...editBiz, appointmentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Visits Mon–Sat, 11am–7pm. We'll confirm your slot." /></div>
                   <div className="md:col-span-2">
@@ -3184,6 +3204,7 @@ export default function App() {
         {page === 'returns' && <PolicyPage title="Returns & Refunds" sections={[{ text: business.returnsPolicy }]} />}
         {page === 'privacy' && <PolicyPage title="Privacy Policy" sections={[{ text: business.privacyPolicy }]} />}
         {page === 'terms' && <PolicyPage title="Terms & Conditions" sections={[{ text: business.termsPolicy }]} />}
+        {page === 'cancellation' && <PolicyPage title="Cancellation Policy" sections={[{ text: business.cancellationPolicy }]} />}
 
         {page === 'contact' && <ContactPage business={business} inquiryList={inquiryList} setInquiryList={setInquiryList} saveInquiry={saveInquiry} navigate={navigate} showToast={showToast} customer={customer} onInquirySubmitted={recordInquiryHistory} />}
       </main>
@@ -3201,12 +3222,13 @@ export default function App() {
         </div>
         <div className="max-w-7xl mx-auto px-4 mt-8 pt-8 border-t border-slate-800 flex flex-col items-center gap-3 text-sm text-slate-400">
           <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
-            <button onClick={() => navigate('howto')} className="hover:text-amber-400">How to Order &amp; Shipping</button>
-            <button onClick={() => navigate('returns')} className="hover:text-amber-400">Returns &amp; Refunds</button>
-            <button onClick={() => navigate('privacy')} className="hover:text-amber-400">Privacy Policy</button>
-            <button onClick={() => navigate('terms')} className="hover:text-amber-400">Terms &amp; Conditions</button>
+            {(business.howToOrder || business.shippingPolicy) && <button onClick={() => navigate('howto')} className="hover:text-amber-400">How to Order &amp; Shipping</button>}
+            {business.returnsPolicy && <button onClick={() => navigate('returns')} className="hover:text-amber-400">Returns &amp; Refunds</button>}
+            {business.cancellationPolicy && <button onClick={() => navigate('cancellation')} className="hover:text-amber-400">Cancellation</button>}
+            {business.privacyPolicy && <button onClick={() => navigate('privacy')} className="hover:text-amber-400">Privacy Policy</button>}
+            {business.termsPolicy && <button onClick={() => navigate('terms')} className="hover:text-amber-400">Terms &amp; Conditions</button>}
           </div>
-          <div>© {new Date().getFullYear()} {business.name}. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} {business.name}. All rights reserved.{business.gstin ? ` · GSTIN: ${business.gstin}` : ''}</div>
           {adminAuth ? <button onClick={() => setPage('admin')} className="text-xs text-slate-500 hover:text-amber-400 flex items-center gap-1"><Lock size={11} /> Admin Panel</button> : <button onClick={() => setShowAdminLogin(true)} className="text-xs text-slate-500 hover:text-amber-400 flex items-center gap-1"><Lock size={11} /> Admin Login</button>}
         </div>
       </footer>
