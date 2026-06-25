@@ -757,12 +757,16 @@ function ProductGallery({ images, alt }) {
   return (
     <div>
       <div className="relative bg-slate-100 rounded-2xl overflow-hidden aspect-square" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-        <SafeImage src={imgs[idx]} alt={alt} className="w-full h-full object-cover" />
+        {imgs.map((src, i) => (
+          <div key={i} className="absolute inset-0 transition-opacity duration-700 ease-in-out" style={{ opacity: i === idx ? 1 : 0 }} aria-hidden={i !== idx}>
+            <SafeImage src={src} alt={i === idx ? alt : ''} className="w-full h-full object-cover" />
+          </div>
+        ))}
         {imgs.length > 1 && (
           <>
-            <button onClick={() => go(idx - 1)} aria-label="Previous image" className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight className="rotate-180" size={20} /></button>
-            <button onClick={() => go(idx + 1)} aria-label="Next image" className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight size={20} /></button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+            <button onClick={() => go(idx - 1)} aria-label="Previous image" className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight className="rotate-180" size={20} /></button>
+            <button onClick={() => go(idx + 1)} aria-label="Next image" className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight size={20} /></button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-1.5">
               {imgs.map((_, i) => <button key={i} onClick={() => pick(i)} aria-label={`Go to image ${i + 1}`} className={`w-2 h-2 rounded-full transition-colors ${i === idx ? 'bg-amber-500' : 'bg-white/70'}`} />)}
             </div>
           </>
