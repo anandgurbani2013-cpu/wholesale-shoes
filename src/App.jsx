@@ -408,6 +408,16 @@ function makeProformaNo() {
   // Unique, non-repeating reference: millisecond timestamp (always moves forward) + random suffix
   return `PRO-${Date.now()}${String(Math.floor(Math.random() * 900 + 100))}`;
 }
+const STATUS_RANK = { 'new': 0, 'in progress': 1, 'confirmed': 1, 'packed': 2, 'shipped': 3, 'out for delivery': 4, 'delivered': 5, 'resolved': 5, 'cancelled': 9 };
+function statusRank(st) { const k = String(st || '').toLowerCase(); return STATUS_RANK[k] != null ? STATUS_RANK[k] : 50; }
+function sortRecords(arr, mode, getDate, getName, getStatus) {
+  const a = arr.slice();
+  if (mode === 'newest') a.sort((x, y) => new Date(getDate(y)) - new Date(getDate(x)));
+  else if (mode === 'name') a.sort((x, y) => String(getName(x) || '').localeCompare(String(getName(y) || '')));
+  else if (mode === 'status') a.sort((x, y) => (statusRank(getStatus(x)) - statusRank(getStatus(y))) || (new Date(getDate(x)) - new Date(getDate(y))));
+  else a.sort((x, y) => new Date(getDate(x)) - new Date(getDate(y)));
+  return a;
+}
 async function pushOrderToSheets(order) {
   try {
     const productsStr = (order.items || []).map(it => `${it.code}-${it.name} [${it.size}/${it.color}] x${it.qty} @ ₹${it.unit}`).join('; ');
@@ -1633,6 +1643,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [orders, setOrders] = useState([]);
   const [inqSearch, setInqSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
+  const [inqSort, setInqSort] = useState('oldest');
+  const [orderSort, setOrderSort] = useState('oldest');
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
   useEffect(() => {
@@ -1927,10 +1939,10 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
         {(tab === 'inquiries' || tab === 'proforma') && (() => {
           const isProforma = tab === 'proforma';
           const q = inqSearch.trim().toLowerCase();
-          const list = inquiries.filter(i => isProforma ? i.type === 'proforma' : i.type !== 'proforma').filter(i => !q || (i.name || '').toLowerCase().includes(q) || (i.inqNo || '').toLowerCase().includes(q)).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+          const list = sortRecords(inquiries.filter(i => isProforma ? i.type === 'proforma' : i.type !== 'proforma').filter(i => !q || (i.name || '').toLowerCase().includes(q) || (i.inqNo || '').toLowerCase().includes(q)), inqSort, i => i.date, i => i.name, i => i.status);
           return (
           <div>
-            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">{isProforma ? 'Proforma Leads' : 'Inquiries'} ({list.length})</h1><input value={inqSearch} onChange={e => setInqSearch(e.target.value)} placeholder={isProforma ? 'Search name or no.' : 'Search name or inquiry no.'} className="px-3 py-2 border rounded-lg text-sm w-64 max-w-full" /></div>
+            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">{isProforma ? 'Proforma Leads' : 'Inquiries'} ({list.length})</h1><div className="flex gap-2 flex-wrap"><input value={inqSearch} onChange={e => setInqSearch(e.target.value)} placeholder={isProforma ? 'Search name or no.' : 'Search name or inquiry no.'} className="px-3 py-2 border rounded-lg text-sm w-56 max-w-full" /><select value={inqSort} onChange={e => setInqSort(e.target.value)} className="px-3 py-2 border rounded-lg text-sm"><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="status">By status</option><option value="name">Name (A–Z)</option></select></div></div>
             <div className="space-y-4">
               {list.map(i => (
                 <div key={i.id} className="bg-white rounded-xl p-6 shadow-sm">
@@ -1971,10 +1983,10 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
 
         {tab === 'orders' && (() => {
           const q = orderSearch.trim().toLowerCase();
-          const list = orders.filter(row => { const o = row.data || {}; return !q || (o.name || '').toLowerCase().includes(q) || (o.orderNo || '').toLowerCase().includes(q); }).slice().sort((a, b) => new Date((a.data || {}).date || a.created_at) - new Date((b.data || {}).date || b.created_at));
+          const list = sortRecords(orders.filter(row => { const o = row.data || {}; return !q || (o.name || '').toLowerCase().includes(q) || (o.orderNo || '').toLowerCase().includes(q); }), orderSort, r => (r.data || {}).date || r.created_at, r => (r.data || {}).name, r => r.status);
           return (
           <div>
-            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">Orders ({list.length})</h1><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Search name or order no." className="px-3 py-2 border rounded-lg text-sm w-64 max-w-full" /></div>
+            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">Orders ({list.length})</h1><div className="flex gap-2 flex-wrap"><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Search name or order no." className="px-3 py-2 border rounded-lg text-sm w-56 max-w-full" /><select value={orderSort} onChange={e => setOrderSort(e.target.value)} className="px-3 py-2 border rounded-lg text-sm"><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="status">By status</option><option value="name">Name (A–Z)</option></select></div></div>
             {ordersError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-sm">{ordersError}</div>}
             {ordersLoading && <div className="bg-white rounded-xl p-12 text-center text-slate-500">Loading orders…</div>}
             {!ordersLoading && !ordersError && list.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />{orderSearch ? 'No orders match your search' : 'No orders yet'}</div>}
@@ -3215,4 +3227,3 @@ export default function App() {
     </div>
   );
 }
-
