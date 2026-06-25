@@ -549,7 +549,7 @@ const DEFAULT_CATEGORIES = [
 
 const DEFAULT_FAQS = [
   { id: 'faq_2', q: 'Do you offer customization or private labeling?', a: 'Yes, we offer customization for bulk orders.' },
-  { id: 'faq_3', q: 'What are your payment terms?', a: 'Advance payment / Net 30 for approved retailers' },
+  { id: 'faq_3', q: 'What are your payment terms?', a: 'Advance payment / Net 30 for approved customers' },
   { id: 'faq_4', q: 'How long does delivery take?', a: '7-15 business days from order confirmation.' },
   { id: 'faq_5', q: 'Do you ship across India?', a: 'Yes, pan India delivery available.' },
   { id: 'faq_6', q: 'Do you offer GST invoicing?', a: 'Yes, we provide proper GST invoices for all orders.' },
@@ -2110,7 +2110,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><BarChart3 size={18} /> Stats</h3>
                 <div className="grid md:grid-cols-4 gap-4">
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Founded Year</label><input type="number" value={editBiz.foundedYear || ''} onChange={e => setEditBiz({...editBiz, foundedYear: parseInt(e.target.value) || 0})} placeholder="e.g., 2013" className="w-full px-3 py-2 border rounded-lg" /><div className="text-xs text-slate-500 mt-1">"Years in Business" auto-calculates from this.</div></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Retailers</label><input value={editBiz.retailers || ''} onChange={e => setEditBiz({...editBiz, retailers: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Customers</label><input value={editBiz.retailers || ''} onChange={e => setEditBiz({...editBiz, retailers: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Cities</label><input value={editBiz.cities || ''} onChange={e => setEditBiz({...editBiz, cities: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">SKUs</label><input value={editBiz.skus || ''} onChange={e => setEditBiz({...editBiz, skus: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 </div>
@@ -2705,7 +2705,7 @@ export default function App() {
             <span className="hidden md:flex items-center gap-1"><Mail size={12} /> {business.email}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-amber-400">Trusted by {business.retailers} Retailers</span>
+            <span className="hidden sm:inline text-amber-400">Trusted by {business.retailers} Customers</span>
             <a href={business.facebook} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Facebook size={14} /></a>
             <a href={business.instagram} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Instagram size={14} /></a>
             <a href={business.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Linkedin size={14} /></a>
@@ -2744,7 +2744,7 @@ export default function App() {
                 <div className="bg-white border border-slate-100 rounded-xl shadow-xl py-2 w-56">
                   <button onClick={() => navigate('about')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><Info size={16} /> About us</button>
                   <button onClick={() => goToSection('sec-why')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><CheckCircle size={16} /> Why choose us</button>
-                  <button onClick={() => goToSection('sec-reviews')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><MessageSquare size={16} /> What retailers say</button>
+                  <button onClick={() => goToSection('sec-reviews')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><MessageSquare size={16} /> What customers say</button>
                   <button onClick={() => navigate('faq')} className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600"><HelpCircle size={16} /> FAQ</button>
                 </div>
               </div>
@@ -2773,7 +2773,7 @@ export default function App() {
 
                 <div className="px-3 pt-3 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Company</div>
                 <button onClick={() => goToSection('sec-why')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><CheckCircle size={18} /> Why choose us</button>
-                <button onClick={() => goToSection('sec-reviews')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><MessageSquare size={18} /> What retailers say</button>
+                <button onClick={() => goToSection('sec-reviews')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><MessageSquare size={18} /> What customers say</button>
 
                 <div className="border-t border-slate-100 my-2"></div>
                 {customer ? (
@@ -2825,7 +2825,7 @@ export default function App() {
 
             <section className="bg-white py-12 border-b">
               <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6">
-                {[{ icon: Award, value: yearsInBusiness, label: 'Years in Business' }, { icon: Users, value: business.retailers, label: 'Retailers Served' }, { icon: MapPin, value: business.cities, label: 'Cities Covered' }, { icon: Package, value: business.skus, label: 'Products in Stock' }].map((s, i) => (
+                {[{ icon: Award, value: yearsInBusiness, label: 'Years in Business' }, { icon: Users, value: business.retailers, label: 'Customers Served' }, { icon: MapPin, value: business.cities, label: 'Cities Covered' }, { icon: Package, value: business.skus, label: 'Products in Stock' }].map((s, i) => (
                   <div key={i} className="text-center"><s.icon className="text-amber-500 mx-auto mb-3" size={32} /><div className="text-3xl md:text-4xl font-bold text-slate-900">{s.value}</div><div className="text-sm text-slate-600 mt-1">{s.label}</div></div>
                 ))}
               </div>
@@ -3018,7 +3018,7 @@ export default function App() {
           );
         })()}
 
-        {page === 'faq' && <div className="max-w-3xl mx-auto px-4 py-12"><h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">FAQ</h1><p className="text-slate-600 mb-12">Common questions from our retailers</p><div className="space-y-3">{faqs.map(f => <FAQItem key={f.id} q={f.q} a={f.a} />)}{faqs.length === 0 && <div className="text-center text-slate-500 py-12">No FAQs yet</div>}</div></div>}
+        {page === 'faq' && <div className="max-w-3xl mx-auto px-4 py-12"><h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-3">FAQ</h1><p className="text-slate-600 mb-12">Common questions from our customers</p><div className="space-y-3">{faqs.map(f => <FAQItem key={f.id} q={f.q} a={f.a} />)}{faqs.length === 0 && <div className="text-center text-slate-500 py-12">No FAQs yet</div>}</div></div>}
 
         {page === 'howto' && <PolicyPage title="How to Order & Shipping" sections={[{ text: business.howToOrder }, { heading: 'Shipping & Delivery', text: business.shippingPolicy }]} />}
         {page === 'returns' && <PolicyPage title="Returns & Refunds" sections={[{ text: business.returnsPolicy }]} />}
