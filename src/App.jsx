@@ -447,7 +447,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
 }
 
 // ===== EXTERNAL SERVICES =====
-function RecoveryModal({ accessToken, onClose }) {
+function RecoveryModal({ accessToken, refreshToken, onAuthed, onClose }) {
   const [pw, setPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -458,7 +458,12 @@ function RecoveryModal({ accessToken, onClose }) {
     if (pw.length < 6) { setErr('Password must be at least 6 characters'); return; }
     if (pw !== confirm) { setErr('Passwords do not match'); return; }
     setBusy(true);
-    try { await customerAuth.setPassword(accessToken, pw); setDone(true); }
+    try {
+      const user = await customerAuth.setPassword(accessToken, pw);
+      setDone(true);
+      try { if (onAuthed) onAuthed({ access_token: accessToken, refresh_token: refreshToken, user }, 'login'); } catch (e) {}
+      setTimeout(() => { try { onClose(); } catch (e) {} }, 1800);
+    }
     catch (e) { setErr(e.message || 'Could not update password. The reset link may have expired — request a new one.'); }
     finally { setBusy(false); }
   };
@@ -472,8 +477,8 @@ function RecoveryModal({ accessToken, onClose }) {
         <div className="p-6 space-y-3">
           {done ? (
             <>
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3">Your password has been updated. You can now log in with it.</div>
-              <button onClick={onClose} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2.5 rounded-lg font-semibold transition-colors">Done</button>
+              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3 flex items-center gap-2"><CheckCircle size={18} /> Password updated — you're logged in!</div>
+              <button onClick={onClose} className="w-full bg-slate-900 hover:bg-amber-500 text-white py-2.5 rounded-lg font-semibold transition-colors">Continue</button>
             </>
           ) : (
             <>
@@ -2216,7 +2221,8 @@ export default function App() {
       if (h.includes('type=recovery') && h.includes('access_token=')) {
         const params = new URLSearchParams(h.replace(/^#/, ''));
         const at = params.get('access_token');
-        if (at) setRecovery({ accessToken: at });
+        const rt = params.get('refresh_token');
+        if (at) setRecovery({ accessToken: at, refreshToken: rt || '' });
         try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) {}
       }
     } catch (e) {}
@@ -3246,7 +3252,7 @@ export default function App() {
 
 
       {showCheckout && <CheckoutModal business={business} shopCart={shopCart} products={products} customer={customer} onPlaceOrder={placeOrder} onClose={() => setShowCheckout(false)} />}
-      {recovery && <RecoveryModal accessToken={recovery.accessToken} onClose={() => setRecovery(null)} />}
+      {recovery && <RecoveryModal accessToken={recovery.accessToken} refreshToken={recovery.refreshToken} onAuthed={(d) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), 'login'); }} onClose={() => setRecovery(null)} />}
       {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
