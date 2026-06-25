@@ -1702,6 +1702,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     { id: 'products', label: 'Products', icon: Package },
     { id: 'categories', label: 'Categories', icon: Tag },
     { id: 'inquiries', label: 'Inquiries', icon: Inbox },
+    { id: 'proforma', label: 'Proforma', icon: FileText },
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
     { id: 'faqs', label: 'FAQs', icon: HelpCircle },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquare },
@@ -1919,12 +1920,13 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
 
         {tab === 'categories' && <CrudListEditor title="Categories" icon={Tag} items={categories} onSave={saveCategoriesWithCheck} itemLabel="Category" idPrefix="cat" fields={[{ key: 'id', label: 'ID (no spaces, lowercase)', required: true, hint: 'Used internally. Example: formal' }, { key: 'name', label: 'Category Name', required: true }, { key: 'icon', label: 'Icon (emoji)', required: true, placeholder: 'e.g., 👞' }]} renderItem={(item) => (<div className="flex items-center gap-3"><div className="text-3xl">{item.icon}</div><div><div className="font-semibold text-slate-900">{item.name}</div><div className="text-xs text-slate-500 font-mono">ID: {item.id} • {products.filter(p => p.category === item.id).length} products</div></div></div>)} />}
 
-        {tab === 'inquiries' && (() => {
+        {(tab === 'inquiries' || tab === 'proforma') && (() => {
+          const isProforma = tab === 'proforma';
           const q = inqSearch.trim().toLowerCase();
-          const list = inquiries.filter(i => !q || (i.name || '').toLowerCase().includes(q) || (i.inqNo || '').toLowerCase().includes(q)).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+          const list = inquiries.filter(i => isProforma ? i.type === 'proforma' : i.type !== 'proforma').filter(i => !q || (i.name || '').toLowerCase().includes(q) || (i.inqNo || '').toLowerCase().includes(q)).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
           return (
           <div>
-            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">Inquiries ({list.length})</h1><input value={inqSearch} onChange={e => setInqSearch(e.target.value)} placeholder="Search name or inquiry no." className="px-3 py-2 border rounded-lg text-sm w-64 max-w-full" /></div>
+            <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">{isProforma ? 'Proforma Leads' : 'Inquiries'} ({list.length})</h1><input value={inqSearch} onChange={e => setInqSearch(e.target.value)} placeholder={isProforma ? 'Search name or no.' : 'Search name or inquiry no.'} className="px-3 py-2 border rounded-lg text-sm w-64 max-w-full" /></div>
             <div className="space-y-4">
               {list.map(i => (
                 <div key={i.id} className="bg-white rounded-xl p-6 shadow-sm">
@@ -1957,7 +1959,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   </div>
                 </div>
               ))}
-              {list.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><Inbox size={48} className="mx-auto mb-3 opacity-50" />{inqSearch ? 'No inquiries match your search' : 'No inquiries yet'}</div>}
+              {list.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><Inbox size={48} className="mx-auto mb-3 opacity-50" />{inqSearch ? 'No matches for your search' : (isProforma ? 'No proforma leads yet' : 'No inquiries yet')}</div>}
             </div>
           </div>
           );
