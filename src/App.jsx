@@ -732,9 +732,21 @@ function productImages(p) {
 
 function ProductGallery({ images, alt }) {
   const [idx, setIdx] = useState(0);
+  const [hover, setHover] = useState(false);
+  const [paused, setPaused] = useState(false);
   const touchX = useRef(null);
+  const resumeTimer = useRef(null);
   const imgs = images && images.length ? images : [''];
-  const go = (n) => setIdx((n + imgs.length) % imgs.length);
+  const pauseFor = (ms = 7000) => { setPaused(true); clearTimeout(resumeTimer.current); resumeTimer.current = setTimeout(() => setPaused(false), ms); };
+  const go = (n) => { setIdx((n + imgs.length) % imgs.length); pauseFor(); };
+  const pick = (i) => { setIdx(i); pauseFor(); };
+  // Auto-rotate when more than one image, unless hovering (desktop) or just after a manual change
+  useEffect(() => {
+    if (imgs.length <= 1 || hover || paused) return;
+    const t = setInterval(() => setIdx(i => (i + 1) % imgs.length), 4000);
+    return () => clearInterval(t);
+  }, [imgs.length, hover, paused]);
+  useEffect(() => () => clearTimeout(resumeTimer.current), []);
   const onTouchStart = (e) => { touchX.current = e.changedTouches[0].clientX; };
   const onTouchEnd = (e) => {
     if (touchX.current == null) return;
@@ -744,14 +756,14 @@ function ProductGallery({ images, alt }) {
   };
   return (
     <div>
-      <div className="relative bg-slate-100 rounded-2xl overflow-hidden aspect-square" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="relative bg-slate-100 rounded-2xl overflow-hidden aspect-square" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
         <SafeImage src={imgs[idx]} alt={alt} className="w-full h-full object-cover" />
         {imgs.length > 1 && (
           <>
             <button onClick={() => go(idx - 1)} aria-label="Previous image" className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight className="rotate-180" size={20} /></button>
             <button onClick={() => go(idx + 1)} aria-label="Next image" className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-900 flex items-center justify-center shadow-md"><ChevronRight size={20} /></button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 md:hidden">
-              {imgs.map((_, i) => <span key={i} className={`w-2 h-2 rounded-full transition-colors ${i === idx ? 'bg-amber-500' : 'bg-white/70'}`} />)}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {imgs.map((_, i) => <button key={i} onClick={() => pick(i)} aria-label={`Go to image ${i + 1}`} className={`w-2 h-2 rounded-full transition-colors ${i === idx ? 'bg-amber-500' : 'bg-white/70'}`} />)}
             </div>
           </>
         )}
@@ -759,7 +771,7 @@ function ProductGallery({ images, alt }) {
       {imgs.length > 1 && (
         <div className="hidden md:flex gap-2 mt-3 flex-wrap">
           {imgs.map((src, i) => (
-            <button key={i} onClick={() => setIdx(i)} style={i === idx ? { borderColor: '#C6A15B' } : {}} className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${i === idx ? '' : 'border-transparent'}`}>
+            <button key={i} onClick={() => pick(i)} style={i === idx ? { borderColor: '#C6A15B' } : {}} className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${i === idx ? '' : 'border-transparent'}`}>
               <SafeImage src={src} alt={`${alt} ${i + 1}`} className="w-full h-full object-cover" />
             </button>
           ))}
