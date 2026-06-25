@@ -696,7 +696,7 @@ function ProductCard({ product, categories, onView, onAddToInquiry }) {
         <h3 className="font-semibold text-slate-900 mb-1 truncate">{product.name}</h3>
         <div className="text-xs text-slate-600 mb-3">{categories.find(c => c.id === product.category)?.name || 'Uncategorized'}</div>
         <div className="flex justify-between items-center mb-3">
-          {(() => { const b = parseFloat(product.retailPrice) || product.priceFrom || 0; const d = discPctFor(product); const dp = d > 0 ? Math.round(b * (1 - d / 100)) : b; return <div>{d > 0 ? <div className="flex items-center gap-2 flex-wrap"><span className="text-lg font-bold text-slate-900">₹{dp.toLocaleString('en-IN')}</span><span className="text-sm text-slate-400 line-through">₹{b.toLocaleString('en-IN')}</span><span className="text-xs font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">{d}% off</span></div> : <div className="text-lg font-bold text-slate-900">₹{b.toLocaleString('en-IN')}</div>}<div className="text-xs text-slate-500">per pair</div></div>; })()}
+          {(() => { const b = parseFloat(product.retailPrice) || parseFloat(product.priceFrom) || 0; const d = discPctFor(product); const dp = d > 0 ? Math.round(b * (1 - d / 100)) : b; return <div>{d > 0 ? <div className="flex items-center gap-2 flex-wrap"><span className="text-lg font-bold text-slate-900">₹{dp.toLocaleString('en-IN')}</span><span className="text-sm text-slate-400 line-through">₹{b.toLocaleString('en-IN')}</span><span className="text-xs font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">{d}% off</span></div> : <div className="text-lg font-bold text-slate-900">₹{b.toLocaleString('en-IN')}</div>}<div className="text-xs text-slate-500">per pair</div></div>; })()}
           {productTotalStock(product) === 0 && !product.outOfStock && (parseFloat(product.retailPrice) > 0) && <div className="text-right"><div className="text-xs text-red-500 font-semibold">Sold out</div></div>}
         </div>
         {product.outOfStock
@@ -717,12 +717,13 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
   const gstRate = parseFloat(business.gstRate) || 18;
   
   const calcRow = (item) => {
-    const price = parseFloat(item.priceFrom) || 0;
-    const subtotal = price * (item.quantity || 1);
+    const qty = item.quantity || 1;
+    const price = discountedUnitPrice(item, qty) || parseFloat(item.retailPrice) || parseFloat(item.priceFrom) || 0;
+    const subtotal = price * qty;
     const cgst = (subtotal * gstRate) / 200;
     const sgst = (subtotal * gstRate) / 200;
     const total = subtotal + cgst + sgst;
-    return { subtotal, cgst, sgst, total };
+    return { price, subtotal, cgst, sgst, total };
   };
 
   const totals = items.reduce((acc, item) => {
@@ -811,7 +812,7 @@ function GSTInvoiceGenerator({ inquiry, business, onClose }) {
                     <td className="p-2"><div className="font-medium">{item.name}</div><div className="text-xs text-slate-500">{item.code}</div></td>
                     <td className="p-2 text-center">{business.hsnCode || '6403'}</td>
                     <td className="p-2 text-center">{item.quantity || 1}</td>
-                    <td className="p-2 text-right">₹{parseFloat(item.priceFrom || 0).toFixed(2)}</td>
+                    <td className="p-2 text-right">₹{r.price.toFixed(2)}</td>
                     <td className="p-2 text-right">₹{r.subtotal.toFixed(2)}</td>
                     <td className="p-2 text-right">₹{r.cgst.toFixed(2)}</td>
                     <td className="p-2 text-right">₹{r.sgst.toFixed(2)}</td>
@@ -1836,7 +1837,6 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Product Code *</label><input value={pForm.code} onChange={e => setPForm({...pForm, code: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Product Name *</label><input value={pForm.name} onChange={e => setPForm({...pForm, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Category</label><select value={pForm.category} onChange={e => setPForm({...pForm, category: e.target.value})} className="w-full px-3 py-2 border rounded-lg">{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Price From (₹)</label><input value={pForm.priceFrom} onChange={e => setPForm({...pForm, priceFrom: e.target.value})} placeholder="e.g., 500" className="w-full px-3 py-2 border rounded-lg" /></div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Product Images</label>
                   <div className="text-xs text-slate-500 mb-2">The first image is the main one shown on cards. You can paste several URLs at once (one per line) and they'll split automatically.</div>
