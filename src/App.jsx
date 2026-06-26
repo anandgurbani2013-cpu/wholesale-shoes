@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon, Heart } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -117,6 +117,12 @@ const customerAuth = {
   async saveCart(access_token, cart) {
     try {
       const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ data: { cart } }) });
+      return r.ok;
+    } catch (e) { return false; }
+  },
+  async saveWishlist(access_token, wishlist) {
+    try {
+      const r = await fetch(`${this.base}/user`, { method: 'PUT', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` }, body: JSON.stringify({ data: { wishlist } }) });
       return r.ok;
     } catch (e) { return false; }
   },
@@ -811,14 +817,15 @@ function ProductGallery({ images, alt }) {
   );
 }
 
-function ProductCard({ product, categories, onView, onAddToInquiry }) {
+function ProductCard({ product, categories, onView, onAddToInquiry, isWished, onToggleWish }) {
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 transition-all hover:-translate-y-1 group">
       <div className="relative aspect-square overflow-hidden bg-slate-100 cursor-pointer" onClick={() => onView(product)}>
         <SafeImage src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+        {onToggleWish && <button onClick={(e) => { e.stopPropagation(); onToggleWish(product.id); }} aria-label={isWished ? 'Remove from saved' : 'Save to wishlist'} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-sm z-10"><Heart size={18} className={isWished ? 'text-rose-500' : 'text-slate-400'} fill={isWished ? 'currentColor' : 'none'} /></button>}
         {product.isNew && <span className="absolute top-3 left-3 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">NEW</span>}
         {product.isBestseller && <span className="absolute top-3 left-3 bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-semibold">★ BEST</span>}
-        {product.outOfStock && <span className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">Out of Stock</span>}
+        {product.outOfStock && <span className="absolute bottom-3 right-3 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">Out of Stock</span>}
         {!product.outOfStock && (() => { const t = productTotalStock(product); return t > 0 && t <= 5 ? <span className="absolute bottom-3 left-3 bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-semibold">Only {t} left</span> : null; })()}
       </div>
       <div className="p-4">
@@ -1320,19 +1327,17 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
 
 // ===== CONTACT PAGE =====
 function ContactPage({ business, inquiryList, setInquiryList, saveInquiry, navigate, showToast, customer, onInquirySubmitted }) {
-  const [form, setForm] = useState(() => {
-    try { const s = localStorage.getItem('wsContactForm'); if (s) return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '', ...JSON.parse(s) }; } catch (e) {}
-    return { name: '', shop: '', city: '', phone: '', email: '', message: '', sameWhatsapp: true, whatsapp: '' };
-  });
+  const [form, setForm] = useState(() => ({
+    name: (customer && customer.profile && customer.profile.name) || '',
+    shop: '', city: (customer && customer.profile && customer.profile.city) || '',
+    phone: (customer && customer.profile && customer.profile.phone) || '',
+    email: (customer && customer.profile && customer.profile.email) || '',
+    message: '', sameWhatsapp: true, whatsapp: ''
+  }));
   const [submitted, setSubmitted] = useState(false);
   const [submittedNo, setSubmittedNo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState({ db: null, sheets: null, email: null });
-
-  // Remember what's typed so a refresh doesn't lose it
-  useEffect(() => {
-    try { localStorage.setItem('wsContactForm', JSON.stringify(form)); } catch (e) {}
-  }, [form]);
 
   const submit = async () => {
     if (!form.name || !form.phone) { showToast('Please fill name and phone'); return; }
@@ -2324,6 +2329,9 @@ export default function App() {
   const [colorFilter, setColorFilter] = useState('all');
   const [showSearch, setShowSearch] = useState(false);
   const [headerSearch, setHeaderSearch] = useState('');
+  const [wishlist, setWishlist] = useState([]);
+  const [recentIds, setRecentIds] = useState([]);
+  const [showWishlistOnly, setShowWishlistOnly] = useState(false);
   const [sort, setSort] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -2376,6 +2384,7 @@ export default function App() {
     const accountInquiry = Array.isArray(m.inquiry) ? m.inquiry : [];
     setShopCart(local => mergeCarts(local, accountCart));
     setInquiryList(local => mergeInquiry(local, accountInquiry));
+    setWishlist(local => Array.from(new Set([...(Array.isArray(local) ? local : []), ...(Array.isArray(m.wishlist) ? m.wishlist : [])])));
     setInquiryHistory(Array.isArray(m.inquiryHistory) ? m.inquiryHistory : []);
     setOrderHistory(Array.isArray(m.orderHistory) ? m.orderHistory : []);
     return true;
@@ -2453,6 +2462,16 @@ export default function App() {
     cartSyncTimer.current = setTimeout(() => { customerAuth.saveCart(customer.access_token, shopCart); }, 1500);
     return () => clearTimeout(cartSyncTimer.current);
   }, [shopCart, customer]);
+
+  const wishSyncTimer = useRef(null);
+  const wishSyncReady = useRef(false);
+  useEffect(() => {
+    if (!wishSyncReady.current) { wishSyncReady.current = true; return; }
+    if (!customer || !customer.access_token) return;
+    clearTimeout(wishSyncTimer.current);
+    wishSyncTimer.current = setTimeout(() => { customerAuth.saveWishlist(customer.access_token, wishlist); }, 1500);
+    return () => clearTimeout(wishSyncTimer.current);
+  }, [wishlist, customer]);
 
   const inqSyncTimer = useRef(null);
   const inqSyncReady = useRef(false);
@@ -2647,6 +2666,7 @@ export default function App() {
   const allColors = Array.from(new Set(visibleProducts.flatMap(p => (p.colors || []).filter(Boolean)))).sort((a, b) => String(a).localeCompare(String(b)));
   const priceOf = (p) => parseFloat(p.retailPrice) || parseFloat(p.priceFrom) || 0;
   const filtered = visibleProducts
+    .filter(p => !showWishlistOnly || wishlist.includes(p.id))
     .filter(p => catFilter === 'all' || p.category === catFilter)
     .filter(p => sizeFilter === 'all' || (p.sizes || []).map(String).includes(String(sizeFilter)))
     .filter(p => colorFilter === 'all' || (p.colors || []).map(c => String(c).toLowerCase()).includes(String(colorFilter).toLowerCase()))
@@ -2706,14 +2726,10 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  // On load: restore the cart, then the admin session (priority), else the last public page
+  // On load: restore the admin session (priority), else the page from the URL.
+  // Guest cart/inquiry/wishlist/recent are NOT restored — they live only in memory
+  // (privacy on shared devices). Logged-in users get theirs from their account.
   useEffect(() => {
-    // Restore inquiry cart
-    try {
-      const cart = localStorage.getItem('wsCart');
-      if (cart) { const c = JSON.parse(cart); if (Array.isArray(c)) setInquiryList(c); }
-    } catch (e) {}
-
     // Admin session takes precedence (expires after 2 min inactivity)
     let adminRestored = false;
     try {
@@ -2786,21 +2802,11 @@ export default function App() {
     setPendingCategorySlug(null);
   }, [pendingCategorySlug, categories]);
 
-  // Persist the cart whenever it changes (skip the initial mount so it doesn't overwrite the restored cart)
-  const cartHydrated = useRef(false);
-  useEffect(() => {
-    if (!cartHydrated.current) { cartHydrated.current = true; return; }
-    try { localStorage.setItem('wsCart', JSON.stringify(inquiryList)); } catch (e) {}
-  }, [inquiryList]);
-
-  useEffect(() => {
-    try { const raw = localStorage.getItem('wsShopCart'); if (raw) { const c = JSON.parse(raw); if (Array.isArray(c)) setShopCart(c); } } catch (e) {}
-  }, []);
-  const shopHydrated = useRef(false);
-  useEffect(() => {
-    if (!shopHydrated.current) { shopHydrated.current = true; return; }
-    try { localStorage.setItem('wsShopCart', JSON.stringify(shopCart)); } catch (e) {}
-  }, [shopCart]);
+  // Cart, inquiry, wishlist and recently-viewed are kept in memory only.
+  // Nothing is written to the browser, so a guest's data never carries over to the
+  // next person on a shared device, and clears on refresh. Logged-in users get
+  // their cart / inquiry / wishlist from their account (and it syncs back).
+  const toggleWish = (id) => setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const addToShopCart = (p, size, color, qty) => {
     const q = Math.max(1, parseInt(qty) || 1);
@@ -2856,6 +2862,7 @@ export default function App() {
   };
 
   const viewProduct = (p) => {
+    setRecentIds(prev => [p.id, ...prev.filter(x => x !== p.id)].slice(0, 8));
     routeTransition(() => {
       if (page !== 'product') setHistory(prev => [...prev, page]);
       setSelectedProduct(p); setPage('product'); setMenuOpen(false);
@@ -3035,9 +3042,10 @@ export default function App() {
 
             <button onClick={() => navigate('contact')} className={`text-sm font-medium transition-colors ${page === 'contact' ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>Contact</button>
           </nav>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <button onClick={() => setShowSearch(s => !s)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Search products" aria-label="Search products"><Search size={22} /></button>
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
+            <button onClick={() => { setShowWishlistOnly(true); setCatFilter('all'); setSearch(''); navigate('catalog'); }} className="relative p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Saved items" aria-label="Saved items"><Heart size={22} />{wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-bold">{wishlist.length}</span>}</button>
             <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
             <button onClick={openCart} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className="text-slate-700" />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
@@ -3064,6 +3072,7 @@ export default function App() {
 
                 <div className="px-3 pt-3 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Browse</div>
                 <button onClick={() => navigate('catalog')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Grid size={18} /> Shop by category</button>
+                <button onClick={() => { setShowWishlistOnly(true); setCatFilter('all'); setSearch(''); navigate('catalog'); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Heart size={18} /> Saved items{wishlist.length > 0 ? ` (${wishlist.length})` : ''}</button>
                 <button onClick={() => goToSection('sec-featured')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Star size={18} /> Featured products</button>
 
                 <div className="px-3 pt-3 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Company</div>
@@ -3142,7 +3151,7 @@ export default function App() {
               <section id="sec-featured" className="py-16 bg-white">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-end mb-8"><div><span className="text-amber-600 font-semibold text-sm uppercase">Just In</span><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">New Arrivals</h2></div><button onClick={() => navigate('catalog')} className="text-amber-600 font-medium flex items-center gap-1 hover:underline">View All <ChevronRight size={18} /></button></div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isNew).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isNew).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
                 </div>
               </section>
             )}
@@ -3151,7 +3160,7 @@ export default function App() {
               <section className="py-16 bg-slate-50">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-end mb-8"><div><span className="text-amber-600 font-semibold text-sm uppercase">Customer Favorites</span><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">Bestsellers</h2></div><button onClick={() => navigate('catalog')} className="text-amber-600 font-medium flex items-center gap-1 hover:underline">View All <ChevronRight size={18} /></button></div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isBestseller).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isBestseller).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
                 </div>
               </section>
             )}
@@ -3204,11 +3213,22 @@ export default function App() {
                 {allSizes.length > 0 && <select value={sizeFilter} onChange={e => setSizeFilter(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="all">All Sizes</option>{allSizes.map(s => <option key={s} value={s}>Size {s}</option>)}</select>}
                 {allColors.length > 0 && <select value={colorFilter} onChange={e => setColorFilter(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="all">All Colours</option>{allColors.map(c => <option key={c} value={c}>{c}</option>)}</select>}
                 <select value={sort} onChange={e => setSort(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="newest">Newest</option><option value="bestsellers">Bestsellers</option><option value="price-low">Price: Low to High</option><option value="price-high">Price: High to Low</option><option value="name">Name: A to Z</option></select>
+                <button onClick={() => setShowWishlistOnly(v => !v)} className={`px-4 py-2 border rounded-lg flex items-center justify-center gap-2 text-sm font-medium ${showWishlistOnly ? 'bg-rose-50 border-rose-300 text-rose-600' : 'text-slate-700'}`}><Heart size={16} fill={showWishlistOnly ? 'currentColor' : 'none'} /> Saved{wishlist.length > 0 ? ` (${wishlist.length})` : ''}</button>
               </div>
             </div>
             <div className="text-sm text-slate-600 mb-4">Showing {filtered.length} of {visibleProducts.length} products</div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
-            {filtered.length === 0 && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); setSizeFilter('all'); setColorFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
+            {filtered.length === 0 && showWishlistOnly && <div className="text-center py-16 text-slate-500"><Heart size={48} className="mx-auto mb-3 opacity-50" />No saved items yet<div className="mt-2"><button onClick={() => setShowWishlistOnly(false)} className="text-amber-600 hover:underline">Browse products</button></div></div>}
+            {filtered.length === 0 && !showWishlistOnly && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); setSizeFilter('all'); setColorFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
+            {(() => {
+              const recent = recentIds.map(id => visibleProducts.find(p => p.id === id)).filter(Boolean).slice(0, 4);
+              return recent.length > 0 ? (
+                <div className="mt-14">
+                  <h2 className="text-xl font-bold text-slate-900 mb-5">Recently viewed</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{recent.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
 
@@ -3284,9 +3304,23 @@ export default function App() {
               </div>
             </div>
             <div className="mt-16">
-              <h2 className="text-2xl font-bold text-slate-900 mb-6">Related Products</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">{visibleProducts.filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">You may also like</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">{(() => {
+                const sameCat = visibleProducts.filter(p => p.category === selectedProduct.category && p.id !== selectedProduct.id);
+                const fillers = visibleProducts.filter(p => p.id !== selectedProduct.id && !sameCat.some(s => s.id === p.id)).sort((a, b) => (b.isBestseller ? 1 : 0) - (a.isBestseller ? 1 : 0) || (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+                const rel = [...sameCat, ...fillers].slice(0, 4);
+                return rel.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />);
+              })()}</div>
             </div>
+            {(() => {
+              const recent = recentIds.map(id => visibleProducts.find(p => p.id === id)).filter(p => p && p.id !== selectedProduct.id).slice(0, 4);
+              return recent.length > 0 ? (
+                <div className="mt-16">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Recently viewed</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">{recent.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
 
