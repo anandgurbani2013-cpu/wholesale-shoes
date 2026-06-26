@@ -2322,6 +2322,8 @@ export default function App() {
   const [catFilter, setCatFilter] = useState('all');
   const [sizeFilter, setSizeFilter] = useState('all');
   const [colorFilter, setColorFilter] = useState('all');
+  const [showSearch, setShowSearch] = useState(false);
+  const [headerSearch, setHeaderSearch] = useState('');
   const [sort, setSort] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -2686,6 +2688,13 @@ export default function App() {
     });
   };
 
+  const submitHeaderSearch = () => {
+    setSearch(headerSearch.trim());
+    setCatFilter('all'); setSizeFilter('all'); setColorFilter('all');
+    setShowSearch(false);
+    navigate('catalog');
+  };
+
   const logout = () => {
     setAdminAuth(false);
     setAdminToken(''); adminTokenRef.current = '';
@@ -3027,6 +3036,7 @@ export default function App() {
             <button onClick={() => navigate('contact')} className={`text-sm font-medium transition-colors ${page === 'contact' ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>Contact</button>
           </nav>
           <div className="flex items-center gap-2">
+            <button onClick={() => setShowSearch(s => !s)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Search products" aria-label="Search products"><Search size={22} /></button>
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
             <button onClick={openCart} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className="text-slate-700" />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
@@ -3034,6 +3044,16 @@ export default function App() {
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
         </div>
+        {showSearch && (
+          <div className="border-t border-gray-100 bg-white">
+            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-2">
+              <Search size={18} className="text-slate-400 flex-shrink-0" />
+              <input autoFocus value={headerSearch} onChange={e => setHeaderSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submitHeaderSearch(); }} placeholder="Search e.g. black formal, AF-101…" className="flex-1 min-w-0 px-2 py-2 outline-none bg-transparent text-slate-800" />
+              <button onClick={submitHeaderSearch} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0">Search</button>
+              <button onClick={() => setShowSearch(false)} className="p-2 text-slate-500 hover:text-slate-700 flex-shrink-0" aria-label="Close search"><X size={20} /></button>
+            </div>
+          </div>
+        )}
         {menuOpen && (
           <div className="lg:hidden fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setMenuOpen(false)}>
             <div className="bg-white w-72 max-w-[85%] h-full overflow-auto" onClick={e => e.stopPropagation()}>
