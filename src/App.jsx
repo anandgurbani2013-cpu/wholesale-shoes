@@ -675,6 +675,17 @@ const DEFAULT_BUSINESS = {
   termsPolicy: 'By using this website and placing an order, you agree to these terms.\n\n- Product images and descriptions are for reference; slight variations may occur.\n- Prices and availability may change without notice. We confirm each order before dispatch.\n- Payment options and any applicable taxes or delivery charges are shown at checkout.\n- Orders may be cancelled if payment isn\'t received or an item is unavailable.\n- For any question, please use the details on our Contact page.\n\nThis is a starting template — please review it for your business and local laws.',
   cancellationPolicy: 'You can cancel an order before it is dispatched.\n\n- To cancel, contact us as soon as possible on WhatsApp, phone or email with your order number.\n- Once an order has been dispatched, it cannot be cancelled, but you may be able to return it as per our Return & Refund Policy.\n- If a prepaid order is cancelled before dispatch, any amount paid is refunded to the original payment method within 5-7 business days.\n- We may cancel an order if the item is unavailable or payment is not received, and will inform you in that case.\n\nThis is a starting template — please review it for your business and local laws.',
   grievanceName: '', grievanceEmail: '', grievancePhone: '', grievanceAddress: '',
+  sizeGuideEnabled: true,
+  sizeGuideTitle: "Men's footwear size guide",
+  sizeGuideNote: 'Place your foot on a sheet of paper, mark the heel and the longest toe, measure the distance in cm, and match it to the "Foot (cm)" column. If you are between sizes, we recommend choosing the larger size.',
+  sizeGuideRows: [
+    { uk: '6', eu: '40', us: '7', cm: '24.5' },
+    { uk: '7', eu: '41', us: '8', cm: '25.4' },
+    { uk: '8', eu: '42', us: '9', cm: '26.2' },
+    { uk: '9', eu: '43', us: '10', cm: '27.0' },
+    { uk: '10', eu: '44', us: '11', cm: '27.8' },
+    { uk: '11', eu: '45', us: '12', cm: '28.6' },
+  ],
 };
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: Home },
@@ -1999,6 +2010,43 @@ function ProductReviews({ productId, productName, customer }) {
   );
 }
 
+function SizeGuideModal({ business, onClose }) {
+  const rows = business.sizeGuideRows || [];
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden my-auto max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="bg-slate-900 px-5 py-4 flex items-center justify-between">
+          <span className="text-white font-semibold">{business.sizeGuideTitle || 'Size guide'}</span>
+          <button onClick={onClose} aria-label="Close"><X size={20} className="text-slate-300" /></button>
+        </div>
+        <div className="p-5">
+          {rows.length > 0 ? (
+            <table className="w-full text-sm border-collapse">
+              <thead><tr className="bg-slate-50">
+                <th className="text-left p-2 border font-semibold">UK</th>
+                <th className="text-left p-2 border font-semibold">EU</th>
+                <th className="text-left p-2 border font-semibold">US</th>
+                <th className="text-left p-2 border font-semibold">Foot (cm)</th>
+              </tr></thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="p-2 border">{r.uk}</td>
+                    <td className="p-2 border">{r.eu}</td>
+                    <td className="p-2 border">{r.us}</td>
+                    <td className="p-2 border">{r.cm}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <div className="text-sm text-slate-500">Size chart coming soon.</div>}
+          {business.sizeGuideNote && <div className="mt-4 bg-slate-50 rounded-lg p-3 text-xs text-slate-600 leading-relaxed"><div className="font-semibold text-slate-700 mb-1">How to measure</div>{business.sizeGuideNote}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, updateInquiry, adminToken, navigate, showToast, setAdminAuth, logout }) {
   const [tab, setTab] = useState('dashboard');
   const [adminReviews, setAdminReviews] = useState([]);
@@ -2528,6 +2576,36 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Payment Note (shown to buyers)</label><input value={editBiz.paymentNote || ''} onChange={e => setEditBiz({...editBiz, paymentNote: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Payment via UPI / bank transfer on order confirmation. GST invoice provided." /><div className="text-xs text-slate-500 mt-1">A short line shown on the inquiry cart and contact page. You can include your UPI ID here if you like.</div></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps — Address or Coordinates</label><input value={editBiz.mapQuery || ''} onChange={e => setEditBiz({...editBiz, mapQuery: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., 12 MG Road, Agra, UP 282001  (or  27.1767,78.0081)" /><div className="text-xs text-slate-500 mt-1">Shows a map on the contact page. For a precise pin, use the embed link field below instead.</div></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Google Maps Embed Link (optional, more precise)</label><input value={editBiz.mapEmbedUrl || ''} onChange={e => setEditBiz({...editBiz, mapEmbedUrl: e.target.value})} className="w-full px-3 py-2 border rounded-lg" placeholder='Paste the src link from Google Maps → Share → Embed a map' /><div className="text-xs text-slate-500 mt-1">In Google Maps: find your shop → Share → "Embed a map" → copy the link inside src="...". Overrides the address above.</div></div>
+                  <div className="md:col-span-2 mt-2 pt-4 border-t"><h3 className="font-bold text-slate-900 mb-1">Size Guide</h3><div className="text-xs text-slate-500 mb-3">Shown via a "Size guide" link on every product page. Edit the rows to match how your footwear actually fits. The Foot (cm) column is the most reliable guide for customers.</div></div>
+                  <div className="md:col-span-2 flex items-center gap-2"><input type="checkbox" id="sgToggle" checked={editBiz.sizeGuideEnabled !== false} onChange={e => setEditBiz({ ...editBiz, sizeGuideEnabled: e.target.checked })} /><label htmlFor="sgToggle" className="text-sm font-medium text-slate-700">Show the size guide on product pages</label></div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Size guide title</label><input value={editBiz.sizeGuideTitle || ''} onChange={e => setEditBiz({ ...editBiz, sizeGuideTitle: e.target.value })} className="w-full px-3 py-2 border rounded-lg" placeholder="e.g., Men's footwear size guide" /></div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Size chart</label>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-collapse mb-2">
+                        <thead><tr className="bg-slate-50">
+                          <th className="p-2 border text-left font-medium">UK</th><th className="p-2 border text-left font-medium">EU</th><th className="p-2 border text-left font-medium">US</th><th className="p-2 border text-left font-medium">Foot (cm)</th><th className="p-2 border"></th>
+                        </tr></thead>
+                        <tbody>
+                          {(editBiz.sizeGuideRows || []).map((row, idx) => {
+                            const upd = (field, val) => { const rows = [...(editBiz.sizeGuideRows || [])]; rows[idx] = { ...rows[idx], [field]: val }; setEditBiz({ ...editBiz, sizeGuideRows: rows }); };
+                            return (
+                              <tr key={idx}>
+                                <td className="p-1 border"><input value={row.uk || ''} onChange={e => upd('uk', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
+                                <td className="p-1 border"><input value={row.eu || ''} onChange={e => upd('eu', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
+                                <td className="p-1 border"><input value={row.us || ''} onChange={e => upd('us', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
+                                <td className="p-1 border"><input value={row.cm || ''} onChange={e => upd('cm', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
+                                <td className="p-1 border text-center"><button type="button" onClick={() => { const rows = (editBiz.sizeGuideRows || []).filter((_, i) => i !== idx); setEditBiz({ ...editBiz, sizeGuideRows: rows }); }} className="text-red-600 hover:text-red-700"><Trash2 size={15} /></button></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <button type="button" onClick={() => setEditBiz({ ...editBiz, sizeGuideRows: [...(editBiz.sizeGuideRows || []), { uk: '', eu: '', us: '', cm: '' }] })} className="text-sm border px-3 py-1.5 rounded-lg hover:bg-slate-50 flex items-center gap-1"><Plus size={14} /> Add row</button>
+                  </div>
+                  <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">"How to measure" note</label><textarea value={editBiz.sizeGuideNote || ''} onChange={e => setEditBiz({ ...editBiz, sizeGuideNote: e.target.value })} rows={3} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
+
                   <div className="md:col-span-2 mt-2 pt-4 border-t"><h3 className="font-bold text-slate-900 mb-1">Info & Policy Pages</h3><div className="text-xs text-slate-500 mb-3">These appear as pages linked in the website footer. Edit the wording to match your business. For Privacy and Terms, please review with a professional — these are starting templates, not legal advice.</div></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">How to Order</label><textarea value={editBiz.howToOrder || ''} onChange={e => setEditBiz({...editBiz, howToOrder: e.target.value})} rows={6} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
                   <div className="md:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Shipping &amp; Delivery</label><textarea value={editBiz.shippingPolicy || ''} onChange={e => setEditBiz({...editBiz, shippingPolicy: e.target.value})} rows={5} className="w-full px-3 py-2 border rounded-lg text-sm" /></div>
@@ -2616,6 +2694,7 @@ export default function App() {
   const [showCart, setShowCart] = useState(false);
   const [cartTab, setCartTab] = useState('cart');
   const [buySel, setBuySel] = useState({ size: '', color: '', qty: 1 });
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
   const [sizeFilter, setSizeFilter] = useState('all');
@@ -3582,7 +3661,7 @@ export default function App() {
                       {!p.outOfStock && base > 0 && (
                         <>
                           <div className="mb-3">
-                            <div className="text-xs text-slate-500 mb-1">Size</div>
+                            <div className="flex items-center justify-between mb-1"><div className="text-xs text-slate-500">Size</div>{business.sizeGuideEnabled && <button onClick={() => setShowSizeGuide(true)} className="text-xs text-amber-600 hover:text-amber-700 underline flex items-center gap-1">Size guide</button>}</div>
                             <div className="flex gap-2 flex-wrap">{(p.sizes || []).filter(Boolean).map(s => { const st = sizeStock(s); const active = sel.size === s; return <button key={s} disabled={st === 0} onClick={() => setBuySel({ ...sel, size: s, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-slate-900 text-white border-slate-900' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{s}</button>; })}</div>
                           </div>
                           <div className="mb-3">
@@ -3843,6 +3922,7 @@ export default function App() {
 
       {showCheckout && <CheckoutModal business={business} shopCart={shopCart} products={products} customer={customer} onPlaceOrder={placeOrder} onClose={() => setShowCheckout(false)} />}
       {recovery && <RecoveryModal accessToken={recovery.accessToken} refreshToken={recovery.refreshToken} onAuthed={(d) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), 'login'); }} onClose={() => setRecovery(null)} />}
+      {showSizeGuide && <SizeGuideModal business={business} onClose={() => setShowSizeGuide(false)} />}
       {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
