@@ -2999,10 +2999,10 @@ export default function App() {
       <header className="sticky top-0 z-40 bg-white shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            {history.length > 0 && <button onClick={goBack} className="px-2 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600 flex-shrink-0" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
-            <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-3 min-w-0">
-              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md flex-shrink-0" /> : <CrestEmblem className="w-12 h-12 flex-shrink-0" />}
-              <div className="min-w-0"><div className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block truncate">{business.tagline}</div></div>
+            {history.length > 0 && <button onClick={goBack} className="px-1.5 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600 flex-shrink-0" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
+            <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-2 sm:gap-3 min-w-0">
+              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shadow-md flex-shrink-0" /> : <CrestEmblem className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0" />}
+              <div className="min-w-0"><div className="text-base sm:text-lg font-bold text-slate-900 leading-tight">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block">{business.tagline}</div></div>
             </div>
           </div>
           <nav className="hidden lg:flex items-center gap-6">
