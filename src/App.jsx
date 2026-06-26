@@ -2622,7 +2622,7 @@ export default function App() {
       }
 
       try {
-        const [bizRows, prodRows, catRows, faqRows, testRows, featRows, stepRows, inqRows] = await Promise.all([
+        const [bizRows, prodRows, catRows, faqRows, testRows, featRows, stepRows] = await Promise.all([
           sb.select('business_info').catch(e => { console.error('business_info:', e); return []; }),
           sb.select('products').catch(e => { console.error('products:', e); return []; }),
           sb.select('categories').catch(e => { console.error('categories:', e); return []; }),
@@ -2630,7 +2630,6 @@ export default function App() {
           sb.select('testimonials').catch(e => { console.error('testimonials:', e); return []; }),
           sb.select('features').catch(e => { console.error('features:', e); return []; }),
           sb.select('steps').catch(e => { console.error('steps:', e); return []; }),
-          Promise.resolve([]), // inquiries are loaded admin-only (authenticated) — see effect below
         ]);
 
         if (bizRows.length > 0) setBusiness({ ...DEFAULT_BUSINESS, ...bizRows[0].data });
@@ -2658,7 +2657,8 @@ export default function App() {
         if (stepRows.length > 0) setSteps(stepRows.map(r => r.data));
         else { setSteps(DEFAULT_STEPS); try { await sb.upsert('steps', DEFAULT_STEPS.map((s, i) => ({ id: s.id, data: s, position: i }))); } catch (e) { console.error(e); } }
 
-        setInquiries(inqRows.map(r => ({ ...r.data, status: r.status })));
+        // Inquiries are loaded separately by loadInquiriesAsAdmin (authenticated, admin-only).
+        // Do NOT set them here, or a late-finishing initial load can wipe the admin-loaded list.
       } catch (e) {
         console.error('Load error:', e);
         setLoadError(`Database error: ${e.message}`);
