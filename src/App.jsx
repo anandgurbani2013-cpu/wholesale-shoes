@@ -673,8 +673,10 @@ const PATH_TO_PAGE = { '': 'home', catalog: 'catalog', about: 'about', faq: 'faq
 function routeFromPath(pathname) {
   const parts = (pathname || '/').replace(/^\/+|\/+$/g, '').split('/');
   if (parts[0] === 'product' && parts[1]) return { page: 'product', productId: decodeURIComponent(parts[1]) };
+  if (parts[0] === 'category' && parts[1]) return { page: 'catalog', categorySlug: decodeURIComponent(parts[1]) };
   return { page: PATH_TO_PAGE[parts[0] || ''] || 'home', productId: null };
 }
+function slugify(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
 
 const PLACEHOLDER_IMG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect fill="%23e2e8f0" width="400" height="400"/><text x="50%25" y="50%25" font-size="60" text-anchor="middle" dy=".3em" fill="%2394a3b8">👞</text></svg>';
 
@@ -2307,6 +2309,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pendingProductId, setPendingProductId] = useState(null);
+  const [pendingCategorySlug, setPendingCategorySlug] = useState(null);
   const routingReady = useRef(false);
   const [inquiryList, setInquiryList] = useState([]);
   const [shopCart, setShopCart] = useState([]);
@@ -2688,6 +2691,7 @@ export default function App() {
       try {
         const r = routeFromPath(window.location.pathname);
         if (r.page === 'product' && r.productId) { setPage('product'); setPendingProductId(r.productId); }
+        else if (r.categorySlug) { setPage('catalog'); setPendingCategorySlug(r.categorySlug); }
         else if (r.page !== 'home') setPage(r.page);
       } catch (e) {}
     } else {
@@ -2696,12 +2700,17 @@ export default function App() {
     setTimeout(() => { routingReady.current = true; }, 0);
   }, []);
 
-  // Keep the browser URL in sync with the current page/product (real routing)
+  // Keep the browser URL in sync with the current page/product/category (real routing)
   useEffect(() => {
     if (!routingReady.current) return;
-    const url = (page === 'product' && selectedProduct) ? ('/product/' + selectedProduct.id) : (PAGE_TO_PATH[page] || '/');
-    try { if ((window.location.pathname || '/') !== url) window.history.pushState({ page, productId: selectedProduct ? selectedProduct.id : null }, '', url); } catch (e) {}
-  }, [page, selectedProduct]);
+    let url;
+    if (page === 'product' && selectedProduct) url = '/product/' + selectedProduct.id;
+    else if (page === 'catalog' && catFilter && catFilter !== 'all') {
+      const c = categories.find(x => x.id === catFilter);
+      url = c ? ('/category/' + slugify(c.name)) : '/catalog';
+    } else url = PAGE_TO_PATH[page] || '/';
+    try { if ((window.location.pathname || '/') !== url) window.history.pushState({ page }, '', url); } catch (e) {}
+  }, [page, selectedProduct, catFilter, categories]);
 
   // Handle browser Back/Forward
   useEffect(() => {
@@ -2712,11 +2721,15 @@ export default function App() {
         const p = products.find(x => String(x.id) === String(r.productId));
         setPage('product');
         if (p) setSelectedProduct(p); else { setSelectedProduct(null); setPendingProductId(r.productId); }
-      } else { setSelectedProduct(null); setPage(r.page); }
+      } else if (r.categorySlug) {
+        setSelectedProduct(null); setPage('catalog');
+        const c = categories.find(x => slugify(x.name) === r.categorySlug);
+        if (c) setCatFilter(c.id); else setPendingCategorySlug(r.categorySlug);
+      } else { setSelectedProduct(null); if (r.page === 'catalog') setCatFilter('all'); setPage(r.page); }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [products]);
+  }, [products, categories]);
 
   // Resolve a product opened directly via /product/{id} once products have loaded
   useEffect(() => {
@@ -2725,6 +2738,14 @@ export default function App() {
     if (p) setSelectedProduct(p); else setPage('catalog');
     setPendingProductId(null);
   }, [pendingProductId, products]);
+
+  // Resolve a category opened directly via /category/{slug} once categories have loaded
+  useEffect(() => {
+    if (!pendingCategorySlug || !categories.length) return;
+    const c = categories.find(x => slugify(x.name) === pendingCategorySlug);
+    if (c) setCatFilter(c.id);
+    setPendingCategorySlug(null);
+  }, [pendingCategorySlug, categories]);
 
   // Persist the cart whenever it changes (skip the initial mount so it doesn't overwrite the restored cart)
   const cartHydrated = useRef(false);
@@ -3012,7 +3033,8 @@ export default function App() {
         )}
       </header>
 
-      <main>
+      <style>{`@keyframes wsfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.ws-fade{animation:wsfade .28s ease both}`}</style>
+      <main key={page === 'product' && selectedProduct ? 'p' + selectedProduct.id : page} className="ws-fade">
         {page === 'home' && (
           <>
             <section className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
