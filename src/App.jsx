@@ -173,7 +173,7 @@ function slimInquiry(list) {
 
 function customerProfile(user) {
   const m = (user && user.user_metadata) || {};
-  return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', city: m.city || '', address: m.address || '' };
+  return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', whatsapp: m.whatsapp || '', city: m.city || '', address: m.address || '' };
 }
 
 function PasswordInput({ value, onChange, onKeyDown, placeholder, className, autoFocus }) {
@@ -625,6 +625,7 @@ async function syncCustomerToSheet(profile, event) {
       email: profile.email,
       name: profile.name || '',
       phone: profile.phone || '',
+      whatsapp: profile.whatsapp || '',
       city: profile.city || '',
       address: profile.address || '',
       userId: profile.id || '',
