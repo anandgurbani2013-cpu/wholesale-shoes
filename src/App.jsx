@@ -685,8 +685,11 @@ const NAV_ITEMS = [
 ];
 
 // ===== URL ROUTING =====
-const PAGE_TO_PATH = { home: '/', catalog: '/catalog', about: '/about', faq: '/faq', contact: '/contact', howto: '/how-to-order', returns: '/returns', cancellation: '/cancellation', privacy: '/privacy', terms: '/terms', admin: '/admin' };
-const PATH_TO_PAGE = { '': 'home', catalog: 'catalog', about: 'about', faq: 'faq', contact: 'contact', 'how-to-order': 'howto', returns: 'returns', cancellation: 'cancellation', privacy: 'privacy', terms: 'terms', admin: 'admin' };
+// Secret admin entry path. Customers never see a link to it; open the admin login
+// by visiting yoursite.com/<this>. Change this keyword any time to whatever you like.
+const ADMIN_PATH = 'anand-control-2013';
+const PAGE_TO_PATH = { home: '/', catalog: '/catalog', about: '/about', faq: '/faq', contact: '/contact', howto: '/how-to-order', returns: '/returns', cancellation: '/cancellation', privacy: '/privacy', terms: '/terms', admin: '/' + ADMIN_PATH };
+const PATH_TO_PAGE = { '': 'home', catalog: 'catalog', about: 'about', faq: 'faq', contact: 'contact', 'how-to-order': 'howto', returns: 'returns', cancellation: 'cancellation', privacy: 'privacy', terms: 'terms', [ADMIN_PATH]: 'admin' };
 function routeFromPath(pathname) {
   const parts = (pathname || '/').replace(/^\/+|\/+$/g, '').split('/');
   if (parts[0] === 'product' && parts[1]) return { page: 'product', productId: decodeURIComponent(parts[1]) };
@@ -2844,12 +2847,16 @@ export default function App() {
     if (!adminRestored) {
       try {
         const r = routeFromPath(window.location.pathname);
-        if (r.page === 'product' && r.productId) { setPage('product'); setPendingProductId(r.productId); }
+        if (r.page === 'admin') {
+          // Secret admin path visited: open the login prompt over the site (no blank page).
+          if (adminTokenRef.current) { setPage('admin'); } else { setShowAdminLogin(true); }
+        }
+        else if (r.page === 'product' && r.productId) { setPage('product'); setPendingProductId(r.productId); }
         else if (r.categorySlug) { setPage('catalog'); setPendingCategorySlug(r.categorySlug); }
         else if (r.page !== 'home') setPage(r.page);
       } catch (e) {}
     } else {
-      try { window.history.replaceState({ page: 'admin' }, '', '/admin'); } catch (e) {}
+      try { window.history.replaceState({ page: 'admin' }, '', '/' + ADMIN_PATH); } catch (e) {}
     }
     setTimeout(() => { routingReady.current = true; }, 0);
   }, []);
@@ -3484,7 +3491,7 @@ export default function App() {
             {business.termsPolicy && <button onClick={() => navigate('terms')} className="hover:text-amber-400">Terms &amp; Conditions</button>}
           </div>
           <div>© {new Date().getFullYear()} {business.name}. All rights reserved.{business.gstin ? ` · GSTIN: ${business.gstin}` : ''}</div>
-          {adminAuth ? <button onClick={() => setPage('admin')} className="text-xs text-slate-500 hover:text-amber-400 flex items-center gap-1"><Lock size={11} /> Admin Panel</button> : <button onClick={() => setShowAdminLogin(true)} className="text-xs text-slate-500 hover:text-amber-400 flex items-center gap-1"><Lock size={11} /> Admin Login</button>}
+          {adminAuth && <button onClick={() => setPage('admin')} className="text-xs text-slate-500 hover:text-amber-400 flex items-center gap-1"><Lock size={11} /> Admin Panel</button>}
         </div>
       </footer>
 
