@@ -1831,6 +1831,29 @@ function InquiryCommentBox({ value, onSave }) {
   );
 }
 
+function csvEscape(v) {
+  var s = (v == null ? '' : String(v));
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function toCSV(rows) {
+  if (!rows || !rows.length) return '';
+  var headers = Object.keys(rows[0]);
+  var lines = [headers.map(csvEscape).join(',')];
+  rows.forEach(function (r) { lines.push(headers.map(function (h) { return csvEscape(r[h]); }).join(',')); });
+  return lines.join('\n');
+}
+function downloadCSV(name, rows) {
+  var csv = toCSV(rows);
+  var stamp = new Date().toISOString().slice(0, 10);
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = name + '-' + stamp + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
 function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, updateInquiry, adminToken, navigate, showToast, setAdminAuth, logout }) {
   const [tab, setTab] = useState('dashboard');
   const [orders, setOrders] = useState([]);
@@ -1929,6 +1952,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     { id: 'steps', label: 'How to Order', icon: ListChecks },
     { id: 'business', label: 'Business Info', icon: Settings },
     { id: 'integrations', label: 'Integrations', icon: CheckCircle },
+    { id: 'export', label: 'Export / Backup', icon: Download },
   ];
 
   return (
@@ -1973,6 +1997,29 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 </div>
               ))}
               {inquiries.length === 0 && <div className="text-center py-8 text-slate-500">No inquiries yet</div>}
+            </div>
+          </div>
+        )}
+
+        {tab === 'export' && (
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Export / Backup</h1>
+            <p className="text-slate-600 mb-6 max-w-2xl text-sm">Download a copy of your data as CSV (opens in Excel / Google Sheets). Keep these files somewhere safe (your computer or Google Drive) as a backup. Each file is named with today's date.</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 mb-6 max-w-2xl">Order and inquiry files contain customer details (names, phones, addresses). Keep them private.</div>
+            <div className="grid sm:grid-cols-2 gap-3 max-w-2xl">
+              <button onClick={() => downloadCSV('products', (products || []).map(p => ({ id: p.id, code: p.code, name: p.name, category: (categories.find(c => c.id === p.category) || {}).name || p.category || '', retailPrice: p.retailPrice, discountPercent: p.discountPercent, sizes: (p.sizes || []).join(' | '), colors: (p.colors || []).join(' | '), totalStock: productTotalStock(p), active: p.active !== false ? 'yes' : 'no', isNew: p.isNew ? 'yes' : '', isBestseller: p.isBestseller ? 'yes' : '', outOfStock: p.outOfStock ? 'yes' : '', image: p.image || '' })))} className="flex items-center justify-between gap-2 border rounded-lg px-4 py-3 hover:bg-amber-50 text-left"><span className="font-medium text-slate-800">Products ({(products || []).length})</span><Download size={18} className="text-amber-600" /></button>
+
+              <button onClick={async () => { try { const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.asc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } }); const rows = await r.json(); const flat = (Array.isArray(rows) ? rows : []).map(o => { const d = o.data || {}; return { orderNo: d.orderNo || '', invoiceNo: d.invoiceNo || '', date: d.date || '', status: o.status || '', name: d.name || '', phone: d.phone || '', email: d.email || '', address: d.address || '', city: d.city || '', pincode: d.pincode || '', items: (d.items || []).map(i => `${i.code || ''} ${i.size || ''}/${i.color || ''} x${i.qty || 1}`).join(' | '), subtotal: d.subtotal || '', gst: d.gst || '', delivery: d.delivery || '', total: d.total || '', payment: d.paymentLabel || d.payment || '' }; }); if (!flat.length) { showToast('No orders to export'); return; } downloadCSV('orders', flat); } catch (e) { showToast('Could not export orders — try again'); } }} className="flex items-center justify-between gap-2 border rounded-lg px-4 py-3 hover:bg-amber-50 text-left"><span className="font-medium text-slate-800">Orders</span><Download size={18} className="text-amber-600" /></button>
+
+              <button onClick={() => { const flat = (inquiries || []).map(q => ({ inqNo: q.inqNo || '', date: q.date || '', status: q.status || '', name: q.name || '', shop: q.shop || '', city: q.city || '', phone: q.phone || '', email: q.email || '', message: q.message || '', products: (q.products || []).map(p => `${p.code || ''} ${p.name || ''} x${p.quantity || 1}`).join(' | ') })); if (!flat.length) { showToast('No inquiries to export'); return; } downloadCSV('inquiries', flat); }} className="flex items-center justify-between gap-2 border rounded-lg px-4 py-3 hover:bg-amber-50 text-left"><span className="font-medium text-slate-800">Inquiries ({(inquiries || []).length})</span><Download size={18} className="text-amber-600" /></button>
+
+              <button onClick={() => downloadCSV('categories', (categories || []).map(c => ({ id: c.id, name: c.name, icon: c.icon || '' })))} className="flex items-center justify-between gap-2 border rounded-lg px-4 py-3 hover:bg-amber-50 text-left"><span className="font-medium text-slate-800">Categories ({(categories || []).length})</span><Download size={18} className="text-amber-600" /></button>
+
+              <button onClick={() => downloadCSV('faqs', (faqs || []).map(f => ({ question: f.question || f.q || '', answer: f.answer || f.a || '' })))} className="flex items-center justify-between gap-2 border rounded-lg px-4 py-3 hover:bg-amber-50 text-left"><span className="font-medium text-slate-800">FAQs ({(faqs || []).length})</span><Download size={18} className="text-amber-600" /></button>
+
+              <button onClick={() => downloadCSV('testimonials', (testimonials || []).map(t => ({ name: t.name || '', role: t.role || t.location || '', text: t.text || t.quote || '', rating: t.rating || '', active: t.active !== false ? 'yes' : 'no' })))} className="flex items-center justify-between gap-2 border rounded-lg px-4 py-3 hover:bg-amber-50 text-left"><span className="font-medium text-slate-800">Testimonials ({(testimonials || []).length})</span><Download size={18} className="text-amber-600" /></button>
+
+              <button onClick={() => downloadCSV('business-settings', Object.keys(business || {}).map(k => ({ field: k, value: typeof business[k] === 'object' ? JSON.stringify(business[k]) : business[k] })))} className="flex items-center justify-between gap-2 border rounded-lg px-4 py-3 hover:bg-amber-50 text-left sm:col-span-2"><span className="font-medium text-slate-800">Business settings</span><Download size={18} className="text-amber-600" /></button>
             </div>
           </div>
         )}
