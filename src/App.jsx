@@ -664,7 +664,7 @@ const DEFAULT_BUSINESS = {
   heroTitle: "Premium Men's Footwear at Wholesale Prices",
   heroSubtitle: 'Your trusted partner for bulk men\'s shoe supply.',
   heroBadge: '{years} Years of Excellence',
-  facebook: '#', instagram: '#', linkedin: '#',
+  facebook: '', instagram: '',
   gstin: '', legalName: '[Legal Business Name]', hsnCode: '6403', gstRate: 18,
   bankName: '[Bank Name]', accountNo: '[Account Number]', ifsc: '[IFSC Code]', invoicePrefix: 'INV-',
   deliveryFee: '', freeDeliveryAbove: 0, upiId: '', upiName: '',
@@ -2315,7 +2315,6 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 <div className="grid md:grid-cols-1 gap-4">
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Facebook URL</label><input value={editBiz.facebook || ''} onChange={e => setEditBiz({...editBiz, facebook: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Instagram URL</label><input value={editBiz.instagram || ''} onChange={e => setEditBiz({...editBiz, instagram: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">LinkedIn URL</label><input value={editBiz.linkedin || ''} onChange={e => setEditBiz({...editBiz, linkedin: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
                 </div>
               </div>
               <div>
@@ -3034,9 +3033,8 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline text-amber-400">Trusted by {business.retailers} Customers</span>
-            <a href={business.facebook} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Facebook size={14} /></a>
-            <a href={business.instagram} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Instagram size={14} /></a>
-            <a href={business.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Linkedin size={14} /></a>
+            {business.facebook && <a href={business.facebook} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Facebook size={14} /></a>}
+            {business.instagram && <a href={business.instagram} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400"><Instagram size={14} /></a>}
           </div>
         </div>
       </div>
@@ -3406,7 +3404,7 @@ export default function App() {
           <div>
             <div className="flex items-center gap-2 mb-4">{business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-10 h-10 rounded-lg object-cover" /> : <CrestEmblem className="w-10 h-10" />}<div className="font-bold">{business.name}</div></div>
             <p className="text-sm text-slate-400 mb-4">{business.tagline}</p>
-            <div className="flex gap-3"><a href={business.facebook} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Facebook size={16} /></a><a href={business.instagram} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Instagram size={16} /></a><a href={business.linkedin} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Linkedin size={16} /></a></div>
+            <div className="flex gap-3">{business.facebook && <a href={business.facebook} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Facebook size={16} /></a>}{business.instagram && <a href={business.instagram} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-slate-800 hover:bg-amber-500 rounded-full flex items-center justify-center transition-colors"><Instagram size={16} /></a>}</div>
           </div>
           <div><h4 className="font-bold mb-3">Quick Links</h4><ul className="space-y-2 text-sm text-slate-400">{NAV_ITEMS.map(i => <li key={i.id}><button onClick={() => navigate(i.id)} className="hover:text-amber-400">{i.label}</button></li>)}</ul></div>
           <div><h4 className="font-bold mb-3">Categories</h4><ul className="space-y-2 text-sm text-slate-400">{categories.map(c => <li key={c.id}><button onClick={() => { setCatFilter(c.id); navigate('catalog'); }} className="hover:text-amber-400">{c.name}</button></li>)}</ul></div>
