@@ -579,6 +579,16 @@ async function saveOrderToSupabase(order, accessToken) {
   } catch (e) { return null; }
 }
 
+// Adjust product stock in Supabase via a security-definer function.
+// factor = -1 decrements (order placed), +1 restores (order cancelled).
+async function adjustStockRPC(items, factor, token) {
+  try {
+    const payload = (Array.isArray(items) ? items : []).filter(it => it && it.id).map(it => ({ id: it.id, size: it.size || '', color: it.color || '', qty: parseInt(it.qty) || 0 }));
+    if (!payload.length) return;
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/adjust_stock`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${token || SUPABASE_KEY}` }, body: JSON.stringify({ items: payload, factor }) });
+  } catch (e) {}
+}
+
 // Sync a customer's profile (never the password) to the Customers sheet; Apps Script upserts by email
 async function syncCustomerToSheet(profile, event) {
   try {
@@ -1223,7 +1233,7 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
     if (!form.name.trim() || !form.phone.trim() || !form.address.trim() || !form.city.trim() || !form.pincode.trim()) { setErr('Please fill name, phone, address, city and pincode.'); return; }
     if (pay === 'cod' && !codAllowed) { setErr('Cash on Delivery is not available for some items. Please choose UPI.'); return; }
     setPlacing(true);
-    const items = shopCart.map(it => { const orig = retailUnitPrice(it, it.qty); const unit = discountedUnitPrice(it, it.qty); return { code: it.code, name: it.name, size: it.size, color: it.color, qty: it.qty, unit, origUnit: orig, lineTotal: unit * it.qty }; });
+    const items = shopCart.map(it => { const orig = retailUnitPrice(it, it.qty); const unit = discountedUnitPrice(it, it.qty); return { id: it.id, code: it.code, name: it.name, size: it.size, color: it.color, qty: it.qty, unit, origUnit: orig, lineTotal: unit * it.qty }; });
     const order = {
       id: `ord_${Date.now()}`, orderNo: makeOrderNo(), type: 'order', date: new Date().toISOString(),
       name: form.name.trim(), phone: form.phone.trim(), whatsapp: (form.whatsapp || form.phone).trim(), email: form.email.trim(),
@@ -1825,6 +1835,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     const trackingNo = (payload && payload.trackingNo) || '';
     const trackingLink = (payload && payload.trackingLink) || '';
     const ord = orders.find(r => r.id === rowId);
+    const oldStatus = (ord && ord.status) || 'new';
+    const items = (ord && ord.data && ord.data.items) || [];
     const newData = { ...((ord && ord.data) || {}), courier, trackingNo, trackingLink };
     setOrders(prev => prev.map(r => r.id === rowId ? { ...r, status, data: newData } : r));
     try {
@@ -1834,6 +1846,9 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
         body: JSON.stringify({ status, data: newData }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
+      // Stock: add back when cancelling, subtract again if a cancelled order is re-opened
+      if (status === 'cancelled' && oldStatus !== 'cancelled') adjustStockRPC(items, 1, adminToken);
+      else if (oldStatus === 'cancelled' && status !== 'cancelled') adjustStockRPC(items, -1, adminToken);
       syncStatusToSheet({ type: 'order', id: rowId, humanId: (ord && ord.data && ord.data.orderNo) || '', status, email: (ord && ord.data && ord.data.email) || '', name: (ord && ord.data && ord.data.name) || '', courier, trackingNo, trackingLink });
       showToast('Order updated — customer emailed ✓');
     } catch (e) { showToast('Could not update status — check the Supabase update policy'); }
@@ -2411,8 +2426,16 @@ export default function App() {
     await pushOrderToSheets(o);
     await sendOrderEmail(o);
     recordOrderHistory(o);
+    // Reduce stock for what was bought (server-side, safe) + reflect locally right away
+    adjustStockRPC(o.items, -1, token);
+    setProducts(prev => prev.map(p => {
+      const its = (o.items || []).filter(it => it.id === p.id);
+      if (!its.length) return p;
+      const g = { ...(p.stockGrid || {}) };
+      its.forEach(it => { const k = `${it.size || ''}|${it.color || ''}`; g[k] = Math.max(0, (parseInt(g[k]) || 0) - (parseInt(it.qty) || 0)); });
+      return { ...p, stockGrid: g };
+    }));
     setShopCart([]);
-    try { localStorage.removeItem('wsShopCart'); } catch (e) {}
     return true;
   };
   const logoutCustomer = async () => {
