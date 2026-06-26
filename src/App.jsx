@@ -635,6 +635,24 @@ async function syncCustomerToSheet(profile, event) {
   } catch (e) { return null; }
 }
 
+// Mirror the customer's profile into a Supabase `customers` table so the admin can
+// list registered customers. Each customer writes only their own row (RLS-enforced).
+async function syncCustomerToSupabase(profile, token) {
+  try {
+    if (!profile || !profile.id || !token) return null;
+    const row = {
+      id: profile.id,
+      data: { name: profile.name || '', email: profile.email || '', phone: profile.phone || '', whatsapp: profile.whatsapp || '', city: profile.city || '', address: profile.address || '', lastSeen: new Date().toISOString() }
+    };
+    await fetch(`${SUPABASE_URL}/rest/v1/customers`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify([row])
+    });
+    return true;
+  } catch (e) { return null; }
+}
+
 async function sendInquiryEmail(inquiry) {
   // Web3Forms removed — inquiry emails are now sent for free by Google Apps Script when the row is written to the Sheet.
   return true;
@@ -2076,6 +2094,19 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [tab, setTab] = useState('dashboard');
   const [adminReviews, setAdminReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [adminCustomers, setAdminCustomers] = useState([]);
+  const [custLoading, setCustLoading] = useState(false);
+  const [custSearch, setCustSearch] = useState('');
+  const loadAdminCustomers = async () => {
+    if (!adminToken) return;
+    setCustLoading(true);
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/customers?select=*&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } });
+      if (r.ok) { const rows = await r.json(); setAdminCustomers(Array.isArray(rows) ? rows : []); }
+    } catch (e) {}
+    setCustLoading(false);
+  };
+  useEffect(() => { if (tab === 'customers') loadAdminCustomers(); }, [tab]);
   const loadAdminReviews = async () => {
     if (!adminToken) return;
     setReviewsLoading(true);
@@ -2176,6 +2207,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     { id: 'inquiries', label: 'Inquiries', icon: Inbox },
     { id: 'proforma', label: 'Proforma', icon: FileText },
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
+    { id: 'customers', label: 'Customers', icon: Users },
     { id: 'faqs', label: 'FAQs', icon: HelpCircle },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquare },
     { id: 'reviews', label: 'Reviews', icon: Star },
@@ -2231,6 +2263,47 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
             </div>
           </div>
         )}
+
+        {tab === 'customers' && (() => {
+          const q = custSearch.trim().toLowerCase();
+          const rows = adminCustomers.map(c => ({ id: c.id, ...(c.data || {}), created_at: c.created_at }))
+            .filter(c => !q || (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q) || (c.city || '').toLowerCase().includes(q));
+          return (
+            <div>
+              <div className="flex items-center gap-3 mb-4 flex-wrap">
+                <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
+                <span className="text-sm text-slate-500">{adminCustomers.length} registered</span>
+                <button onClick={loadAdminCustomers} className="ml-auto text-sm border px-3 py-1.5 rounded-lg hover:bg-slate-50 flex items-center gap-1"><Loader2 size={14} className={custLoading ? 'animate-spin' : ''} /> Refresh</button>
+              </div>
+              <p className="text-slate-600 mb-4 text-sm max-w-2xl">These are customers who created an account. The list fills automatically as customers register or log in. (Guests who order without an account aren't listed here — their details are on each order.)</p>
+              <input value={custSearch} onChange={e => setCustSearch(e.target.value)} placeholder="Search by name, email, phone, city" className="w-full max-w-md px-3 py-2 border rounded-lg mb-4 text-sm" />
+              {custLoading && adminCustomers.length === 0 ? <div className="text-slate-400 py-8">Loading customers…</div>
+                : rows.length === 0 ? <div className="bg-white rounded-xl p-12 text-center text-slate-500"><Users size={48} className="mx-auto mb-3 opacity-50" />{adminCustomers.length === 0 ? 'No registered customers yet.' : 'No matches for your search.'}</div>
+                  : (
+                    <div className="bg-white rounded-xl border overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-slate-50 text-left">
+                          <th className="p-3 font-medium">Name</th><th className="p-3 font-medium">Email</th><th className="p-3 font-medium">Phone</th><th className="p-3 font-medium">WhatsApp</th><th className="p-3 font-medium">City</th><th className="p-3 font-medium">Joined</th><th className="p-3"></th>
+                        </tr></thead>
+                        <tbody>
+                          {rows.map(c => (
+                            <tr key={c.id} className="border-t">
+                              <td className="p-3 font-medium text-slate-900">{c.name || '—'}</td>
+                              <td className="p-3 text-slate-600">{c.email || '—'}</td>
+                              <td className="p-3 text-slate-600">{c.phone || '—'}</td>
+                              <td className="p-3 text-slate-600">{c.whatsapp || '—'}</td>
+                              <td className="p-3 text-slate-600">{c.city || '—'}</td>
+                              <td className="p-3 text-slate-500">{c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                              <td className="p-3">{(c.whatsapp || c.phone) && <a href={`https://wa.me/${(c.whatsapp || c.phone).replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1 rounded text-xs whitespace-nowrap">WhatsApp</a>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+            </div>
+          );
+        })()}
 
         {tab === 'reviews' && (() => {
           const pending = adminReviews.filter(r => !r.approved);
@@ -2841,7 +2914,7 @@ export default function App() {
     try { stored = JSON.parse(localStorage.getItem('wsCustomerSession') || 'null'); } catch (e) { stored = null; }
     if (stored && stored.refresh_token) {
       customerAuth.refresh(stored.refresh_token)
-        .then(d => applyCustomerSession(d))
+        .then(d => { applyCustomerSession(d); if (d && d.user) syncCustomerToSupabase(customerProfile(d.user), d.access_token); })
         .catch(() => { try { localStorage.removeItem('wsCustomerSession'); } catch (e) {} });
     }
   }, []);
@@ -3946,9 +4019,9 @@ export default function App() {
 
 
       {showCheckout && <CheckoutModal business={business} shopCart={shopCart} products={products} customer={customer} onPlaceOrder={placeOrder} onClose={() => setShowCheckout(false)} />}
-      {recovery && <RecoveryModal accessToken={recovery.accessToken} refreshToken={recovery.refreshToken} onAuthed={(d) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), 'login'); }} onClose={() => setRecovery(null)} />}
+      {recovery && <RecoveryModal accessToken={recovery.accessToken} refreshToken={recovery.refreshToken} onAuthed={(d) => { applyCustomerSession(d); if (d && d.user) { syncCustomerToSheet(customerProfile(d.user), 'login'); syncCustomerToSupabase(customerProfile(d.user), d.access_token); } }} onClose={() => setRecovery(null)} />}
       {showSizeGuide && <SizeGuideModal business={business} onClose={() => setShowSizeGuide(false)} />}
-      {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) syncCustomerToSheet(customerProfile(d.user), event); setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+      {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) { syncCustomerToSheet(customerProfile(d.user), event); syncCustomerToSupabase(customerProfile(d.user), d.access_token); } setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
