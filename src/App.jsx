@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon, Heart } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon, Heart, EyeOff } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -176,9 +176,19 @@ function customerProfile(user) {
   return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', city: m.city || '', address: m.address || '' };
 }
 
+function PasswordInput({ value, onChange, onKeyDown, placeholder, className, autoFocus }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input type={show ? 'text' : 'password'} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} autoFocus={autoFocus} className={(className || 'w-full px-3 py-2 border rounded-lg') + ' pr-10'} />
+      <button type="button" onClick={() => setShow(s => !s)} tabIndex={-1} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+    </div>
+  );
+}
+
 function AccountModal({ customer, business, inquiryHistory, orderHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
   const [mode, setMode] = useState('login');
-  const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '' });
+  const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '', sameWhatsapp: true, whatsapp: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
@@ -253,11 +263,14 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   const doRegister = async () => {
     setErr(''); setNotice('');
     if (!f.name.trim() || !f.email.trim() || !f.password) { setErr('Please fill name, email and password'); return; }
+    if (!f.phone.trim()) { setErr('Please enter your phone number'); return; }
+    if (!f.sameWhatsapp && !f.whatsapp.trim()) { setErr('Please enter your WhatsApp number (or tick the box if it is the same as your phone)'); return; }
     if (f.password.length < 6) { setErr('Password must be at least 6 characters'); return; }
     if (f.password !== f.confirm) { setErr('Passwords do not match'); return; }
     setBusy(true);
     try {
-      const d = await customerAuth.signup(f.email.trim(), f.password, { name: f.name.trim(), phone: f.phone.trim() });
+      const whatsappNumber = (f.sameWhatsapp ? f.phone : (f.whatsapp || f.phone)).trim();
+      const d = await customerAuth.signup(f.email.trim(), f.password, { name: f.name.trim(), phone: f.phone.trim(), whatsapp: whatsappNumber });
       if (d.access_token) onAuthed(d, 'register');
       else { setNotice('Account created. Please log in.'); setMode('login'); }
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -416,7 +429,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
               {loginMethod === 'password' ? (
                 <>
                   <div><label className="text-sm font-medium text-slate-700 block mb-1">Email</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
-                  <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="text-sm font-medium text-slate-700 block mb-1">Password</label><PasswordInput value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doLogin(); }} /></div>
                   <div className="text-right -mt-1"><button onClick={doForgot} disabled={busy} className="text-xs text-amber-600 font-medium hover:underline">Forgot password?</button></div>
                   <button onClick={doLogin} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Logging in…' : 'Log In'}</button>
                 </>
@@ -440,9 +453,22 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
             <>
               <div><label className="text-sm font-medium text-slate-700 block mb-1">Name *</label><input value={f.name} onChange={e => setF({...f, name: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
               <div><label className="text-sm font-medium text-slate-700 block mb-1">Email *</label><input type="email" value={f.email} onChange={e => setF({...f, email: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={f.phone} onChange={e => setF({...f, phone: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password *</label><input type="password" value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm Password *</label><input type="password" value={f.confirm} onChange={e => setF({...f, confirm: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone *</label><input value={f.phone} onChange={e => setF({...f, phone: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <input type="checkbox" checked={f.sameWhatsapp} onChange={e => setF({...f, sameWhatsapp: e.target.checked})} />
+                  My phone number is also my WhatsApp
+                </label>
+                {!f.sameWhatsapp && (
+                  <div className="mt-3">
+                    <label className="text-sm font-medium text-slate-700 block mb-1">WhatsApp Number *</label>
+                    <input value={f.whatsapp} onChange={e => setF({...f, whatsapp: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} placeholder="e.g., +91 98765 43210" className="w-full px-3 py-2 border rounded-lg" />
+                    <div className="text-xs text-slate-500 mt-1">Include country code so we can reach you on WhatsApp.</div>
+                  </div>
+                )}
+              </div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Password *</label><PasswordInput value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm Password *</label><PasswordInput value={f.confirm} onChange={e => setF({...f, confirm: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} /></div>
               <button onClick={doRegister} disabled={busy} className="w-full bg-slate-900 hover:bg-amber-500 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Creating…' : 'Create Account'}</button>
               <div className="text-sm text-center text-slate-500">Have an account? <button onClick={() => { setErr(''); setMode('login'); }} className="text-amber-600 font-medium">Log in</button></div>
             </>
@@ -492,8 +518,8 @@ function RecoveryModal({ accessToken, refreshToken, onAuthed, onClose }) {
             <>
               {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{err}</div>}
               <p className="text-sm text-slate-600">You opened a secure reset link. Set your new password below.</p>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">New password</label><input type="password" value={pw} onChange={e => setPw(e.target.value)} className="w-full px-3 py-2 border rounded-lg" /></div>
-              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm new password</label><input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !busy) submit(); }} className="w-full px-3 py-2 border rounded-lg" /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">New password</label><PasswordInput value={pw} onChange={e => setPw(e.target.value)} /></div>
+              <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm new password</label><PasswordInput value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !busy) submit(); }} /></div>
               <button onClick={submit} disabled={busy} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold transition-colors">{busy ? 'Updating…' : 'Update password'}</button>
             </>
           )}
@@ -3941,7 +3967,7 @@ export default function App() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setShowAdminLogin(false); setPwdError(''); setAdminPwd(''); }}>
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <div className="text-center mb-6"><div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3"><Lock className="text-amber-600" size={28} /></div><h2 className="text-xl font-bold">Admin Login</h2><p className="text-sm text-slate-500 mt-1">Enter your password to continue</p></div>
-            <input type="password" value={adminPwd} onChange={e => { setAdminPwd(e.target.value); setPwdError(''); }} onKeyDown={e => e.key === 'Enter' && tryAdminLogin()} placeholder="Enter password" className="w-full px-4 py-3 border rounded-lg mb-3" autoFocus />
+            <PasswordInput value={adminPwd} onChange={e => { setAdminPwd(e.target.value); setPwdError(''); }} onKeyDown={e => e.key === 'Enter' && tryAdminLogin()} placeholder="Enter password" className="w-full px-4 py-3 border rounded-lg mb-3" autoFocus />
             {pwdError && <div className="text-red-500 text-sm mb-3">{pwdError}</div>}
             <button onClick={tryAdminLogin} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold">Login</button>
             <button onClick={() => { setShowAdminLogin(false); setPwdError(''); setAdminPwd(''); }} className="w-full text-slate-500 hover:text-slate-700 text-sm mt-3 py-2">Cancel</button>
