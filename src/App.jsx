@@ -2926,7 +2926,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-white app-root pb-16 lg:pb-0${dark ? ' theme-dark' : ''}`}>
+    <div className={`min-h-screen bg-white app-root pb-16 lg:pb-0 overflow-x-hidden${dark ? ' theme-dark' : ''}`}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800;900&display=swap');
 
@@ -2998,11 +2998,11 @@ export default function App() {
 
       <header className="sticky top-0 z-40 bg-white shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {history.length > 0 && <button onClick={goBack} className="px-2 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
-            <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-3">
-              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md" /> : <CrestEmblem className="w-12 h-12" />}
-              <div><div className="text-lg font-bold text-slate-900 leading-tight">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block">{business.tagline}</div></div>
+          <div className="flex items-center gap-2 min-w-0">
+            {history.length > 0 && <button onClick={goBack} className="px-2 sm:px-3 py-2 hover:bg-amber-50 rounded-lg flex items-center gap-1 text-slate-700 hover:text-amber-600 flex-shrink-0" title="Go back"><ChevronRight className="rotate-180" size={18} /><span className="text-sm font-medium hidden sm:inline">Back</span></button>}
+            <div onClick={() => navigate('home')} className="cursor-pointer flex items-center gap-3 min-w-0">
+              {business.logoImage ? <img src={directImageUrl(business.logoImage)} alt={business.name} className="w-12 h-12 rounded-lg object-cover shadow-md flex-shrink-0" /> : <CrestEmblem className="w-12 h-12 flex-shrink-0" />}
+              <div className="min-w-0"><div className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">{business.name}</div><div className="text-xs text-slate-500 hidden sm:block truncate">{business.tagline}</div></div>
             </div>
           </div>
           <nav className="hidden lg:flex items-center gap-6">
@@ -3035,7 +3035,7 @@ export default function App() {
 
             <button onClick={() => navigate('contact')} className={`text-sm font-medium transition-colors ${page === 'contact' ? 'text-amber-600' : 'text-slate-700 hover:text-amber-600'}`}>Contact</button>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => setShowSearch(s => !s)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Search products" aria-label="Search products"><Search size={22} /></button>
             <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
