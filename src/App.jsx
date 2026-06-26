@@ -556,7 +556,7 @@ async function pushOrderToSheets(order) {
     const productsStr = (order.items || []).map(it => `${it.code}-${it.name} [${it.size}/${it.color}] x${it.qty} @ ₹${it.unit}`).join('; ');
     await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       type: 'order', id: order.id, status: order.status || 'new', orderId: order.orderNo, name: order.name, phone: order.phone, whatsapp: order.whatsapp, email: order.email,
-      address: order.address, city: order.city, pincode: order.pincode, products: productsStr, total: order.total, payment: order.paymentLabel, message: order.note || ''
+      address: order.address, city: order.city, pincode: order.pincode, products: productsStr, total: order.total, payment: order.paymentLabel, message: order.note || '', inv: order.invoice || null
     }) });
     return true;
   } catch (e) { return null; }
@@ -1234,11 +1234,22 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
     if (pay === 'cod' && !codAllowed) { setErr('Cash on Delivery is not available for some items. Please choose UPI.'); return; }
     setPlacing(true);
     const items = shopCart.map(it => { const orig = retailUnitPrice(it, it.qty); const unit = discountedUnitPrice(it, it.qty); return { id: it.id, code: it.code, name: it.name, size: it.size, color: it.color, qty: it.qty, unit, origUnit: orig, lineTotal: unit * it.qty }; });
+    const invoiceNo = `${business.invoicePrefix || 'INV-'}${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const invoice = {
+      invoiceNo, date: new Date().toLocaleDateString('en-IN'),
+      seller: { name: business.legalName || business.name || '', address: business.address || '', phone: business.phone || '', email: business.email || '', gstin: business.gstin || '' },
+      bank: { name: business.bankName || '', acc: business.accountNo || '', ifsc: business.ifsc || '' },
+      buyer: { name: form.name.trim(), address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), phone: form.phone.trim(), email: form.email.trim() },
+      hsn: business.hsnCode || '6403', gstRate,
+      items: items.map(it => ({ name: it.name, code: it.code, size: it.size, color: it.color, qty: it.qty, rate: it.unit, amount: it.lineTotal })),
+      taxable, cgst: gst / 2, sgst: gst / 2, delivery, total,
+      paymentLabel: pay === 'cod' ? 'Cash on Delivery' : 'UPI (to be confirmed)'
+    };
     const order = {
-      id: `ord_${Date.now()}`, orderNo: makeOrderNo(), type: 'order', date: new Date().toISOString(),
+      id: `ord_${Date.now()}`, orderNo: makeOrderNo(), invoiceNo, type: 'order', date: new Date().toISOString(),
       name: form.name.trim(), phone: form.phone.trim(), whatsapp: (form.whatsapp || form.phone).trim(), email: form.email.trim(),
       address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), note: form.note.trim(),
-      items, subtotal, discount, gst, gstRate, delivery, shipping: delivery, total,
+      items, subtotal, discount, gst, gstRate, delivery, shipping: delivery, total, invoice,
       payment: pay, paymentLabel: pay === 'cod' ? 'Cash on Delivery' : 'UPI (to be confirmed)', status: 'new'
     };
     try { await onPlaceOrder(order); setDone(order); } catch (e) { setErr('Could not place the order. Please try again or contact us on WhatsApp.'); }
