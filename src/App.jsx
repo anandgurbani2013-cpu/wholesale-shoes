@@ -310,20 +310,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   const saveProfile = async () => {
     setErr(''); setSavedMsg(''); setBusy(true);
     try {
-      const meta = { name: prof.name, phone: prof.phone, city: prof.city, address: prof.address };
-      // Keep the default saved address in sync with the Account Info address (one source of truth).
-      if (prof.address && prof.address.trim() && prof.city && prof.city.trim()) {
-        const list = Array.isArray(addresses) ? [...addresses] : [];
-        const defIdx = list.findIndex(a => a.isDefault);
-        if (defIdx >= 0) {
-          list[defIdx] = { ...list[defIdx], recipient: list[defIdx].recipient || prof.name || '', address: prof.address.trim(), city: prof.city.trim(), phone: prof.phone || list[defIdx].phone || '' };
-        } else {
-          list.unshift({ id: 'addr_' + Date.now(), recipient: prof.name || '', label: 'Home', address: prof.address.trim(), city: prof.city.trim(), pincode: '', phone: prof.phone || '', isDefault: true });
-        }
-        meta.addresses = list;
-        setAddresses(list);
-      }
-      const u = await customerAuth.updateProfile(customer.access_token, meta); onProfileUpdated(u); setSavedMsg('Saved ✓');
+      const u = await customerAuth.updateProfile(customer.access_token, { name: prof.name, phone: prof.phone, city: prof.city }); onProfileUpdated(u); setSavedMsg('Saved ✓');
     }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
@@ -418,7 +405,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
         <div><label className="text-sm font-medium text-slate-700 block mb-1">Name</label><input value={prof.name} onChange={e => setProf({...prof, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
         <div><label className="text-sm font-medium text-slate-700 block mb-1">Phone</label><input value={prof.phone} onChange={e => setProf({...prof, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
         <div><label className="text-sm font-medium text-slate-700 block mb-1">City</label><input value={prof.city} onChange={e => setProf({...prof, city: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
-        <div><label className="text-sm font-medium text-slate-700 block mb-1">Address</label><input value={prof.address} onChange={e => setProf({...prof, address: e.target.value})} className="w-full px-3 py-2 border rounded-lg" /></div>
+        <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3">Delivery addresses are managed in <span className="font-medium text-slate-700">My addresses</span>.</div>
         {savedMsg && <div className="text-sm text-green-600">{savedMsg}</div>}
         <button onClick={saveProfile} disabled={busy} className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white py-2.5 rounded-lg font-semibold">{busy ? 'Saving…' : 'Save profile'}</button>
       </div>
