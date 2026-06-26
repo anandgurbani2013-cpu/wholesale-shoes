@@ -1243,14 +1243,14 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
       hsn: business.hsnCode || '6403', gstRate,
       items: items.map(it => ({ name: it.name, code: it.code, size: it.size, color: it.color, qty: it.qty, rate: it.unit, amount: it.lineTotal })),
       taxable, cgst: gst / 2, sgst: gst / 2, delivery, total,
-      paymentLabel: pay === 'cod' ? 'Cash on Delivery' : 'UPI (to be confirmed)'
+      paymentLabel: pay === 'cod' ? 'Cash on Delivery' : pay === 'bank' ? 'Bank Transfer (to be confirmed)' : 'UPI (to be confirmed)'
     };
     const order = {
       id: `ord_${Date.now()}`, orderNo: makeOrderNo(), invoiceNo, type: 'order', date: new Date().toISOString(),
       name: form.name.trim(), phone: form.phone.trim(), whatsapp: (form.whatsapp || form.phone).trim(), email: form.email.trim(),
       address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), note: form.note.trim(),
       items, subtotal, discount, gst, gstRate, delivery, shipping: delivery, total, invoice,
-      payment: pay, paymentLabel: pay === 'cod' ? 'Cash on Delivery' : 'UPI (to be confirmed)', status: 'new'
+      payment: pay, paymentLabel: pay === 'cod' ? 'Cash on Delivery' : pay === 'bank' ? 'Bank Transfer (to be confirmed)' : 'UPI (to be confirmed)', status: 'new'
     };
     try { await onPlaceOrder(order); setDone(order); } catch (e) { setErr('Could not place the order. Please try again or contact us on WhatsApp.'); }
     setPlacing(false);
@@ -1259,10 +1259,10 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
   if (done) {
     const upiLink = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(business.upiName || business.name || '')}&am=${done.total}&cu=INR` : '';
     return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl max-w-md w-full p-6 text-center" onClick={e => e.stopPropagation()}>
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3"><CheckCircle className="text-green-600" size={34} /></div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-1">Order placed! 🎉</h2>
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto" onClick={onClose}>
+        <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 text-center my-auto max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3"><CheckCircle className="text-green-600" size={32} /></div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">Order placed! 🎉</h2>
           <div className="inline-block bg-amber-50 border border-amber-200 text-amber-700 font-mono font-bold px-4 py-1.5 rounded-full mb-3">{done.orderNo}</div>
           <p className="text-slate-600 text-sm mb-4">Total <span className="font-bold">₹{done.total.toLocaleString('en-IN')}</span> · {done.paymentLabel}</p>
           {done.payment === 'upi' && (
@@ -1271,7 +1271,7 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
               {upiId ? (<>
                 <div className="text-slate-600">UPI ID: <span className="font-mono font-semibold">{upiId}</span></div>
                 <div className="my-3 flex flex-col items-center">
-                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`} alt="Scan to pay via UPI" width="180" height="180" className="rounded-lg border bg-white p-1" />
+                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`} alt="Scan to pay via UPI" width="160" height="160" className="rounded-lg border bg-white p-1" />
                   <div className="text-xs text-slate-500 mt-1">Scan with any UPI app to pay (amount pre-filled)</div>
                 </div>
                 {upiLink && <a href={upiLink} className="inline-block bg-slate-900 text-white px-4 py-2 rounded-lg font-semibold">Open UPI app to pay (on phone)</a>}
@@ -1279,10 +1279,22 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
               </>) : <div className="text-slate-600">We'll share UPI payment details on WhatsApp shortly.</div>}
             </div>
           )}
+          {done.payment === 'bank' && (
+            <div className="bg-slate-50 border rounded-xl p-4 text-left text-sm mb-4">
+              <div className="font-semibold text-slate-900 mb-2">Pay ₹{done.total.toLocaleString('en-IN')} by Bank Transfer (NEFT/IMPS)</div>
+              {business.bankName ? (<div className="space-y-1 text-slate-700">
+                <div>Account name: <span className="font-semibold">{business.legalName || business.name}</span></div>
+                <div>Bank: <span className="font-semibold">{business.bankName}</span></div>
+                <div>A/C no.: <span className="font-mono font-semibold">{business.accountNo}</span></div>
+                <div>IFSC: <span className="font-mono font-semibold">{business.ifsc}</span></div>
+              </div>) : <div className="text-slate-600">We'll share our bank details on WhatsApp shortly.</div>}
+              <div className="text-xs text-slate-500 mt-2">After transferring, we'll verify your payment and dispatch your order.</div>
+            </div>
+          )}
           <p className="text-xs text-slate-500 mb-2">We've received your order and will confirm it once payment is verified.{customer ? ' You can see it under My orders.' : ''}</p>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-800 mb-4">After paying, tap <span className="font-semibold">WhatsApp</span> below and send us a screenshot of your payment so we can confirm and dispatch your order.</div>
-          <div className="flex gap-3 justify-center">
-            <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I placed order ${done.orderNo} (Total ₹${done.total}). I'm attaching my payment screenshot.`)}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"><WhatsAppIcon size={16} /> Send payment proof</a>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-800 mb-4">After paying, tap <span className="font-semibold">Send payment proof</span> below and send us a screenshot of your payment so we can confirm and dispatch your order.</div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I placed order ${done.orderNo} (Total ₹${done.total}). I'm attaching my payment screenshot.`)}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2"><WhatsAppIcon size={16} /> Send payment proof</a>
             <button onClick={() => window.location.reload()} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg font-semibold">Done</button>
           </div>
         </div>
@@ -1335,6 +1347,12 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
               <input type="radio" name="pay" checked={pay === 'upi'} onChange={() => setPay('upi')} />
               <div><div className="text-sm font-medium text-slate-900">UPI</div><div className="text-xs text-slate-500">{upiId ? `Pay to ${upiId} after placing the order` : 'We share UPI details after you place the order'}</div></div>
             </label>
+            {business.bankName && business.accountNo && (
+              <label className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer ${pay === 'bank' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
+                <input type="radio" name="pay" checked={pay === 'bank'} onChange={() => setPay('bank')} />
+                <div><div className="text-sm font-medium text-slate-900">Bank Transfer (NEFT/IMPS)</div><div className="text-xs text-slate-500">Pay to our bank account after placing the order</div></div>
+              </label>
+            )}
           </div>
 
           {err && <div className="text-sm text-red-600 mb-3">{err}</div>}
