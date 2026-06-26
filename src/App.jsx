@@ -784,7 +784,7 @@ function ProductGallery({ images, alt }) {
     <div>
       <div className="relative bg-slate-100 rounded-2xl overflow-hidden aspect-square" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
         {imgs.map((src, i) => (
-          <div key={i} className="absolute inset-0 transition-opacity duration-700 ease-in-out" style={{ opacity: i === idx ? 1 : 0 }} aria-hidden={i !== idx}>
+          <div key={i} className="absolute inset-0 transition-opacity duration-700 ease-in-out" style={{ opacity: i === idx ? 1 : 0, pointerEvents: i === idx ? 'auto' : 'none' }} aria-hidden={i !== idx}>
             <SafeImage src={src} alt={i === idx ? alt : ''} className="w-full h-full object-cover" />
           </div>
         ))}
@@ -3045,10 +3045,11 @@ export default function App() {
           </div>
         </div>
         {showSearch && (
-          <div className="border-t border-gray-100 bg-white">
+          <div className="border-t border-gray-100 bg-white overflow-hidden" style={{ animation: 'wsSearchOpen .26s ease' }}>
+            <style>{`@keyframes wsSearchOpen{from{opacity:0;max-height:0;transform:translateY(-6px)}to{opacity:1;max-height:80px;transform:none}}`}</style>
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-2">
               <Search size={18} className="text-slate-400 flex-shrink-0" />
-              <input autoFocus value={headerSearch} onChange={e => setHeaderSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submitHeaderSearch(); }} placeholder="Search e.g. black formal, AF-101…" className="flex-1 min-w-0 px-2 py-2 outline-none bg-transparent text-slate-800" />
+              <input autoFocus value={headerSearch} onChange={e => setHeaderSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submitHeaderSearch(); if (e.key === 'Escape') setShowSearch(false); }} placeholder="Search e.g. black formal, AF-101…" className="flex-1 min-w-0 px-2 py-2 outline-none bg-transparent text-slate-800" />
               <button onClick={submitHeaderSearch} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0">Search</button>
               <button onClick={() => setShowSearch(false)} className="p-2 text-slate-500 hover:text-slate-700 flex-shrink-0" aria-label="Close search"><X size={20} /></button>
             </div>
