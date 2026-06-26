@@ -173,7 +173,7 @@ function slimInquiry(list) {
 
 function customerProfile(user) {
   const m = (user && user.user_metadata) || {};
-  return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', whatsapp: m.whatsapp || '', city: m.city || '', address: m.address || '' };
+  return { id: user?.id || '', email: user?.email || '', name: m.name || '', phone: m.phone || '', whatsapp: m.whatsapp || '', city: m.city || '', address: m.address || '', addresses: Array.isArray(m.addresses) ? m.addresses : [] };
 }
 
 function PasswordInput({ value, onChange, onKeyDown, placeholder, className, autoFocus }) {
@@ -197,6 +197,24 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   const [acctTab, setAcctTab] = useState(initialTab || 'profile');
   const [openInq, setOpenInq] = useState(null);
   const [openOrd, setOpenOrd] = useState(null);
+  const [addresses, setAddresses] = useState(() => (customer && Array.isArray(customer.profile.addresses)) ? customer.profile.addresses : []);
+  const [addrForm, setAddrForm] = useState({ label: '', address: '', city: '', pincode: '', phone: '' });
+  const [addrMsg, setAddrMsg] = useState('');
+  const [addrBusy, setAddrBusy] = useState(false);
+  useEffect(() => { if (customer && Array.isArray(customer.profile.addresses)) setAddresses(customer.profile.addresses); }, [customer]);
+  const persistAddresses = async (next) => {
+    setAddrBusy(true); setAddrMsg('');
+    try { const u = await customerAuth.updateProfile(customer.access_token, { addresses: next }); onProfileUpdated(u); setAddresses(next); setAddrMsg('Saved ✓'); }
+    catch (e) { setAddrMsg('Could not save — try again'); } finally { setAddrBusy(false); }
+  };
+  const addAddress = async () => {
+    if (!addrForm.address.trim() || !addrForm.city.trim() || !addrForm.pincode.trim()) { setAddrMsg('Please fill address, city and pincode'); return; }
+    const entry = { id: 'addr_' + Date.now(), label: addrForm.label.trim() || 'Address', address: addrForm.address.trim(), city: addrForm.city.trim(), pincode: addrForm.pincode.trim(), phone: addrForm.phone.trim(), isDefault: addresses.length === 0 };
+    await persistAddresses([...addresses, entry]);
+    setAddrForm({ label: '', address: '', city: '', pincode: '', phone: '' });
+  };
+  const deleteAddress = async (id) => { await persistAddresses(addresses.filter(a => a.id !== id)); };
+  const setDefaultAddress = async (id) => { await persistAddresses(addresses.map(a => ({ ...a, isDefault: a.id === id }))); };
   const [liveOrders, setLiveOrders] = useState(null);
   useEffect(() => { if (customer) setProf({ ...customer.profile }); }, [customer]);
   useEffect(() => { if (initialTab) setAcctTab(initialTab); }, [initialTab]);
@@ -378,7 +396,46 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     </div>
   );
 
-  const sectionTitle = acctTab === 'inquiries' ? 'My inquiries' : acctTab === 'orders' ? 'My orders' : 'Account info';
+  const addressesView = (
+    <div>
+      <div className="flex items-center gap-2 mb-4"><MapPin size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My addresses</h3></div>
+      {addresses.length === 0 ? (
+        <div className="text-center py-8 px-4 bg-slate-50 rounded-xl mb-4"><MapPin size={26} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No saved addresses yet</div><div className="text-xs text-slate-400 mt-1">Add one below to check out faster next time.</div></div>
+      ) : (
+        <div className="space-y-3 mb-5">
+          {addresses.map(a => (
+            <div key={a.id} className={`border rounded-xl p-3 ${a.isDefault ? 'border-amber-300 bg-amber-50' : 'border-slate-200'}`}>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="font-semibold text-slate-900 text-sm">{a.label || 'Address'}</span>
+                {a.isDefault && <span className="bg-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">Default</span>}
+                <div className="ml-auto flex gap-2">
+                  {!a.isDefault && <button onClick={() => setDefaultAddress(a.id)} disabled={addrBusy} className="text-xs text-amber-700 hover:underline">Set default</button>}
+                  <button onClick={() => deleteAddress(a.id)} disabled={addrBusy} className="text-xs text-red-600 hover:underline">Delete</button>
+                </div>
+              </div>
+              <div className="text-sm text-slate-600">{a.address}, {a.city} {a.pincode}{a.phone ? ` · ${a.phone}` : ''}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="border-t pt-4">
+        <div className="text-sm font-semibold text-slate-800 mb-2">Add a new address</div>
+        <div className="space-y-2">
+          <input value={addrForm.label} onChange={e => setAddrForm({ ...addrForm, label: e.target.value })} placeholder="Label (e.g., Home, Office)" className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <input value={addrForm.address} onChange={e => setAddrForm({ ...addrForm, address: e.target.value })} placeholder="Address *" className="w-full px-3 py-2 border rounded-lg text-sm" />
+          <div className="grid grid-cols-2 gap-2">
+            <input value={addrForm.city} onChange={e => setAddrForm({ ...addrForm, city: e.target.value })} placeholder="City *" className="px-3 py-2 border rounded-lg text-sm" />
+            <input value={addrForm.pincode} onChange={e => setAddrForm({ ...addrForm, pincode: e.target.value })} placeholder="Pincode *" className="px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <input value={addrForm.phone} onChange={e => setAddrForm({ ...addrForm, phone: e.target.value })} placeholder="Phone (optional)" className="w-full px-3 py-2 border rounded-lg text-sm" />
+          {addrMsg && <div className={`text-sm ${addrMsg.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>{addrMsg}</div>}
+          <button onClick={addAddress} disabled={addrBusy} className="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white px-5 py-2.5 rounded-lg font-semibold text-sm">{addrBusy ? 'Saving…' : 'Add address'}</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const sectionTitle = acctTab === 'inquiries' ? 'My inquiries' : acctTab === 'orders' ? 'My orders' : acctTab === 'addresses' ? 'My addresses' : 'Account info';
   const NavBtn = ({ id, icon, label }) => (
     <button onClick={() => setAcctTab(id)} className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${acctTab === id ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-50'}`}>{icon} {label}</button>
   );
@@ -396,12 +453,13 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
               <NavBtn id="profile" icon={<Users size={18} />} label="Account info" />
               <NavBtn id="inquiries" icon={<ListChecks size={18} />} label="My inquiries" />
               <NavBtn id="orders" icon={<ShoppingBag size={18} />} label="My orders" />
+              <NavBtn id="addresses" icon={<MapPin size={18} />} label="My addresses" />
               <div className="border-t border-slate-100 my-2"></div>
               <button onClick={onLogout} className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"><LogOut size={18} /> Log out</button>
             </aside>
             <div className="flex-1 p-5 min-w-0">
               {err && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-3">{err}</div>}
-              {acctTab === 'inquiries' ? inquiriesView : acctTab === 'orders' ? ordersView : profileView}
+              {acctTab === 'inquiries' ? inquiriesView : acctTab === 'orders' ? ordersView : acctTab === 'addresses' ? addressesView : profileView}
               <button onClick={onLogout} className="md:hidden w-full mt-6 border border-slate-300 hover:bg-slate-50 text-slate-700 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"><LogOut size={16} /> Log out</button>
             </div>
           </div>
@@ -1269,7 +1327,15 @@ function ProformaModal({ items, business, customer, onLog, onClose }) {
 // ===== CHECKOUT (B2C order placement) =====
 function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, onClose }) {
   const prof = (customer && customer.profile) || {};
-  const [form, setForm] = useState({ name: prof.name || '', phone: prof.phone || '', whatsapp: '', email: prof.email || '', address: prof.address || '', city: prof.city || '', pincode: '', note: '' });
+  const savedAddresses = (customer && Array.isArray(prof.addresses)) ? prof.addresses : [];
+  const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0] || null;
+  const [form, setForm] = useState({
+    name: prof.name || '', phone: (defaultAddr && defaultAddr.phone) || prof.phone || '', whatsapp: '', email: prof.email || '',
+    address: (defaultAddr && defaultAddr.address) || prof.address || '', city: (defaultAddr && defaultAddr.city) || prof.city || '', pincode: (defaultAddr && defaultAddr.pincode) || '', note: ''
+  });
+  const [selectedAddrId, setSelectedAddrId] = useState(defaultAddr ? defaultAddr.id : (savedAddresses.length ? null : 'new'));
+  const [saveNewAddr, setSaveNewAddr] = useState(false);
+  const pickAddress = (a) => { setSelectedAddrId(a.id); setForm(f => ({ ...f, address: a.address || '', city: a.city || '', pincode: a.pincode || '', phone: a.phone || f.phone })); };
   const codAllowed = shopCart.length > 0 && shopCart.every(it => { const pr = products.find(p => p.id === it.id); return pr ? pr.codAvailable !== false : true; });
   const [pay, setPay] = useState(codAllowed ? 'cod' : 'upi');
   const [placing, setPlacing] = useState(false);
@@ -1311,7 +1377,16 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
       items, subtotal, discount, gst, gstRate, delivery, shipping: delivery, total, invoice,
       payment: pay, paymentLabel: pay === 'cod' ? 'Cash on Delivery' : pay === 'bank' ? 'Bank Transfer (to be confirmed)' : 'UPI (to be confirmed)', status: 'new'
     };
-    try { await onPlaceOrder(order); setDone(order); } catch (e) { setErr('Could not place the order. Please try again or contact us on WhatsApp.'); }
+    try {
+      await onPlaceOrder(order); setDone(order);
+      if (customer && customer.access_token && selectedAddrId === 'new' && saveNewAddr && form.address.trim() && form.city.trim() && form.pincode.trim()) {
+        try {
+          const existing = (customer.profile && Array.isArray(customer.profile.addresses)) ? customer.profile.addresses : [];
+          const entry = { id: 'addr_' + Date.now(), label: 'Address', address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), phone: form.phone.trim(), isDefault: existing.length === 0 };
+          await customerAuth.updateProfile(customer.access_token, { addresses: [...existing, entry] });
+        } catch (e2) {}
+      }
+    } catch (e) { setErr('Could not place the order. Please try again or contact us on WhatsApp.'); }
     setPlacing(false);
   };
 
@@ -1385,6 +1460,20 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
           </div>
 
           <div className="text-sm font-semibold text-slate-900 mb-2">Delivery details</div>
+          {savedAddresses.length > 0 && (
+            <div className="mb-4">
+              <div className="text-xs text-slate-500 mb-2">Choose a saved address</div>
+              <div className="flex flex-wrap gap-2">
+                {savedAddresses.map(a => (
+                  <button key={a.id} type="button" onClick={() => pickAddress(a)} className={`text-left border rounded-lg px-3 py-2 text-xs max-w-[220px] ${selectedAddrId === a.id ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-amber-300'}`}>
+                    <div className="font-semibold text-slate-800">{a.label || 'Address'}{a.isDefault ? ' · Default' : ''}</div>
+                    <div className="text-slate-500 truncate">{a.address}, {a.city} {a.pincode}</div>
+                  </button>
+                ))}
+                <button type="button" onClick={() => { setSelectedAddrId('new'); setForm(f => ({ ...f, address: '', city: '', pincode: '' })); }} className={`border rounded-lg px-3 py-2 text-xs ${selectedAddrId === 'new' ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-amber-300'}`}>+ New address</button>
+              </div>
+            </div>
+          )}
           <div className="grid md:grid-cols-2 gap-3 mb-4">
             {Field('Full name', 'name', { req: true })}
             {Field('Phone', 'phone', { req: true })}
@@ -1395,7 +1484,12 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
             {Field('Pincode', 'pincode', { req: true })}
             {Field('Note (optional)', 'note', { full: true })}
           </div>
-
+          {customer && selectedAddrId === 'new' && (
+            <label className="flex items-center gap-2 text-sm text-slate-700 mb-4 cursor-pointer">
+              <input type="checkbox" checked={saveNewAddr} onChange={e => setSaveNewAddr(e.target.checked)} />
+              Save this address to my account for next time
+            </label>
+          )}
           <div className="text-sm font-semibold text-slate-900 mb-2">Payment</div>
           <div className="space-y-2 mb-4">
             <label className={`flex items-center gap-3 border rounded-lg p-3 ${!codAllowed ? 'opacity-60' : 'cursor-pointer'} ${pay === 'cod' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
@@ -3665,6 +3759,7 @@ export default function App() {
                     <button onClick={() => { setAccountTab('profile'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Users size={18} /> Account info</button>
                     <button onClick={() => { setAccountTab('inquiries'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><ListChecks size={18} /> My inquiries</button>
                     <button onClick={() => { setAccountTab('orders'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><ShoppingBag size={18} /> My orders</button>
+                    <button onClick={() => { setAccountTab('addresses'); setShowAccount(true); setMenuOpen(false); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><MapPin size={18} /> My addresses</button>
                     <button onClick={() => { setMenuOpen(false); logoutCustomer(); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"><LogOut size={18} /> Log out</button>
                   </>
                 ) : (
