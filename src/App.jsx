@@ -2779,6 +2779,33 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
 }
 
 // ===== MAIN APP =====
+// ===== SEO helpers (purely additive: title, meta, canonical, structured data) =====
+function seoSetMeta(name, content) {
+  if (typeof document === 'undefined') return;
+  let el = document.head.querySelector(`meta[name="${name}"]`);
+  if (!el) { el = document.createElement('meta'); el.setAttribute('name', name); document.head.appendChild(el); }
+  el.setAttribute('content', content || '');
+}
+function seoSetProp(prop, content) {
+  if (typeof document === 'undefined') return;
+  let el = document.head.querySelector(`meta[property="${prop}"]`);
+  if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+  el.setAttribute('content', content || '');
+}
+function seoSetCanonical(href) {
+  if (typeof document === 'undefined') return;
+  let el = document.head.querySelector('link[rel="canonical"]');
+  if (!el) { el = document.createElement('link'); el.setAttribute('rel', 'canonical'); document.head.appendChild(el); }
+  el.setAttribute('href', href || '');
+}
+function seoSetJsonLd(id, obj) {
+  if (typeof document === 'undefined') return;
+  let el = document.getElementById(id);
+  if (!obj) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('script'); el.type = 'application/ld+json'; el.id = id; document.head.appendChild(el); }
+  try { el.textContent = JSON.stringify(obj); } catch (e) {}
+}
+
 export default function App() {
   const [page, setPage] = useState('home');
   const [history, setHistory] = useState([]);
@@ -3249,6 +3276,73 @@ export default function App() {
     } else url = PAGE_TO_PATH[page] || '/';
     try { if ((window.location.pathname || '/') !== url) window.history.pushState({ page }, '', url); } catch (e) {}
   }, [page, selectedProduct, catFilter, categories]);
+
+  // ===== SEO: per-page title, meta description, canonical, Open Graph, structured data =====
+  // Purely additive — does not change any app behaviour. Uses the current origin so it
+  // works on anand-footwear.vercel.app today and on a custom domain later with no change.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    let active = true;
+    const origin = (window.location && window.location.origin) || '';
+    const path = (window.location && window.location.pathname) || '/';
+    const bizName = (business.name && business.name[0] !== '[') ? business.name : 'Anand Footwear';
+    if (page === 'admin') { return; }
+    let title = `${bizName} — Premium Men's Footwear`;
+    let desc = business.tagline || "Premium men's footwear in India. Pan-India delivery and GST billing.";
+    if (page === 'catalog') { title = `Shop Men's Footwear — ${bizName}`; desc = `Browse the ${bizName} collection of men's footwear. ${business.shippingCoverage || 'Pan-India delivery'}, GST billing.`; }
+    else if (page === 'about') { title = `About Us — ${bizName}`; desc = `Learn about ${bizName}.`; }
+    else if (page === 'faq') { title = `FAQ — ${bizName}`; desc = `Frequently asked questions about ordering from ${bizName}.`; }
+    else if (page === 'contact') { title = `Contact Us — ${bizName}`; desc = `Get in touch with ${bizName}.`; }
+    else if (page === 'howto') { title = `How to Order & Shipping — ${bizName}`; }
+    else if (page === 'returns') { title = `Returns & Refunds — ${bizName}`; }
+    else if (page === 'privacy') { title = `Privacy Policy — ${bizName}`; }
+    else if (page === 'terms') { title = `Terms & Conditions — ${bizName}`; }
+    else if (page === 'cancellation') { title = `Cancellation Policy — ${bizName}`; }
+    else if (page === 'product' && selectedProduct) {
+      title = `${selectedProduct.name} — ${bizName}`;
+      desc = (selectedProduct.description || `${selectedProduct.name} by ${bizName}.`).replace(/\s+/g, ' ').trim().slice(0, 155);
+    }
+    document.title = title;
+    seoSetMeta('description', desc);
+    seoSetProp('og:title', title);
+    seoSetProp('og:description', desc);
+    seoSetProp('og:url', origin + path);
+    seoSetCanonical(origin + path);
+
+    if (page === 'product' && selectedProduct) {
+      const p = selectedProduct;
+      const price = parseFloat(p.retailPrice) || 0;
+      const productLd = {
+        '@context': 'https://schema.org', '@type': 'Product',
+        name: p.name, sku: p.code || undefined,
+        description: (p.description || '').replace(/\s+/g, ' ').trim() || undefined,
+        image: directImageUrl(p.image) || undefined,
+        brand: { '@type': 'Brand', name: bizName }
+      };
+      if (price > 0) productLd.offers = { '@type': 'Offer', priceCurrency: 'INR', price: String(price), availability: p.outOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock', url: origin + path };
+      seoSetJsonLd('seo-jsonld', productLd);
+      // Add review stars (aggregateRating) once approved reviews are fetched.
+      reviewsApi.listApproved(p.id).then(rows => {
+        if (!active) return;
+        const list = Array.isArray(rows) ? rows : [];
+        if (list.length > 0) {
+          const avg = list.reduce((a, r) => a + (Number(r.data && r.data.rating) || 0), 0) / list.length;
+          productLd.aggregateRating = { '@type': 'AggregateRating', ratingValue: avg.toFixed(1), reviewCount: String(list.length) };
+          seoSetJsonLd('seo-jsonld', productLd);
+        }
+      }).catch(() => {});
+    } else if (page === 'home') {
+      seoSetJsonLd('seo-jsonld', {
+        '@context': 'https://schema.org', '@type': 'Organization',
+        name: bizName, url: origin || undefined,
+        logo: business.logoImage ? directImageUrl(business.logoImage) : undefined,
+        telephone: business.phone || undefined, email: business.email || undefined
+      });
+    } else {
+      seoSetJsonLd('seo-jsonld', null);
+    }
+    return () => { active = false; };
+  }, [page, selectedProduct, business, catFilter, categories]);
 
   // Handle browser Back/Forward
   useEffect(() => {
