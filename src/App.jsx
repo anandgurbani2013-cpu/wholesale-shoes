@@ -188,7 +188,7 @@ function PasswordInput({ value, onChange, onKeyDown, placeholder, className, aut
 
 function AccountModal({ customer, business, inquiryHistory, orderHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
   const [mode, setMode] = useState('login');
-  const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '', sameWhatsapp: true, whatsapp: '' });
+  const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '', sameWhatsapp: true, whatsapp: '', address: '', city: '', pincode: '' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
@@ -198,7 +198,8 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   const [openInq, setOpenInq] = useState(null);
   const [openOrd, setOpenOrd] = useState(null);
   const [addresses, setAddresses] = useState(() => (customer && Array.isArray(customer.profile.addresses)) ? customer.profile.addresses : []);
-  const [addrForm, setAddrForm] = useState({ label: '', address: '', city: '', pincode: '', phone: '' });
+  const [addrForm, setAddrForm] = useState({ recipient: '', label: '', address: '', city: '', pincode: '', phone: '' });
+  const [editingAddrId, setEditingAddrId] = useState(null);
   const [addrMsg, setAddrMsg] = useState('');
   const [addrBusy, setAddrBusy] = useState(false);
   useEffect(() => { if (customer && Array.isArray(customer.profile.addresses)) setAddresses(customer.profile.addresses); }, [customer]);
@@ -207,13 +208,20 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     try { const u = await customerAuth.updateProfile(customer.access_token, { addresses: next }); onProfileUpdated(u); setAddresses(next); setAddrMsg('Saved ✓'); }
     catch (e) { setAddrMsg('Could not save — try again'); } finally { setAddrBusy(false); }
   };
-  const addAddress = async () => {
+  const resetAddrForm = () => { setAddrForm({ recipient: '', label: '', address: '', city: '', pincode: '', phone: '' }); setEditingAddrId(null); };
+  const startEditAddress = (a) => { setEditingAddrId(a.id); setAddrForm({ recipient: a.recipient || '', label: a.label || '', address: a.address || '', city: a.city || '', pincode: a.pincode || '', phone: a.phone || '' }); setAddrMsg(''); };
+  const saveAddress = async () => {
     if (!addrForm.address.trim() || !addrForm.city.trim() || !addrForm.pincode.trim()) { setAddrMsg('Please fill address, city and pincode'); return; }
-    const entry = { id: 'addr_' + Date.now(), label: addrForm.label.trim() || 'Address', address: addrForm.address.trim(), city: addrForm.city.trim(), pincode: addrForm.pincode.trim(), phone: addrForm.phone.trim(), isDefault: addresses.length === 0 };
-    await persistAddresses([...addresses, entry]);
-    setAddrForm({ label: '', address: '', city: '', pincode: '', phone: '' });
+    if (editingAddrId) {
+      const next = addresses.map(a => a.id === editingAddrId ? { ...a, recipient: addrForm.recipient.trim(), label: addrForm.label.trim() || 'Address', address: addrForm.address.trim(), city: addrForm.city.trim(), pincode: addrForm.pincode.trim(), phone: addrForm.phone.trim() } : a);
+      await persistAddresses(next);
+    } else {
+      const entry = { id: 'addr_' + Date.now(), recipient: addrForm.recipient.trim(), label: addrForm.label.trim() || 'Address', address: addrForm.address.trim(), city: addrForm.city.trim(), pincode: addrForm.pincode.trim(), phone: addrForm.phone.trim(), isDefault: addresses.length === 0 };
+      await persistAddresses([...addresses, entry]);
+    }
+    resetAddrForm();
   };
-  const deleteAddress = async (id) => { await persistAddresses(addresses.filter(a => a.id !== id)); };
+  const deleteAddress = async (id) => { await persistAddresses(addresses.filter(a => a.id !== id)); if (editingAddrId === id) resetAddrForm(); };
   const setDefaultAddress = async (id) => { await persistAddresses(addresses.map(a => ({ ...a, isDefault: a.id === id }))); };
   const [liveOrders, setLiveOrders] = useState(null);
   useEffect(() => { if (customer) setProf({ ...customer.profile }); }, [customer]);
@@ -288,14 +296,35 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     setBusy(true);
     try {
       const whatsappNumber = (f.sameWhatsapp ? f.phone : (f.whatsapp || f.phone)).trim();
-      const d = await customerAuth.signup(f.email.trim(), f.password, { name: f.name.trim(), phone: f.phone.trim(), whatsapp: whatsappNumber });
+      const meta = { name: f.name.trim(), phone: f.phone.trim(), whatsapp: whatsappNumber };
+      if (f.address && f.address.trim() && f.city && f.city.trim() && f.pincode && f.pincode.trim()) {
+        meta.city = f.city.trim();
+        meta.address = f.address.trim();
+        meta.addresses = [{ id: 'addr_' + Date.now(), recipient: f.name.trim(), label: 'Home', address: f.address.trim(), city: f.city.trim(), pincode: f.pincode.trim(), phone: f.phone.trim(), isDefault: true }];
+      }
+      const d = await customerAuth.signup(f.email.trim(), f.password, meta);
       if (d.access_token) onAuthed(d, 'register');
       else { setNotice('Account created. Please log in.'); setMode('login'); }
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const saveProfile = async () => {
     setErr(''); setSavedMsg(''); setBusy(true);
-    try { const u = await customerAuth.updateProfile(customer.access_token, { name: prof.name, phone: prof.phone, city: prof.city, address: prof.address }); onProfileUpdated(u); setSavedMsg('Saved ✓'); }
+    try {
+      const meta = { name: prof.name, phone: prof.phone, city: prof.city, address: prof.address };
+      // Keep the default saved address in sync with the Account Info address (one source of truth).
+      if (prof.address && prof.address.trim() && prof.city && prof.city.trim()) {
+        const list = Array.isArray(addresses) ? [...addresses] : [];
+        const defIdx = list.findIndex(a => a.isDefault);
+        if (defIdx >= 0) {
+          list[defIdx] = { ...list[defIdx], recipient: list[defIdx].recipient || prof.name || '', address: prof.address.trim(), city: prof.city.trim(), phone: prof.phone || list[defIdx].phone || '' };
+        } else {
+          list.unshift({ id: 'addr_' + Date.now(), recipient: prof.name || '', label: 'Home', address: prof.address.trim(), city: prof.city.trim(), pincode: '', phone: prof.phone || '', isDefault: true });
+        }
+        meta.addresses = list;
+        setAddresses(list);
+      }
+      const u = await customerAuth.updateProfile(customer.access_token, meta); onProfileUpdated(u); setSavedMsg('Saved ✓');
+    }
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
 
@@ -410,17 +439,20 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                 {a.isDefault && <span className="bg-amber-200 text-amber-800 text-xs px-2 py-0.5 rounded-full">Default</span>}
                 <div className="ml-auto flex gap-2">
                   {!a.isDefault && <button onClick={() => setDefaultAddress(a.id)} disabled={addrBusy} className="text-xs text-amber-700 hover:underline">Set default</button>}
+                  <button onClick={() => startEditAddress(a)} disabled={addrBusy} className="text-xs text-slate-600 hover:underline">Edit</button>
                   <button onClick={() => deleteAddress(a.id)} disabled={addrBusy} className="text-xs text-red-600 hover:underline">Delete</button>
                 </div>
               </div>
+              {a.recipient && <div className="text-sm text-slate-700">For: {a.recipient}</div>}
               <div className="text-sm text-slate-600">{a.address}, {a.city} {a.pincode}{a.phone ? ` · ${a.phone}` : ''}</div>
             </div>
           ))}
         </div>
       )}
       <div className="border-t pt-4">
-        <div className="text-sm font-semibold text-slate-800 mb-2">Add a new address</div>
+        <div className="text-sm font-semibold text-slate-800 mb-2">{editingAddrId ? 'Edit address' : 'Add a new address'}</div>
         <div className="space-y-2">
+          <input value={addrForm.recipient} onChange={e => setAddrForm({ ...addrForm, recipient: e.target.value })} placeholder="Recipient name (optional — if someone else collects)" className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input value={addrForm.label} onChange={e => setAddrForm({ ...addrForm, label: e.target.value })} placeholder="Label (e.g., Home, Office)" className="w-full px-3 py-2 border rounded-lg text-sm" />
           <input value={addrForm.address} onChange={e => setAddrForm({ ...addrForm, address: e.target.value })} placeholder="Address *" className="w-full px-3 py-2 border rounded-lg text-sm" />
           <div className="grid grid-cols-2 gap-2">
@@ -429,7 +461,10 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
           </div>
           <input value={addrForm.phone} onChange={e => setAddrForm({ ...addrForm, phone: e.target.value })} placeholder="Phone (optional)" className="w-full px-3 py-2 border rounded-lg text-sm" />
           {addrMsg && <div className={`text-sm ${addrMsg.includes('✓') ? 'text-green-600' : 'text-red-600'}`}>{addrMsg}</div>}
-          <button onClick={addAddress} disabled={addrBusy} className="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white px-5 py-2.5 rounded-lg font-semibold text-sm">{addrBusy ? 'Saving…' : 'Add address'}</button>
+          <div className="flex gap-2">
+            <button onClick={saveAddress} disabled={addrBusy} className="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white px-5 py-2.5 rounded-lg font-semibold text-sm">{addrBusy ? 'Saving…' : (editingAddrId ? 'Save changes' : 'Add address')}</button>
+            {editingAddrId && <button onClick={resetAddrForm} disabled={addrBusy} className="border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg font-medium text-sm">Cancel</button>}
+          </div>
         </div>
       </div>
     </div>
@@ -524,6 +559,17 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                     <div className="text-xs text-slate-500 mt-1">Include country code so we can reach you on WhatsApp.</div>
                   </div>
                 )}
+              </div>
+              <div className="pt-1">
+                <div className="text-xs text-slate-500 mb-2">Delivery address (optional — you can add it now or later)</div>
+                <div className="space-y-2">
+                  <input value={f.address} onChange={e => setF({...f, address: e.target.value})} placeholder="Address" className="w-full px-3 py-2 border rounded-lg" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={f.city} onChange={e => setF({...f, city: e.target.value})} placeholder="City" className="px-3 py-2 border rounded-lg" />
+                    <input value={f.pincode} onChange={e => setF({...f, pincode: e.target.value})} placeholder="Pincode" className="px-3 py-2 border rounded-lg" />
+                  </div>
+                </div>
+                <div className="text-xs text-slate-400 mt-1">If you add all three, it becomes your default delivery address.</div>
               </div>
               <div><label className="text-sm font-medium text-slate-700 block mb-1">Password *</label><PasswordInput value={f.password} onChange={e => setF({...f, password: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} /></div>
               <div><label className="text-sm font-medium text-slate-700 block mb-1">Confirm Password *</label><PasswordInput value={f.confirm} onChange={e => setF({...f, confirm: e.target.value})} onKeyDown={e => { if (e.key === 'Enter' && !busy) doRegister(); }} /></div>
@@ -1330,12 +1376,12 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
   const savedAddresses = (customer && Array.isArray(prof.addresses)) ? prof.addresses : [];
   const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0] || null;
   const [form, setForm] = useState({
-    name: prof.name || '', phone: (defaultAddr && defaultAddr.phone) || prof.phone || '', whatsapp: '', email: prof.email || '',
+    name: (defaultAddr && defaultAddr.recipient) || prof.name || '', phone: (defaultAddr && defaultAddr.phone) || prof.phone || '', whatsapp: '', email: prof.email || '',
     address: (defaultAddr && defaultAddr.address) || prof.address || '', city: (defaultAddr && defaultAddr.city) || prof.city || '', pincode: (defaultAddr && defaultAddr.pincode) || '', note: ''
   });
   const [selectedAddrId, setSelectedAddrId] = useState(defaultAddr ? defaultAddr.id : (savedAddresses.length ? null : 'new'));
   const [saveNewAddr, setSaveNewAddr] = useState(false);
-  const pickAddress = (a) => { setSelectedAddrId(a.id); setForm(f => ({ ...f, address: a.address || '', city: a.city || '', pincode: a.pincode || '', phone: a.phone || f.phone })); };
+  const pickAddress = (a) => { setSelectedAddrId(a.id); setForm(f => ({ ...f, name: a.recipient || f.name, address: a.address || '', city: a.city || '', pincode: a.pincode || '', phone: a.phone || f.phone })); };
   const codAllowed = shopCart.length > 0 && shopCart.every(it => { const pr = products.find(p => p.id === it.id); return pr ? pr.codAvailable !== false : true; });
   const [pay, setPay] = useState(codAllowed ? 'cod' : 'upi');
   const [placing, setPlacing] = useState(false);
@@ -1382,7 +1428,7 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
       if (customer && customer.access_token && selectedAddrId === 'new' && saveNewAddr && form.address.trim() && form.city.trim() && form.pincode.trim()) {
         try {
           const existing = (customer.profile && Array.isArray(customer.profile.addresses)) ? customer.profile.addresses : [];
-          const entry = { id: 'addr_' + Date.now(), label: 'Address', address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), phone: form.phone.trim(), isDefault: existing.length === 0 };
+          const entry = { id: 'addr_' + Date.now(), recipient: form.name.trim(), label: 'Address', address: form.address.trim(), city: form.city.trim(), pincode: form.pincode.trim(), phone: form.phone.trim(), isDefault: existing.length === 0 };
           await customerAuth.updateProfile(customer.access_token, { addresses: [...existing, entry] });
         } catch (e2) {}
       }
