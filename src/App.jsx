@@ -1857,8 +1857,162 @@ function downloadCSV(name, rows) {
   setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
 }
 
+const reviewsApi = {
+  async listApproved(productId) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/reviews?select=*&approved=eq.true&data->>productId=eq.${encodeURIComponent(productId)}&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
+      if (!r.ok) return [];
+      return await r.json();
+    } catch (e) { return []; }
+  },
+  async submit(review, token) {
+    try {
+      const id = 'rev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/reviews`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify([{ id, data: review, approved: false }]) });
+      return r.ok;
+    } catch (e) { return false; }
+  },
+  async listAll(adminToken) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/reviews?select=*&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } });
+      if (!r.ok) return [];
+      return await r.json();
+    } catch (e) { return []; }
+  },
+  async setApproved(id, approved, adminToken) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/reviews?id=eq.${id}`, { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ approved }) });
+      return r.ok;
+    } catch (e) { return false; }
+  },
+  async remove(id, adminToken) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/reviews?id=eq.${id}`, { method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+};
+
+function Stars({ value }) {
+  const v = Math.round(Number(value) || 0);
+  return <span style={{ letterSpacing: '1px' }}>{[1, 2, 3, 4, 5].map(i => <span key={i} className={i <= v ? 'text-amber-500' : 'text-slate-300'}>★</span>)}</span>;
+}
+
+function ProductReviews({ productId, productName, customer }) {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [name, setName] = useState((customer && customer.profile && customer.profile.name) || '');
+  const [text, setText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true); setDone(false); setShowForm(false); setRating(0); setText('');
+    setName((customer && customer.profile && customer.profile.name) || '');
+    reviewsApi.listApproved(productId).then(rows => { if (active) { setList(Array.isArray(rows) ? rows : []); setLoading(false); } });
+    return () => { active = false; };
+  }, [productId]);
+
+  const count = list.length;
+  const avg = count ? (list.reduce((a, r) => a + (Number(r.data && r.data.rating) || 0), 0) / count) : 0;
+
+  const submit = async () => {
+    setErr('');
+    if (!rating) { setErr('Please tap the stars to give a rating.'); return; }
+    if (!name.trim()) { setErr('Please enter your name.'); return; }
+    if (!text.trim()) { setErr('Please write a short review.'); return; }
+    setSubmitting(true);
+    let verified = false, userId = '';
+    try {
+      if (customer && customer.profile && customer.profile.id && customer.access_token) {
+        userId = customer.profile.id;
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=data&user_id=eq.${encodeURIComponent(userId)}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
+        if (r.ok) { const orders = await r.json(); verified = (Array.isArray(orders) ? orders : []).some(o => ((o.data && o.data.items) || []).some(it => String(it.id) === String(productId))); }
+      }
+    } catch (e) {}
+    const review = { productId: String(productId), productName: productName || '', name: name.trim(), rating: Number(rating), text: text.trim().slice(0, 1000), verified, userId, date: new Date().toISOString() };
+    const ok = await reviewsApi.submit(review, customer && customer.access_token);
+    setSubmitting(false);
+    if (ok) { setDone(true); } else { setErr('Could not submit your review. Please try again.'); }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-4 mb-6 flex-wrap">
+        <h2 className="text-2xl font-bold text-slate-900">Customer reviews</h2>
+        {count > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold text-slate-900">{avg.toFixed(1)}</span>
+            <span className="text-lg"><Stars value={avg} /></span>
+            <span className="text-sm text-slate-500">({count})</span>
+          </div>
+        )}
+        {!done && <button onClick={() => setShowForm(s => !s)} className="ml-auto text-sm bg-slate-900 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold transition-colors">Write a review</button>}
+      </div>
+
+      {done && <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800 mb-6">Thank you! Your review has been submitted and will appear here once it's approved.</div>}
+
+      {showForm && !done && (
+        <div className="bg-slate-50 border rounded-xl p-4 mb-6">
+          <div className="text-sm font-medium text-slate-700 mb-1">Your rating</div>
+          <div className="flex gap-1 mb-3 text-3xl">
+            {[1, 2, 3, 4, 5].map(i => (
+              <button key={i} type="button" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)} onClick={() => setRating(i)} className={(hover || rating) >= i ? 'text-amber-500' : 'text-slate-300'} aria-label={`${i} star${i > 1 ? 's' : ''}`}>★</button>
+            ))}
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name *" className="px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="Share your experience with this product *" className="w-full px-3 py-2 border rounded-lg text-sm mb-3" />
+          {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
+          <button onClick={submit} disabled={submitting} className="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white px-5 py-2.5 rounded-lg font-semibold">{submitting ? 'Submitting…' : 'Submit review'}</button>
+          <div className="text-xs text-slate-400 mt-2">Reviews appear after a quick check by our team.</div>
+        </div>
+      )}
+
+      {loading ? <div className="text-slate-400 text-sm py-6">Loading reviews…</div>
+        : count === 0 ? <div className="text-slate-500 text-sm py-6 bg-slate-50 rounded-xl text-center">No reviews yet. Be the first to review this product.</div>
+          : (
+            <div className="space-y-3">
+              {list.map(r => {
+                const d = r.data || {};
+                return (
+                  <div key={r.id} className="border rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-slate-900 text-sm">{d.name || 'Customer'}</span>
+                      {d.verified && d.userId && <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><CheckCircle size={12} /> Verified Purchase</span>}
+                      <span className="text-sm ml-auto"><Stars value={d.rating} /></span>
+                    </div>
+                    <div className="text-sm text-slate-600 leading-relaxed">{d.text}</div>
+                    {d.date && <div className="text-xs text-slate-400 mt-1">{new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+    </div>
+  );
+}
+
 function AdminPanel({ business, saveBusiness, products, saveProducts, categories, saveCategories, faqs, saveFaqs, testimonials, saveTestimonials, features, saveFeatures, steps, saveSteps, inquiries, saveInquiries, updateInquiry, adminToken, navigate, showToast, setAdminAuth, logout }) {
   const [tab, setTab] = useState('dashboard');
+  const [adminReviews, setAdminReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const loadAdminReviews = async () => {
+    if (!adminToken) return;
+    setReviewsLoading(true);
+    const rows = await reviewsApi.listAll(adminToken);
+    setAdminReviews(Array.isArray(rows) ? rows : []);
+    setReviewsLoading(false);
+  };
+  useEffect(() => { if (tab === 'reviews') loadAdminReviews(); }, [tab]);
+  const approveReview = async (id, approved) => { const ok = await reviewsApi.setApproved(id, approved, adminToken); if (ok) { setAdminReviews(prev => prev.map(r => r.id === id ? { ...r, approved } : r)); showToast(approved ? 'Review approved ✓' : 'Review hidden'); } else showToast('Could not update review'); };
+  const deleteReview = async (id) => { if (!confirm('Delete this review permanently?')) return; const ok = await reviewsApi.remove(id, adminToken); if (ok) { setAdminReviews(prev => prev.filter(r => r.id !== id)); showToast('Review deleted'); } else showToast('Could not delete review'); };
   const [orders, setOrders] = useState([]);
   const [inqSearch, setInqSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
@@ -1951,6 +2105,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
     { id: 'faqs', label: 'FAQs', icon: HelpCircle },
     { id: 'testimonials', label: 'Testimonials', icon: MessageSquare },
+    { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'features', label: 'Why Choose Us', icon: Sparkles },
     { id: 'steps', label: 'How to Order', icon: ListChecks },
     { id: 'business', label: 'Business Info', icon: Settings },
@@ -2003,6 +2158,51 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
             </div>
           </div>
         )}
+
+        {tab === 'reviews' && (() => {
+          const pending = adminReviews.filter(r => !r.approved);
+          const approved = adminReviews.filter(r => r.approved);
+          const card = (r) => {
+            const d = r.data || {};
+            return (
+              <div key={r.id} className="bg-white border rounded-xl p-4 mb-3">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="font-semibold text-slate-900 text-sm">{d.name || 'Customer'}</span>
+                  {d.verified && d.userId
+                    ? <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">Verified buyer</span>
+                    : <span className="bg-slate-100 text-slate-500 text-xs px-2 py-0.5 rounded-full">Not verified</span>}
+                  <span className="text-xs text-slate-400">· {d.productName || d.productId}</span>
+                  <span className="text-sm ml-auto"><Stars value={d.rating} /></span>
+                </div>
+                <div className="text-sm text-slate-600 leading-relaxed mb-2">{d.text}</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {d.date && <span className="text-xs text-slate-400 mr-auto">{new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                  {!r.approved
+                    ? <button onClick={() => approveReview(r.id, true)} className="text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">Approve</button>
+                    : <button onClick={() => approveReview(r.id, false)} className="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded">Hide</button>}
+                  <button onClick={() => deleteReview(r.id)} className="text-sm bg-red-50 text-red-700 px-3 py-1 rounded hover:bg-red-100">Delete</button>
+                </div>
+              </div>
+            );
+          };
+          return (
+            <div>
+              <div className="flex items-center gap-3 mb-6 flex-wrap">
+                <h1 className="text-3xl font-bold text-slate-900">Reviews</h1>
+                <button onClick={loadAdminReviews} className="text-sm border px-3 py-1.5 rounded-lg hover:bg-slate-50 flex items-center gap-1"><Loader2 size={14} className={reviewsLoading ? 'animate-spin' : ''} /> Refresh</button>
+              </div>
+              <p className="text-slate-600 mb-6 text-sm max-w-2xl">New reviews stay hidden until you approve them. Approved reviews show on the product page. "Verified buyer" means the reviewer was logged in and had ordered that product.</p>
+              {reviewsLoading && adminReviews.length === 0 ? <div className="text-slate-400 py-8">Loading reviews…</div> : (
+                <>
+                  <h2 className="text-sm font-semibold text-slate-700 mb-2">Pending approval ({pending.length})</h2>
+                  {pending.length === 0 ? <div className="bg-white rounded-xl p-6 text-center text-slate-400 text-sm mb-6">Nothing waiting for approval.</div> : <div className="mb-6">{pending.map(card)}</div>}
+                  <h2 className="text-sm font-semibold text-slate-700 mb-2">Approved & live ({approved.length})</h2>
+                  {approved.length === 0 ? <div className="bg-white rounded-xl p-6 text-center text-slate-400 text-sm">No approved reviews yet.</div> : <div>{approved.map(card)}</div>}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {tab === 'export' && (
           <div>
@@ -3411,6 +3611,9 @@ export default function App() {
                   );
                 })()}
               </div>
+            </div>
+            <div className="mt-16 max-w-3xl">
+              <ProductReviews productId={selectedProduct.id} productName={selectedProduct.name} customer={customer} />
             </div>
             <div className="mt-16">
               <h2 className="text-2xl font-bold text-slate-900 mb-6">You may also like</h2>
