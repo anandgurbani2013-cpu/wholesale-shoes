@@ -730,7 +730,7 @@ function SafeImage({ src, alt, className }) {
   const [error, setError] = useState(false);
   useEffect(() => { setError(false); }, [src]);
   const real = directImageUrl(src);
-  return <img src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={className} onError={() => setError(true)} />;
+  return <img src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={className} loading="lazy" decoding="async" onError={() => setError(true)} />;
 }
 // Inline heritage crest (navy shield + gold border + interlocking AF).
 // The filled navy shield makes it visible on ANY background and identical everywhere.
@@ -2358,6 +2358,7 @@ export default function App() {
   const [wishlist, setWishlist] = useState([]);
   const [recentIds, setRecentIds] = useState([]);
   const [showWishlistOnly, setShowWishlistOnly] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24);
   const [sort, setSort] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -2842,6 +2843,9 @@ export default function App() {
   // their cart / inquiry / wishlist from their account (and it syncs back).
   const toggleWish = (id) => setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
+  // Reset how many catalog items are shown whenever the result set changes
+  useEffect(() => { setVisibleCount(24); }, [search, catFilter, sizeFilter, colorFilter, sort, showWishlistOnly]);
+
   const addToShopCart = (p, size, color, qty) => {
     const q = Math.max(1, parseInt(qty) || 1);
     setShopCart(prev => {
@@ -3250,8 +3254,9 @@ export default function App() {
                 <button onClick={() => setShowWishlistOnly(v => !v)} className={`px-4 py-2 border rounded-lg flex items-center justify-center gap-2 text-sm font-medium ${showWishlistOnly ? 'bg-rose-50 border-rose-300 text-rose-600' : 'text-slate-700'}`}><Heart size={16} fill={showWishlistOnly ? 'currentColor' : 'none'} /> Saved{wishlist.length > 0 ? ` (${wishlist.length})` : ''}</button>
               </div>
             </div>
-            <div className="text-sm text-slate-600 mb-4">Showing {filtered.length} of {visibleProducts.length} products</div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
+            <div className="text-sm text-slate-600 mb-4">Showing {Math.min(visibleCount, filtered.length)} of {filtered.length}{filtered.length !== visibleProducts.length ? ` (filtered from ${visibleProducts.length})` : ''} products</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.slice(0, visibleCount).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
+            {filtered.length > visibleCount && <div className="text-center mt-8"><button onClick={() => setVisibleCount(c => c + 24)} className="bg-slate-900 hover:bg-amber-500 text-white px-8 py-3 rounded-lg font-semibold transition-colors">Load more products</button></div>}
             {filtered.length === 0 && showWishlistOnly && <div className="text-center py-16 text-slate-500"><Heart size={48} className="mx-auto mb-3 opacity-50" />No saved items yet<div className="mt-2"><button onClick={() => setShowWishlistOnly(false)} className="text-amber-600 hover:underline">Browse products</button></div></div>}
             {filtered.length === 0 && !showWishlistOnly && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); setSizeFilter('all'); setColorFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
             {(() => {
