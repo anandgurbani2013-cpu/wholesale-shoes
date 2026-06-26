@@ -561,9 +561,9 @@ async function pushOrderToSheets(order) {
     return true;
   } catch (e) { return null; }
 }
-async function syncStatusToSheet({ type, id, humanId, status, email, name, courier, trackingNo, trackingLink }) {
+async function syncStatusToSheet({ type, id, humanId, status, email, name, courier, trackingNo, trackingLink, inv }) {
   try {
-    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'updateStatus', type: type || 'inquiry', id: id || '', humanId: humanId || '', status: status || '', email: email || '', name: name || '', courier: courier || '', trackingNo: trackingNo || '', trackingLink: trackingLink || '' }) });
+    await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'updateStatus', type: type || 'inquiry', id: id || '', humanId: humanId || '', status: status || '', email: email || '', name: name || '', courier: courier || '', trackingNo: trackingNo || '', trackingLink: trackingLink || '', inv: inv || null }) });
     return true;
   } catch (e) { return null; }
 }
@@ -1279,10 +1279,10 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
               </>) : <div className="text-slate-600">We'll share UPI payment details on WhatsApp shortly.</div>}
             </div>
           )}
-          <p className="text-xs text-slate-500 mb-4">We've received your order and will contact you to confirm.{customer ? ' You can see it under My orders.' : ''}</p>
-          <p className="text-xs text-slate-400 mb-4">We've emailed your confirmation. If you don't see it, please check your Spam or Promotions folder and mark it "Not spam" so you don't miss future updates.</p>
+          <p className="text-xs text-slate-500 mb-2">We've received your order and will confirm it once payment is verified.{customer ? ' You can see it under My orders.' : ''}</p>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-800 mb-4">After paying, tap <span className="font-semibold">WhatsApp</span> below and send us a screenshot of your payment so we can confirm and dispatch your order.</div>
           <div className="flex gap-3 justify-center">
-            <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I just placed order ${done.orderNo}.`)}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"><WhatsAppIcon size={16} /> WhatsApp</a>
+            <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I placed order ${done.orderNo} (Total ₹${done.total}). I'm attaching my payment screenshot.`)}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"><WhatsAppIcon size={16} /> Send payment proof</a>
             <button onClick={() => window.location.reload()} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg font-semibold">Done</button>
           </div>
         </div>
@@ -1860,7 +1860,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
       // Stock: add back when cancelling, subtract again if a cancelled order is re-opened
       if (status === 'cancelled' && oldStatus !== 'cancelled') adjustStockRPC(items, 1, adminToken);
       else if (oldStatus === 'cancelled' && status !== 'cancelled') adjustStockRPC(items, -1, adminToken);
-      syncStatusToSheet({ type: 'order', id: rowId, humanId: (ord && ord.data && ord.data.orderNo) || '', status, email: (ord && ord.data && ord.data.email) || '', name: (ord && ord.data && ord.data.name) || '', courier, trackingNo, trackingLink });
+      syncStatusToSheet({ type: 'order', id: rowId, humanId: (ord && ord.data && ord.data.orderNo) || '', status, email: (ord && ord.data && ord.data.email) || '', name: (ord && ord.data && ord.data.name) || '', courier, trackingNo, trackingLink, inv: (ord && ord.data && ord.data.invoice) || null });
       showToast('Order updated — customer emailed ✓');
     } catch (e) { showToast('Could not update status — check the Supabase update policy'); }
   };
