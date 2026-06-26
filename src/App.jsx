@@ -1272,7 +1272,7 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
           <p className="text-xs text-slate-400 mb-4">We've emailed your confirmation. If you don't see it, please check your Spam or Promotions folder and mark it "Not spam" so you don't miss future updates.</p>
           <div className="flex gap-3 justify-center">
             <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I just placed order ${done.orderNo}.`)}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold flex items-center gap-2"><WhatsAppIcon size={16} /> WhatsApp</a>
-            <button onClick={onClose} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg font-semibold">Done</button>
+            <button onClick={() => window.location.reload()} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-lg font-semibold">Done</button>
           </div>
         </div>
       </div>
