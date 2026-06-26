@@ -1909,22 +1909,22 @@ function Stars({ value }) {
   return <span style={{ letterSpacing: '1px' }}>{[1, 2, 3, 4, 5].map(i => <span key={i} className={i <= v ? 'text-amber-500' : 'text-slate-300'}>★</span>)}</span>;
 }
 
-function ProductReviews({ productId, productName, customer }) {
+function ProductReviews({ productId, productName, customer, onLogin }) {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
-  const [name, setName] = useState((customer && customer.profile && customer.profile.name) || '');
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState('');
 
+  const loggedIn = !!(customer && customer.profile && customer.profile.id && customer.access_token);
+
   useEffect(() => {
     let active = true;
     setLoading(true); setDone(false); setShowForm(false); setRating(0); setText('');
-    setName((customer && customer.profile && customer.profile.name) || '');
     reviewsApi.listApproved(productId).then(rows => { if (active) { setList(Array.isArray(rows) ? rows : []); setLoading(false); } });
     return () => { active = false; };
   }, [productId]);
@@ -1934,20 +1934,18 @@ function ProductReviews({ productId, productName, customer }) {
 
   const submit = async () => {
     setErr('');
+    if (!loggedIn) { setErr('Please log in to write a review.'); return; }
     if (!rating) { setErr('Please tap the stars to give a rating.'); return; }
-    if (!name.trim()) { setErr('Please enter your name.'); return; }
     if (!text.trim()) { setErr('Please write a short review.'); return; }
     setSubmitting(true);
-    let verified = false, userId = '';
+    let verified = false;
+    const userId = customer.profile.id;
     try {
-      if (customer && customer.profile && customer.profile.id && customer.access_token) {
-        userId = customer.profile.id;
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=data&user_id=eq.${encodeURIComponent(userId)}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
-        if (r.ok) { const orders = await r.json(); verified = (Array.isArray(orders) ? orders : []).some(o => ((o.data && o.data.items) || []).some(it => String(it.id) === String(productId))); }
-      }
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=data&user_id=eq.${encodeURIComponent(userId)}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
+      if (r.ok) { const orders = await r.json(); verified = (Array.isArray(orders) ? orders : []).some(o => ((o.data && o.data.items) || []).some(it => String(it.id) === String(productId))); }
     } catch (e) {}
-    const review = { productId: String(productId), productName: productName || '', name: name.trim(), rating: Number(rating), text: text.trim().slice(0, 1000), verified, userId, date: new Date().toISOString() };
-    const ok = await reviewsApi.submit(review, customer && customer.access_token);
+    const review = { productId: String(productId), productName: productName || '', name: (customer.profile.name || 'Customer').trim(), rating: Number(rating), text: text.trim().slice(0, 1000), verified, userId, date: new Date().toISOString() };
+    const ok = await reviewsApi.submit(review, customer.access_token);
     setSubmitting(false);
     if (ok) { setDone(true); } else { setErr('Could not submit your review. Please try again.'); }
   };
@@ -1963,21 +1961,21 @@ function ProductReviews({ productId, productName, customer }) {
             <span className="text-sm text-slate-500">({count})</span>
           </div>
         )}
-        {!done && <button onClick={() => setShowForm(s => !s)} className="ml-auto text-sm bg-slate-900 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold transition-colors">Write a review</button>}
+        {!done && (loggedIn
+          ? <button onClick={() => setShowForm(s => !s)} className="ml-auto text-sm bg-slate-900 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold transition-colors">Write a review</button>
+          : <button onClick={() => onLogin && onLogin()} className="ml-auto text-sm bg-slate-900 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold transition-colors">Log in to write a review</button>)}
       </div>
 
       {done && <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800 mb-6">Thank you! Your review has been submitted and will appear here once it's approved.</div>}
 
-      {showForm && !done && (
+      {showForm && loggedIn && !done && (
         <div className="bg-slate-50 border rounded-xl p-4 mb-6">
+          <div className="text-sm text-slate-600 mb-3">Posting as <span className="font-semibold text-slate-900">{customer.profile.name || 'your account'}</span></div>
           <div className="text-sm font-medium text-slate-700 mb-1">Your rating</div>
           <div className="flex gap-1 mb-3 text-3xl">
             {[1, 2, 3, 4, 5].map(i => (
               <button key={i} type="button" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)} onClick={() => setRating(i)} className={(hover || rating) >= i ? 'text-amber-500' : 'text-slate-300'} aria-label={`${i} star${i > 1 ? 's' : ''}`}>★</button>
             ))}
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3 mb-3">
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name *" className="px-3 py-2 border rounded-lg text-sm" />
           </div>
           <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="Share your experience with this product *" className="w-full px-3 py-2 border rounded-lg text-sm mb-3" />
           {err && <div className="text-sm text-red-600 mb-2">{err}</div>}
@@ -1987,7 +1985,7 @@ function ProductReviews({ productId, productName, customer }) {
       )}
 
       {loading ? <div className="text-slate-400 text-sm py-6">Loading reviews…</div>
-        : count === 0 ? <div className="text-slate-500 text-sm py-6 bg-slate-50 rounded-xl text-center">No reviews yet. Be the first to review this product.</div>
+        : count === 0 ? <div className="text-slate-500 text-sm py-6 bg-slate-50 rounded-xl text-center">No reviews yet.{loggedIn ? ' Be the first to review this product.' : ' Log in to be the first to review this product.'}</div>
           : (
             <div className="space-y-3">
               {list.map(r => {
@@ -3692,7 +3690,7 @@ export default function App() {
               </div>
             </div>
             <div className="mt-16 max-w-3xl">
-              <ProductReviews productId={selectedProduct.id} productName={selectedProduct.name} customer={customer} />
+              <ProductReviews productId={selectedProduct.id} productName={selectedProduct.name} customer={customer} onLogin={() => { setAccountTab('profile'); setShowAccount(true); }} />
             </div>
             <div className="mt-16">
               <h2 className="text-2xl font-bold text-slate-900 mb-6">You may also like</h2>
