@@ -667,6 +667,15 @@ const NAV_ITEMS = [
   { id: 'contact', label: 'Contact', icon: MessageCircle },
 ];
 
+// ===== URL ROUTING =====
+const PAGE_TO_PATH = { home: '/', catalog: '/catalog', about: '/about', faq: '/faq', contact: '/contact', howto: '/how-to-order', returns: '/returns', cancellation: '/cancellation', privacy: '/privacy', terms: '/terms', admin: '/admin' };
+const PATH_TO_PAGE = { '': 'home', catalog: 'catalog', about: 'about', faq: 'faq', contact: 'contact', 'how-to-order': 'howto', returns: 'returns', cancellation: 'cancellation', privacy: 'privacy', terms: 'terms', admin: 'admin' };
+function routeFromPath(pathname) {
+  const parts = (pathname || '/').replace(/^\/+|\/+$/g, '').split('/');
+  if (parts[0] === 'product' && parts[1]) return { page: 'product', productId: decodeURIComponent(parts[1]) };
+  return { page: PATH_TO_PAGE[parts[0] || ''] || 'home', productId: null };
+}
+
 const PLACEHOLDER_IMG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect fill="%23e2e8f0" width="400" height="400"/><text x="50%25" y="50%25" font-size="60" text-anchor="middle" dy=".3em" fill="%2394a3b8">👞</text></svg>';
 
 const IMG_URLS = [
@@ -2297,6 +2306,8 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [pendingProductId, setPendingProductId] = useState(null);
+  const routingReady = useRef(false);
   const [inquiryList, setInquiryList] = useState([]);
   const [shopCart, setShopCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
@@ -2672,20 +2683,48 @@ export default function App() {
       }
     } catch (e) {}
 
-    // Otherwise return the visitor to the page they were on
+    // Otherwise restore the page from the URL (real routing)
     if (!adminRestored) {
       try {
-        const nav = localStorage.getItem('wsNav');
-        if (nav) {
-          const n = JSON.parse(nav);
-          if (n && n.page && n.page !== 'admin' && n.page !== 'home') {
-            if (n.page === 'product' && n.product) { setSelectedProduct(n.product); setPage('product'); }
-            else if (n.page !== 'product') setPage(n.page);
-          }
-        }
+        const r = routeFromPath(window.location.pathname);
+        if (r.page === 'product' && r.productId) { setPage('product'); setPendingProductId(r.productId); }
+        else if (r.page !== 'home') setPage(r.page);
       } catch (e) {}
+    } else {
+      try { window.history.replaceState({ page: 'admin' }, '', '/admin'); } catch (e) {}
     }
+    setTimeout(() => { routingReady.current = true; }, 0);
   }, []);
+
+  // Keep the browser URL in sync with the current page/product (real routing)
+  useEffect(() => {
+    if (!routingReady.current) return;
+    const url = (page === 'product' && selectedProduct) ? ('/product/' + selectedProduct.id) : (PAGE_TO_PATH[page] || '/');
+    try { if ((window.location.pathname || '/') !== url) window.history.pushState({ page, productId: selectedProduct ? selectedProduct.id : null }, '', url); } catch (e) {}
+  }, [page, selectedProduct]);
+
+  // Handle browser Back/Forward
+  useEffect(() => {
+    const onPop = () => {
+      const r = routeFromPath(window.location.pathname);
+      setMenuOpen(false);
+      if (r.page === 'product' && r.productId) {
+        const p = products.find(x => String(x.id) === String(r.productId));
+        setPage('product');
+        if (p) setSelectedProduct(p); else { setSelectedProduct(null); setPendingProductId(r.productId); }
+      } else { setSelectedProduct(null); setPage(r.page); }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [products]);
+
+  // Resolve a product opened directly via /product/{id} once products have loaded
+  useEffect(() => {
+    if (!pendingProductId || !products.length) return;
+    const p = products.find(x => String(x.id) === String(pendingProductId));
+    if (p) setSelectedProduct(p); else setPage('catalog');
+    setPendingProductId(null);
+  }, [pendingProductId, products]);
 
   // Persist the cart whenever it changes (skip the initial mount so it doesn't overwrite the restored cart)
   const cartHydrated = useRef(false);
@@ -3094,6 +3133,7 @@ export default function App() {
           </div>
         )}
 
+        {page === 'product' && !selectedProduct && <div className="max-w-7xl mx-auto px-4 py-24 text-center text-slate-400">Loading…</div>}
         {page === 'product' && selectedProduct && (
           <div className="max-w-7xl mx-auto px-4 py-12">
             <button onClick={() => navigate('catalog')} className="text-slate-600 hover:text-amber-600 mb-6 flex items-center gap-1"><ChevronRight className="rotate-180" size={18} /> Back to Catalog</button>
