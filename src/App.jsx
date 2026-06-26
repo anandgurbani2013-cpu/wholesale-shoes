@@ -819,6 +819,7 @@ function ProductCard({ product, categories, onView, onAddToInquiry }) {
         {product.isNew && <span className="absolute top-3 left-3 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">NEW</span>}
         {product.isBestseller && <span className="absolute top-3 left-3 bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-semibold">★ BEST</span>}
         {product.outOfStock && <span className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">Out of Stock</span>}
+        {!product.outOfStock && (() => { const t = productTotalStock(product); return t > 0 && t <= 5 ? <span className="absolute bottom-3 left-3 bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-semibold">Only {t} left</span> : null; })()}
       </div>
       <div className="p-4">
         <div className="text-xs text-slate-500 font-mono mb-1">{product.code}</div>
@@ -2319,6 +2320,8 @@ export default function App() {
   const [buySel, setBuySel] = useState({ size: '', color: '', qty: 1 });
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
+  const [sizeFilter, setSizeFilter] = useState('all');
+  const [colorFilter, setColorFilter] = useState('all');
   const [sort, setSort] = useState('newest');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -2638,10 +2641,27 @@ export default function App() {
   const visibleProducts = products.filter(p => p.active !== false);
   const visibleTestimonials = testimonials.filter(t => t.active !== false);
 
+  const allSizes = Array.from(new Set(visibleProducts.flatMap(p => (p.sizes || []).filter(Boolean)))).sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(String(b)));
+  const allColors = Array.from(new Set(visibleProducts.flatMap(p => (p.colors || []).filter(Boolean)))).sort((a, b) => String(a).localeCompare(String(b)));
+  const priceOf = (p) => parseFloat(p.retailPrice) || parseFloat(p.priceFrom) || 0;
   const filtered = visibleProducts
     .filter(p => catFilter === 'all' || p.category === catFilter)
-    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => { if (sort === 'newest') return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0); if (sort === 'bestsellers') return (b.isBestseller ? 1 : 0) - (a.isBestseller ? 1 : 0); return 0; });
+    .filter(p => sizeFilter === 'all' || (p.sizes || []).map(String).includes(String(sizeFilter)))
+    .filter(p => colorFilter === 'all' || (p.colors || []).map(c => String(c).toLowerCase()).includes(String(colorFilter).toLowerCase()))
+    .filter(p => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      const catName = (categories.find(c => c.id === p.category)?.name || '');
+      const hay = [p.name, p.code, catName, p.description, (p.colors || []).join(' '), (p.sizes || []).join(' ')].join(' ').toLowerCase();
+      return q.split(/\s+/).every(term => hay.includes(term));
+    })
+    .sort((a, b) => {
+      if (sort === 'price-low') return priceOf(a) - priceOf(b);
+      if (sort === 'price-high') return priceOf(b) - priceOf(a);
+      if (sort === 'name') return String(a.name || '').localeCompare(String(b.name || ''));
+      if (sort === 'bestsellers') return (b.isBestseller ? 1 : 0) - (a.isBestseller ? 1 : 0);
+      return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0);
+    });
 
   const addToInquiry = (p, size = '', color = '', qty = 1) => {
     if (inquiryList.find(x => x.id === p.id)) { showToast('Already in inquiry list'); return; }
@@ -3157,15 +3177,17 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 py-12">
             <div className="mb-8"><h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Product Catalog</h1><p className="text-slate-600">Browse our complete range of men's footwear</p></div>
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6 sticky top-20 z-30 border">
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="flex-1 relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or code..." className="w-full pl-10 pr-4 py-2 border rounded-lg" /></div>
+              <div className="flex flex-col md:flex-row md:flex-wrap gap-3">
+                <div className="flex-1 min-w-[200px] relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search e.g. black formal, AF-101…" className="w-full pl-10 pr-4 py-2 border rounded-lg" /></div>
                 <select value={catFilter} onChange={e => setCatFilter(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="all">All Categories</option>{categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select>
-                <select value={sort} onChange={e => setSort(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="newest">Newest</option><option value="bestsellers">Bestsellers</option></select>
+                {allSizes.length > 0 && <select value={sizeFilter} onChange={e => setSizeFilter(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="all">All Sizes</option>{allSizes.map(s => <option key={s} value={s}>Size {s}</option>)}</select>}
+                {allColors.length > 0 && <select value={colorFilter} onChange={e => setColorFilter(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="all">All Colours</option>{allColors.map(c => <option key={c} value={c}>{c}</option>)}</select>}
+                <select value={sort} onChange={e => setSort(e.target.value)} className="px-4 py-2 border rounded-lg"><option value="newest">Newest</option><option value="bestsellers">Bestsellers</option><option value="price-low">Price: Low to High</option><option value="price-high">Price: High to Low</option><option value="name">Name: A to Z</option></select>
               </div>
             </div>
             <div className="text-sm text-slate-600 mb-4">Showing {filtered.length} of {visibleProducts.length} products</div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} />)}</div>
-            {filtered.length === 0 && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
+            {filtered.length === 0 && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); setSizeFilter('all'); setColorFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
           </div>
         )}
 
