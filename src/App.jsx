@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon, Heart, EyeOff, Shield, RefreshCw } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon, Heart, EyeOff, Shield, RefreshCw, Share2 } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -921,6 +921,53 @@ function WhatsAppIcon({ size = 24 }) {
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
     </svg>
+  );
+}
+
+function AdminPager({ page, pageSize, total, onPage }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (totalPages <= 1) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(total, page * pageSize);
+  return (
+    <div className="flex items-center justify-center gap-2 mt-6 flex-wrap">
+      <button disabled={page <= 1} onClick={() => onPage(page - 1)} className="px-3 py-1.5 rounded-lg border text-sm disabled:opacity-40 hover:bg-amber-50">‹ Prev</button>
+      <span className="text-sm text-slate-600">Page {page} of {totalPages}</span>
+      <button disabled={page >= totalPages} onClick={() => onPage(page + 1)} className="px-3 py-1.5 rounded-lg border text-sm disabled:opacity-40 hover:bg-amber-50">Next ›</button>
+      <span className="text-xs text-slate-400 ml-2">Showing {from}–{to} of {total}</span>
+    </div>
+  );
+}
+
+function ShareButton({ product, business }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const url = (typeof window !== 'undefined' ? window.location.origin : '') + '/product/' + product.id;
+  const msg = `Check out ${product.name}${business && business.name ? ' at ' + business.name : ''}: ${url}`;
+  const onShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ title: product.name, text: `Check out ${product.name}`, url }); return; } catch (e) {}
+    }
+    setOpen(o => !o);
+  };
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(url); } catch (e) { try { const t = document.createElement('textarea'); t.value = url; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); } catch (e2) {} }
+    setCopied(true); setTimeout(() => setCopied(false), 1800);
+  };
+  return (
+    <div className="relative">
+      <button onClick={onShare} className="inline-flex items-center gap-1.5 border border-slate-200 hover:bg-amber-50 rounded-lg px-3 py-1.5 text-sm text-slate-700" title="Share this product"><Share2 size={16} className="text-amber-500" /> Share</button>
+      {open && (
+        <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden" onMouseLeave={() => setOpen(false)}>
+          <a href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-amber-50"><WhatsAppIcon size={16} /> WhatsApp</a>
+          <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-amber-50"><Facebook size={16} className="text-blue-600" /> Facebook</a>
+          <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out ' + product.name)}&url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-amber-50"><span className="w-4 text-center font-bold text-slate-800">𝕏</span> X (Twitter)</a>
+          <a href={`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Check out ' + product.name)}`} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-amber-50"><Send size={16} className="text-sky-500" /> Telegram</a>
+          <a href={`mailto:?subject=${encodeURIComponent(product.name)}&body=${encodeURIComponent(msg)}`} onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-amber-50"><Mail size={16} className="text-slate-500" /> Email</a>
+          <button onClick={copy} className="flex items-center gap-2 w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-amber-50 border-t">{copied ? <><CheckCircle size={16} className="text-green-500" /> Link copied</> : <><Copy size={16} className="text-slate-500" /> Copy link</>}</button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2272,6 +2319,11 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [orders, setOrders] = useState([]);
   const [inqSearch, setInqSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
+  const [inqPage, setInqPage] = useState(1);
+  const [orderPage, setOrderPage] = useState(1);
+  const ADMIN_PAGE_SIZE = 25;
+  useEffect(() => { setInqPage(1); }, [inqSearch, tab]);
+  useEffect(() => { setOrderPage(1); }, [orderSearch, tab]);
   const [inqSort, setInqSort] = useState('oldest');
   const [orderSort, setOrderSort] = useState('oldest');
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -2413,6 +2465,37 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
               ))}
               {inquiries.length === 0 && <div className="text-center py-8 text-slate-500">No inquiries yet</div>}
             </div>
+            {(() => {
+              const THRESHOLD = 5;
+              const low = [];
+              (products || []).forEach(p => {
+                const g = (p && p.stockGrid) || {};
+                Object.keys(g).forEach(k => {
+                  const qty = parseInt(g[k]) || 0;
+                  if (qty <= THRESHOLD) { const [size, color] = k.split('|'); low.push({ name: p.name, code: p.code, size, color, qty }); }
+                });
+              });
+              low.sort((a, b) => a.qty - b.qty);
+              return (
+                <div className="bg-white rounded-xl p-6 shadow-sm mt-6">
+                  <div className="flex items-center gap-2 mb-4"><TrendingUp size={18} className="text-amber-500" /><h2 className="text-lg font-bold text-slate-900">Low stock</h2><span className="text-sm text-slate-500">items at or below {THRESHOLD}</span></div>
+                  {low.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500 text-sm">Everything is well stocked 👍</div>
+                  ) : (
+                    <div className="divide-y">
+                      {low.slice(0, 50).map((it, idx) => (
+                        <div key={idx} className="py-2.5 flex items-center gap-3 text-sm">
+                          <span className="font-medium text-slate-900">{it.name || it.code}</span>
+                          <span className="text-slate-500">{[it.size, it.color].filter(Boolean).join(' · ')}</span>
+                          <span className={`ml-auto text-xs px-2.5 py-1 rounded-full font-medium ${it.qty === 0 ? 'bg-red-100 text-red-700' : it.qty <= 2 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{it.qty === 0 ? 'Out of stock' : `${it.qty} left`}</span>
+                        </div>
+                      ))}
+                      {low.length > 50 && <div className="pt-3 text-xs text-slate-400">+ {low.length - 50} more…</div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -2687,11 +2770,13 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
           const isProforma = tab === 'proforma';
           const q = inqSearch.trim().toLowerCase();
           const list = sortRecords(inquiries.filter(i => isProforma ? i.type === 'proforma' : i.type !== 'proforma').filter(i => !q || (i.name || '').toLowerCase().includes(q) || (i.inqNo || '').toLowerCase().includes(q)), inqSort, i => i.date, i => i.name, i => i.status);
+          const safeInqPage = Math.min(inqPage, Math.max(1, Math.ceil(list.length / ADMIN_PAGE_SIZE)));
+          const inqPageList = list.slice((safeInqPage - 1) * ADMIN_PAGE_SIZE, safeInqPage * ADMIN_PAGE_SIZE);
           return (
           <div>
             <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">{isProforma ? 'Proforma Leads' : 'Inquiries'} ({list.length})</h1><div className="flex gap-2 flex-wrap"><input value={inqSearch} onChange={e => setInqSearch(e.target.value)} placeholder={isProforma ? 'Search name or no.' : 'Search name or inquiry no.'} className="px-3 py-2 border rounded-lg text-sm w-56 max-w-full" /><select value={inqSort} onChange={e => setInqSort(e.target.value)} className="px-3 py-2 border rounded-lg text-sm"><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="status">By status</option><option value="name">Name (A–Z)</option></select></div></div>
             <div className="space-y-4">
-              {list.map(i => (
+              {inqPageList.map(i => (
                 <div key={i.id} className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
                     <div>
@@ -2724,6 +2809,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
               ))}
               {list.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><Inbox size={48} className="mx-auto mb-3 opacity-50" />{inqSearch ? 'No matches for your search' : (isProforma ? 'No proforma leads yet' : 'No inquiries yet')}</div>}
             </div>
+            <AdminPager page={safeInqPage} pageSize={ADMIN_PAGE_SIZE} total={list.length} onPage={setInqPage} />
           </div>
           );
         })()}
@@ -2731,6 +2817,8 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
         {tab === 'orders' && (() => {
           const q = orderSearch.trim().toLowerCase();
           const list = sortRecords(orders.filter(row => { const o = row.data || {}; return !q || (o.name || '').toLowerCase().includes(q) || (o.orderNo || '').toLowerCase().includes(q); }), orderSort, r => (r.data || {}).date || r.created_at, r => (r.data || {}).name, r => r.status);
+          const safeOrderPage = Math.min(orderPage, Math.max(1, Math.ceil(list.length / ADMIN_PAGE_SIZE)));
+          const orderPageList = list.slice((safeOrderPage - 1) * ADMIN_PAGE_SIZE, safeOrderPage * ADMIN_PAGE_SIZE);
           return (
           <div>
             <div className="flex items-center justify-between gap-3 mb-6 flex-wrap"><h1 className="text-3xl font-bold text-slate-900">Orders ({list.length})</h1><div className="flex gap-2 flex-wrap"><input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Search name or order no." className="px-3 py-2 border rounded-lg text-sm w-56 max-w-full" /><select value={orderSort} onChange={e => setOrderSort(e.target.value)} className="px-3 py-2 border rounded-lg text-sm"><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="status">By status</option><option value="name">Name (A–Z)</option></select></div></div>
@@ -2738,7 +2826,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
             {ordersLoading && <div className="bg-white rounded-xl p-12 text-center text-slate-500">Loading orders…</div>}
             {!ordersLoading && !ordersError && list.length === 0 && <div className="bg-white rounded-xl p-12 text-center text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />{orderSearch ? 'No orders match your search' : 'No orders yet'}</div>}
             <div className="space-y-4">
-              {list.map(row => { const o = row.data || {}; return (
+              {orderPageList.map(row => { const o = row.data || {}; return (
                 <div key={row.id} className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-start flex-wrap gap-2 mb-3">
                     <div>
@@ -2769,6 +2857,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                 </div>
               ); })}
             </div>
+            <AdminPager page={safeOrderPage} pageSize={ADMIN_PAGE_SIZE} total={list.length} onPage={setOrderPage} />
           </div>
           );
         })()}
@@ -4082,7 +4171,10 @@ export default function App() {
               <ProductGallery key={selectedProduct.id} images={productImages(selectedProduct)} alt={selectedProduct.name} />
               <div>
                 <div className="flex gap-2 mb-3">{selectedProduct.isNew && <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">NEW</span>}{selectedProduct.isBestseller && <span className="bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-semibold">★ BESTSELLER</span>}{selectedProduct.outOfStock && <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-semibold">OUT OF STOCK</span>}</div>
-                <div className="text-sm text-slate-500 font-mono mb-2">{selectedProduct.code}</div>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="text-sm text-slate-500 font-mono pt-1">{selectedProduct.code}</div>
+                  <ShareButton product={selectedProduct} business={business} />
+                </div>
                 <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">{selectedProduct.name}</h1>
                 <div className="text-amber-600 font-medium mb-4">{categories.find(c => c.id === selectedProduct.category)?.name}</div>
                 <p className="text-slate-700 mb-6">{selectedProduct.description}</p>
@@ -4139,7 +4231,7 @@ export default function App() {
                         {p.outOfStock
                           ? <button disabled className="w-full sm:flex-1 bg-slate-200 text-slate-500 py-3 rounded-lg font-semibold cursor-not-allowed">Out of Stock</button>
                           : <button onClick={() => { const hasOpts = ((p.sizes || []).filter(Boolean).length > 0 || (p.colors || []).filter(Boolean).length > 0); if (base > 0 && hasOpts && (!sel.size || !sel.color)) { showToast('Please select size and colour first'); return; } addToInquiry(p, sel.size, sel.color, (sel.size && sel.color) ? (sel.qty || 1) : 1); }} className="w-full sm:flex-1 bg-slate-900 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
-                        <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${p.code} - ${p.name}`)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> WhatsApp</a>
+                        <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${p.code} - ${p.name}`)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> Chat with us</a>
                       </div>
                       <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-2 gap-x-4 gap-y-3">
                         <div className="flex items-center gap-2 text-xs text-slate-600"><Shield size={16} className="text-emerald-600 flex-shrink-0" /> Secure checkout</div>
