@@ -512,8 +512,8 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
           {mode === 'login' ? (
             <>
               <div className="flex gap-2">
-                <button onClick={() => { setErr(''); setNotice(''); setLoginMethod('password'); }} className={`flex-1 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${loginMethod === 'password' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}>Password</button>
-                <button onClick={() => { setErr(''); setNotice(''); setLoginMethod('code'); setCodeSent(false); setCode(''); }} className={`flex-1 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${loginMethod === 'code' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}>Email me a code</button>
+                <button onClick={() => { setErr(''); setNotice(''); setLoginMethod('password'); }} className={`flex-1 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${loginMethod === 'password' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200'}`}>Password</button>
+                <button onClick={() => { setErr(''); setNotice(''); setLoginMethod('code'); setCodeSent(false); setCode(''); }} className={`flex-1 py-1.5 text-sm font-semibold rounded-lg border transition-colors ${loginMethod === 'code' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200'}`}>Email me a code</button>
               </div>
               {loginMethod === 'password' ? (
                 <>
@@ -3793,6 +3793,24 @@ export default function App() {
         .theme-dark input, .theme-dark textarea, .theme-dark select { background-color:#0a1a33 !important; color:#f1f5f9 !important; border-color:#24406b !important; }
         .theme-dark input::placeholder, .theme-dark textarea::placeholder { color:#6b7f9c !important; }
         .theme-dark .shadow-sm, .theme-dark .shadow-xl, .theme-dark .shadow-2xl, .theme-dark .shadow-md { box-shadow:0 2px 8px rgba(0,0,0,0.55) !important; }
+        /* #1 + #2 — hover backgrounds in dark mode (resting bg was darkened, hover variants were not, so hover flashed light and hid text) */
+        .theme-dark .hover\\:bg-slate-50:hover { background-color:#1c3a63 !important; }
+        .theme-dark .hover\\:bg-slate-100:hover { background-color:#24406b !important; }
+        .theme-dark .hover\\:bg-slate-200:hover { background-color:#2c4d7d !important; }
+        .theme-dark .hover\\:bg-amber-50:hover { background-color:rgba(198,161,91,0.22) !important; }
+        .theme-dark .hover\\:bg-amber-100:hover { background-color:rgba(198,161,91,0.3) !important; }
+        .theme-dark .hover\\:bg-green-50:hover { background-color:rgba(34,197,94,0.22) !important; }
+        .theme-dark .hover\\:bg-green-100:hover { background-color:rgba(34,197,94,0.3) !important; }
+        .theme-dark .hover\\:bg-blue-50:hover { background-color:rgba(59,130,246,0.22) !important; }
+        .theme-dark .hover\\:bg-blue-100:hover { background-color:rgba(59,130,246,0.3) !important; }
+        .theme-dark .hover\\:bg-red-50:hover { background-color:rgba(239,68,68,0.22) !important; }
+        .theme-dark .hover\\:bg-red-100:hover { background-color:rgba(239,68,68,0.3) !important; }
+        /* #4 — light-grey blocks (disabled buttons, dividers) shouldn't read as pale boxes on dark */
+        .theme-dark .bg-slate-200 { background-color:#24406b !important; }
+        .theme-dark .bg-slate-300 { background-color:#2c4d7d !important; }
+        /* #5 — faint text bumped for readability on dark */
+        .theme-dark .text-slate-400 { color:#7e93b0 !important; }
+        .theme-dark .text-slate-300 { color:#9fb0c9 !important; }
       `}</style>
       {loadError && <div className="bg-amber-100 border-b border-amber-300 text-amber-800 text-xs px-4 py-2 text-center">⚠️ {loadError}</div>}
       <div className="bg-slate-900 text-white text-xs py-2 px-4">
