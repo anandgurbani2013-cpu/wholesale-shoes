@@ -449,14 +449,14 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                           </div>
                           {savedReason && (
                             <div className="mb-2">
-                              <div className="text-xs font-semibold text-slate-500">Reason from customer</div>
+                              <div className="text-xs font-semibold text-slate-500">Your reason</div>
                               <div className="text-sm text-slate-700">{savedReason}</div>
                               {existing.raisedAt && <div className="text-xs text-slate-400 mt-0.5">Raised {new Date(existing.raisedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
                             </div>
                           )}
                           {existing.handled ? (
                             <div className="mb-2">
-                              <div className="text-xs font-semibold text-green-700">Message from us</div>
+                              <div className="text-xs font-semibold text-green-700">Update from us</div>
                               <div className="text-sm text-slate-700">{existing.handledNote || 'Your request has been handled.'}</div>
                               {existing.handledAt && <div className="text-xs text-slate-400 mt-0.5">{new Date(existing.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
                             </div>
@@ -1028,14 +1028,14 @@ function AdminRequestBadge({ req, onHandle }) {
       </div>
       {req.reason && (
         <div className="mt-1">
-          <div className="text-xs font-semibold text-slate-500">Reason from customer</div>
+          <div className="text-xs font-semibold text-slate-500">Customer reason</div>
           <div className="text-sm text-slate-700">{req.reason}</div>
           {req.raisedAt && <div className="text-xs text-slate-400 mt-0.5">Raised {new Date(req.raisedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
         </div>
       )}
       {req.handled && (
         <div className="mt-2">
-          <div className="text-xs font-semibold text-green-700">Message from us</div>
+          <div className="text-xs font-semibold text-green-700">Your reply</div>
           <div className="text-sm text-slate-700">{req.handledNote || 'Handled.'}</div>
           {req.handledAt && <div className="text-xs text-slate-400 mt-0.5">{new Date(req.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
         </div>
