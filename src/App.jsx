@@ -3771,14 +3771,13 @@ export default function App() {
         {menuOpen && (
           <div className="lg:hidden fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setMenuOpen(false)}>
             <div className="bg-white w-72 max-w-[85%] h-full overflow-auto" onClick={e => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><span className="font-bold text-slate-900">Menu</span><button onClick={() => setMenuOpen(false)} aria-label="Close"><X size={22} /></button></div>
+              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><span className="font-bold text-slate-900">Menu</span><div className="flex items-center gap-1"><button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={20} /> : <Moon size={20} />}</button><button onClick={() => setMenuOpen(false)} aria-label="Close"><X size={22} /></button></div></div>
               <div className="p-2">
                 {NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium ${page === item.id ? 'bg-amber-50 text-amber-600' : 'text-slate-700 hover:bg-slate-50'}`}><item.icon size={18} /> {item.label}</button>)}
 
                 <div className="px-3 pt-3 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Browse</div>
                 <button onClick={() => navigate('catalog')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Grid size={18} /> Shop by category</button>
                 <button onClick={() => { setShowWishlistOnly(true); setCatFilter('all'); setSearch(''); navigate('catalog'); }} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Heart size={18} /> Saved items{wishlist.length > 0 ? ` (${wishlist.length})` : ''}</button>
-                <button onClick={() => setDark(d => !d)} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">{dark ? <Sun size={18} /> : <Moon size={18} />} {dark ? 'Light mode' : 'Dark mode'}</button>
                 <button onClick={() => goToSection('sec-featured')} className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"><Star size={18} /> Featured products</button>
 
                 <div className="px-3 pt-3 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">Company</div>
