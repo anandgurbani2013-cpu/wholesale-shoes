@@ -321,7 +321,12 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     <div>
       <div className="flex items-center gap-2 mb-4"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My inquiries</h3></div>
       {(!inqToShow || inqToShow.length === 0) ? (
-        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><Inbox size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No inquiries yet</div><div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div><button onClick={() => onBrowse && onBrowse()} className="mt-3 text-amber-600 font-medium text-sm hover:underline">Browse products →</button></div>
+        <div className="text-center py-12 px-4">
+          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><Inbox size={26} className="text-amber-500" /></div>
+          <div className="font-semibold text-slate-900 mb-1">No inquiries yet</div>
+          <div className="text-sm text-slate-500 max-w-[240px] mx-auto mb-4">Added items to an inquiry? They'll show up here once you send a request for a quote.</div>
+          <button onClick={() => onBrowse && onBrowse()} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg">Browse products</button>
+        </div>
       ) : (
         <div className="space-y-3">
           {inqToShow.map(h => {
@@ -362,7 +367,12 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     <div>
       <div className="flex items-center gap-2 mb-4"><ShoppingBag size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My orders</h3></div>
       {(!ordersToShow || ordersToShow.length === 0) ? (
-        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div><button onClick={() => onBrowse && onBrowse()} className="mt-3 text-amber-600 font-medium text-sm hover:underline">Browse products →</button></div>
+        <div className="text-center py-12 px-4">
+          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><ShoppingBag size={26} className="text-amber-500" /></div>
+          <div className="font-semibold text-slate-900 mb-1">No orders yet</div>
+          <div className="text-sm text-slate-500 max-w-[240px] mx-auto mb-4">When you place an order, it'll appear here so you can track its status.</div>
+          <button onClick={() => onBrowse && onBrowse()} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg">Browse products</button>
+        </div>
       ) : (
         <div className="space-y-3">
           {ordersToShow.map(o => {
@@ -4032,8 +4042,8 @@ export default function App() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.slice(0, visibleCount).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
             )}
             {filtered.length > visibleCount && <div className="text-center mt-8"><button onClick={() => setVisibleCount(c => c + 24)} className="bg-slate-900 hover:bg-amber-500 text-white px-8 py-3 rounded-lg font-semibold transition-colors">Load more products</button></div>}
-            {filtered.length === 0 && showWishlistOnly && <div className="text-center py-16 text-slate-500"><Heart size={48} className="mx-auto mb-3 opacity-50" />No saved items yet<div className="mt-2"><button onClick={() => setShowWishlistOnly(false)} className="text-amber-600 hover:underline">Browse products</button></div></div>}
-            {filtered.length === 0 && !showWishlistOnly && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); setSizeFilter('all'); setColorFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
+            {filtered.length === 0 && showWishlistOnly && <div className="text-center py-16 px-4"><div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><Heart size={26} className="text-amber-500" /></div><div className="font-semibold text-slate-900 mb-1">No saved items yet</div><div className="text-sm text-slate-500 max-w-[240px] mx-auto mb-4">Tap the heart on any product to save it here for later.</div><button onClick={() => setShowWishlistOnly(false)} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg">Browse products</button></div>}
+            {filtered.length === 0 && !showWishlistOnly && <div className="text-center py-16 px-4"><div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><Search size={26} className="text-amber-500" /></div><div className="font-semibold text-slate-900 mb-1">No products found</div><div className="text-sm text-slate-500 max-w-[240px] mx-auto mb-4">Try a different spelling or fewer words — or clear the filters to see everything.</div><button onClick={() => { setSearch(''); setCatFilter('all'); setSizeFilter('all'); setColorFilter('all'); }} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg">Clear filters</button></div>}
             {(() => {
               const recent = recentIds.map(id => visibleProducts.find(p => p.id === id)).filter(Boolean).slice(0, 4);
               return recent.length > 0 ? (
@@ -4288,7 +4298,7 @@ export default function App() {
             </div>
             <div className="p-4">
               {cartTab === 'cart' ? (
-                shopCart.length === 0 ? <div className="text-center py-12 text-slate-500"><ShoppingBag size={48} className="mx-auto mb-3 opacity-50" />Your cart is empty<button onClick={() => { setShowCart(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
+                shopCart.length === 0 ? <div className="text-center py-12 px-4"><div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><ShoppingBag size={26} className="text-amber-500" /></div><div className="font-semibold text-slate-900 mb-1">Your cart is empty</div><div className="text-sm text-slate-500 max-w-[240px] mx-auto mb-4">Looks like you haven't added anything yet. Explore our collection to get started.</div><button onClick={() => { setShowCart(false); navigate('catalog'); }} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg">Browse products</button></div> : (
                   <>
                     {shopCart.map(it => {
                       const orig = retailUnitPrice(it, it.qty);
@@ -4321,7 +4331,7 @@ export default function App() {
                   </>
                 )
               ) : (
-                inquiryList.length === 0 ? <div className="text-center py-12 text-slate-500"><ListChecks size={48} className="mx-auto mb-3 opacity-50" />Your inquiry list is empty<button onClick={() => { setShowCart(false); navigate('catalog'); }} className="block mx-auto mt-4 text-amber-600 font-medium hover:underline">Browse Catalog →</button></div> : (
+                inquiryList.length === 0 ? <div className="text-center py-12 px-4"><div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3"><ListChecks size={26} className="text-amber-500" /></div><div className="font-semibold text-slate-900 mb-1">Your inquiry list is empty</div><div className="text-sm text-slate-500 max-w-[240px] mx-auto mb-4">Add products to request a quote, then send your inquiry from here.</div><button onClick={() => { setShowCart(false); navigate('catalog'); }} className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg">Browse products</button></div> : (
                   <>
                     {inquiryList.map(p => (
                       <div key={p.id} className="flex gap-3 py-3 border-b">
