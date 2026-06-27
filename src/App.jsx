@@ -877,9 +877,10 @@ function directImageUrl(url) {
 }
 function SafeImage({ src, alt, className }) {
   const [error, setError] = useState(false);
-  useEffect(() => { setError(false); }, [src]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setError(false); setLoaded(false); }, [src]);
   const real = directImageUrl(src);
-  return <img src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={className} loading="lazy" decoding="async" onError={() => setError(true)} />;
+  return <img src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={`${className || ''} ws-fade ${loaded ? 'ws-loaded' : ''}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} onError={() => { setError(true); setLoaded(true); }} />;
 }
 // Inline heritage crest (navy shield + gold border + interlocking AF).
 // The filled navy shield makes it visible on ANY background and identical everywhere.
@@ -2946,6 +2947,13 @@ export default function App() {
   const [cartTab, setCartTab] = useState('cart');
   const [buySel, setBuySel] = useState({ size: '', color: '', qty: 1 });
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [cartPop, setCartPop] = useState(false);
+  const cartCount = shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length;
+  const prevCartCount = useRef(cartCount);
+  useEffect(() => {
+    if (cartCount > prevCartCount.current) { setCartPop(true); const t = setTimeout(() => setCartPop(false), 480); prevCartCount.current = cartCount; return () => clearTimeout(t); }
+    prevCartCount.current = cartCount;
+  }, [cartCount]);
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
   const [sizeFilter, setSizeFilter] = useState('all');
@@ -3470,6 +3478,17 @@ export default function App() {
     return () => { active = false; };
   }, [page, selectedProduct, business, catFilter, categories]);
 
+  // Scroll-reveal: fade-and-rise elements (.ws-reveal) as they enter the viewport.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('IntersectionObserver' in window)) { document.querySelectorAll('.ws-reveal').forEach(el => el.classList.add('ws-in')); return; }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('ws-in'); io.unobserve(e.target); } });
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+    const t = setTimeout(() => { document.querySelectorAll('.ws-reveal:not(.ws-in)').forEach(el => io.observe(el)); }, 50);
+    return () => { clearTimeout(t); io.disconnect(); };
+  }, [page]);
+
   // Handle browser Back/Forward
   useEffect(() => {
     const onPop = () => {
@@ -3647,6 +3666,37 @@ export default function App() {
         .app-root, .app-root input, .app-root textarea, .app-root select, .app-root button, .app-root a { font-family:'Inter', system-ui, sans-serif; }
         .app-root h1, .app-root h2, .app-root h3, .app-root h4 { font-family:'Nunito', system-ui, sans-serif; font-weight:800; letter-spacing:-0.01em; }
 
+        /* ===== Motion & polish (lightweight, GPU-friendly) ===== */
+        /* 1) Scroll reveal: elements fade-and-rise when they enter the viewport */
+        .ws-reveal { opacity:0; transform:translateY(20px); transition:opacity .6s cubic-bezier(.22,.61,.36,1), transform .6s cubic-bezier(.22,.61,.36,1); will-change:opacity,transform; }
+        .ws-reveal.ws-in { opacity:1; transform:none; }
+        /* 2) Product card hover: lift + soft shadow; inner image zoom */
+        .ws-card { transition:transform .35s ease, box-shadow .35s ease; }
+        @media (hover:hover){ .ws-card:hover { transform:translateY(-6px); box-shadow:0 14px 30px rgba(15,32,56,.16); } }
+        .ws-zoom { overflow:hidden; }
+        .ws-zoom img { transition:transform .5s ease; }
+        @media (hover:hover){ .ws-card:hover .ws-zoom img { transform:scale(1.08); } }
+        /* 3) Image fade-in once loaded */
+        .ws-fade { opacity:0; transition:opacity .5s ease; }
+        .ws-fade.ws-loaded { opacity:1; }
+        /* 4) Cart icon pop when an item is added */
+        @keyframes wsCartPop { 0%{transform:scale(1)} 30%{transform:scale(1.35)} 60%{transform:scale(.9)} 100%{transform:scale(1)} }
+        .ws-cart-pop { animation:wsCartPop .45s ease; }
+        /* button press feedback */
+        .app-root button:active { transform:scale(.97); }
+        /* 5) Hero: slow Ken-Burns zoom + headline slide-in */
+        @keyframes wsKen { from{transform:scale(1)} to{transform:scale(1.12)} }
+        .ws-ken { animation:wsKen 18s ease-in-out infinite alternate; }
+        @keyframes wsHeroIn { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+        .ws-hero-in { animation:wsHeroIn .8s cubic-bezier(.22,.61,.36,1) both; }
+        /* Respect users who prefer reduced motion — turn everything off */
+        @media (prefers-reduced-motion: reduce){
+          .ws-reveal,.ws-card,.ws-zoom img,.ws-fade { transition:none !important; }
+          .ws-reveal { opacity:1 !important; transform:none !important; }
+          .ws-fade { opacity:1 !important; }
+          .ws-ken,.ws-hero-in,.ws-cart-pop { animation:none !important; }
+        }
+
         /* ===== NAVY & GOLD PALETTE (light / base) ===== */
         /* gold accent */
         .app-root .bg-amber-500 { background-color:#C6A15B !important; }
@@ -3752,7 +3802,7 @@ export default function App() {
             <button onClick={() => setDark(d => !d)} className="hidden sm:inline-flex p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => { setShowWishlistOnly(true); setCatFilter('all'); setSearch(''); navigate('catalog'); }} className="hidden sm:inline-flex relative p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Saved items" aria-label="Saved items"><Heart size={22} />{wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-bold">{wishlist.length}</span>}</button>
             <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
-            <button onClick={openCart} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className="text-slate-700" />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
+            <button onClick={openCart} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className={`text-slate-700 ${cartPop ? 'ws-cart-pop' : ''}`} />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
@@ -3810,7 +3860,7 @@ export default function App() {
             <section className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
               <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 25% 25%, #f59e0b 0%, transparent 50%), radial-gradient(circle at 75% 75%, #f59e0b 0%, transparent 50%)' }}></div>
               <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
-                <div>
+                <div className="ws-hero-in">
                   <div className="inline-block px-4 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-amber-400 text-sm font-medium mb-6">⭐ {(business.heroBadge || '{years} Years of Excellence').replace('{years}', yearsInBusiness)}</div>
                   <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">{business.heroTitle}</h1>
                   <p className="text-lg text-slate-300 mb-8">{business.heroSubtitle}</p>
@@ -3820,7 +3870,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="relative hidden md:block">
-                  <div className="aspect-square bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl shadow-2xl overflow-hidden"><SafeImage src={IMG_URLS[0]} alt="Premium shoes" className="w-full h-full object-cover mix-blend-overlay opacity-90" /></div>
+                  <div className="aspect-square bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl shadow-2xl overflow-hidden"><SafeImage src={IMG_URLS[0]} alt="Premium shoes" className="w-full h-full object-cover mix-blend-overlay opacity-90 ws-ken" /></div>
                   <div className="absolute -bottom-6 -left-6 bg-white text-slate-900 p-6 rounded-xl shadow-2xl"><div className="text-3xl font-bold text-amber-600">{business.skus}</div><div className="text-sm text-slate-600">Active SKUs</div></div>
                 </div>
               </div>
@@ -3834,7 +3884,7 @@ export default function App() {
               </div>
             </section>
 
-            <section className="bg-white py-12 border-b">
+            <section className="bg-white py-12 border-b ws-reveal">
               <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6">
                 {[{ icon: Award, value: yearsInBusiness, label: 'Years in Business' }, { icon: Users, value: business.retailers, label: 'Customers Served' }, { icon: MapPin, value: business.cities, label: 'Cities Covered' }, { icon: Package, value: business.skus, label: 'Products in Stock' }].map((s, i) => (
                   <div key={i} className="text-center"><s.icon className="text-amber-500 mx-auto mb-3" size={32} /><div className="text-3xl md:text-4xl font-bold text-slate-900">{s.value}</div><div className="text-sm text-slate-600 mt-1">{s.label}</div></div>
@@ -3843,7 +3893,7 @@ export default function App() {
             </section>
 
             {categories.length > 0 && (
-              <section className="py-16 bg-slate-50">
+              <section className="py-16 bg-slate-50 ws-reveal">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">Shop by Category</h2></div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -3854,7 +3904,7 @@ export default function App() {
             )}
 
             {visibleProducts.filter(p => p.isNew).length > 0 && (
-              <section id="sec-featured" className="py-16 bg-white">
+              <section id="sec-featured" className="py-16 bg-white ws-reveal">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-end mb-8"><div><span className="text-amber-600 font-semibold text-sm uppercase">Just In</span><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">New Arrivals</h2></div><button onClick={() => navigate('catalog')} className="text-amber-600 font-medium flex items-center gap-1 hover:underline">View All <ChevronRight size={18} /></button></div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isNew).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
@@ -3863,7 +3913,7 @@ export default function App() {
             )}
 
             {visibleProducts.filter(p => p.isBestseller).length > 0 && (
-              <section className="py-16 bg-slate-50">
+              <section className="py-16 bg-slate-50 ws-reveal">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="flex justify-between items-end mb-8"><div><span className="text-amber-600 font-semibold text-sm uppercase">Customer Favorites</span><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">Bestsellers</h2></div><button onClick={() => navigate('catalog')} className="text-amber-600 font-medium flex items-center gap-1 hover:underline">View All <ChevronRight size={18} /></button></div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{visibleProducts.filter(p => p.isBestseller).slice(0, 4).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
@@ -3872,7 +3922,7 @@ export default function App() {
             )}
 
             {features.length > 0 && (
-              <section id="sec-why" className="py-16 bg-slate-50">
+              <section id="sec-why" className="py-16 bg-slate-50 ws-reveal">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">Why Choose Us</h2></div>
                   <div className="flex flex-wrap justify-center gap-6">
@@ -3883,7 +3933,7 @@ export default function App() {
             )}
 
             {visibleTestimonials.length > 0 && (
-              <section id="sec-reviews" className="py-16 bg-slate-50">
+              <section id="sec-reviews" className="py-16 bg-slate-50 ws-reveal">
                 <div className="max-w-7xl mx-auto px-4">
                   <div className="text-center mb-12"><h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">What Our Customers Say</h2></div>
                   <div className={`grid gap-6 ${visibleTestimonials.length >= 3 ? 'md:grid-cols-3' : visibleTestimonials.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1 max-w-2xl mx-auto'}`}>
@@ -3899,7 +3949,7 @@ export default function App() {
               </section>
             )}
 
-            <section className="py-16 bg-gradient-to-r from-amber-500 to-amber-600 text-white">
+            <section className="py-16 bg-gradient-to-r from-amber-500 to-amber-600 text-white ws-reveal">
               <div className="max-w-4xl mx-auto px-4 text-center">
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Stock Up?</h2>
                 <p className="text-lg mb-8 opacity-90">Get our latest catalog and competitive pricing</p>
