@@ -186,7 +186,7 @@ function PasswordInput({ value, onChange, onKeyDown, placeholder, className, aut
   );
 }
 
-function AccountModal({ customer, business, inquiryHistory, orderHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose }) {
+function AccountModal({ customer, business, inquiryHistory, orderHistory, initialTab, onAuthed, onLogout, onProfileUpdated, onClose, onBrowse }) {
   const [mode, setMode] = useState('login');
   const [f, setF] = useState({ name: '', email: '', phone: '', password: '', confirm: '', sameWhatsapp: true, whatsapp: '', address: '', city: '', pincode: '' });
   const [busy, setBusy] = useState(false);
@@ -321,7 +321,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     <div>
       <div className="flex items-center gap-2 mb-4"><ListChecks size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My inquiries</h3></div>
       {(!inqToShow || inqToShow.length === 0) ? (
-        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><Inbox size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No inquiries yet</div><div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div></div>
+        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><Inbox size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No inquiries yet</div><div className="text-xs text-slate-400 mt-1">Inquiries you send will appear here.</div><button onClick={() => onBrowse && onBrowse()} className="mt-3 text-amber-600 font-medium text-sm hover:underline">Browse products →</button></div>
       ) : (
         <div className="space-y-3">
           {inqToShow.map(h => {
@@ -362,7 +362,7 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     <div>
       <div className="flex items-center gap-2 mb-4"><ShoppingBag size={18} className="text-amber-500" /><h3 className="font-bold text-slate-900">My orders</h3></div>
       {(!ordersToShow || ordersToShow.length === 0) ? (
-        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div></div>
+        <div className="text-center py-10 px-4 bg-slate-50 rounded-xl"><ShoppingBag size={28} className="mx-auto text-slate-300 mb-2" /><div className="text-sm text-slate-500">No orders yet</div><div className="text-xs text-slate-400 mt-1">Your orders and their status will appear here once you place one.</div><button onClick={() => onBrowse && onBrowse()} className="mt-3 text-amber-600 font-medium text-sm hover:underline">Browse products →</button></div>
       ) : (
         <div className="space-y-3">
           {ordersToShow.map(o => {
@@ -4357,7 +4357,7 @@ export default function App() {
       {showCheckout && <CheckoutModal business={business} shopCart={shopCart} products={products} customer={customer} onPlaceOrder={placeOrder} onClose={() => setShowCheckout(false)} />}
       {recovery && <RecoveryModal accessToken={recovery.accessToken} refreshToken={recovery.refreshToken} onAuthed={(d) => { applyCustomerSession(d); if (d && d.user) { syncCustomerToSheet(customerProfile(d.user), 'login'); syncCustomerToSupabase(customerProfile(d.user), d.access_token); } }} onClose={() => setRecovery(null)} />}
       {showSizeGuide && <SizeGuideModal business={business} onClose={() => setShowSizeGuide(false)} />}
-      {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) { syncCustomerToSheet(customerProfile(d.user), event); syncCustomerToSupabase(customerProfile(d.user), d.access_token); } setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onClose={() => setShowAccount(false)} />}
+      {showAccount && <AccountModal customer={customer} business={business} inquiryHistory={inquiryHistory} orderHistory={orderHistory} initialTab={accountTab} onAuthed={(d, event) => { applyCustomerSession(d); if (d && d.user) { syncCustomerToSheet(customerProfile(d.user), event); syncCustomerToSupabase(customerProfile(d.user), d.access_token); } setShowAccount(false); }} onLogout={logoutCustomer} onProfileUpdated={onCustomerProfileUpdated} onBrowse={() => { setShowAccount(false); navigate('catalog'); }} onClose={() => setShowAccount(false)} />}
 
       {showIdleWarn && customer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
