@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon, Heart, EyeOff } from 'lucide-react';
+import { Search, ShoppingBag, Phone, Mail, MapPin, MessageCircle, Menu, X, ChevronRight, ChevronUp, ChevronDown, Star, Award, Truck, Package, Users, Plus, Minus, Send, Facebook, Instagram, Linkedin, Download, Copy, CheckCircle, ArrowRight, Trash2, Edit, Save, Eye, Lock, Inbox, FileText, Home, Grid, Info, HelpCircle, BarChart3, Clock, TrendingUp, LogOut, Settings, Tag, MessageSquare, ListChecks, Sparkles, Printer, Loader2, Sun, Moon, Heart, EyeOff, Shield, RefreshCw } from 'lucide-react';
 
 // ===== CONFIGURATION =====
 const SUPABASE_URL = 'https://yfcnkmbfugypratmlahz.supabase.co';
@@ -1437,7 +1437,12 @@ function CheckoutModal({ business, shopCart, products, customer, onPlaceOrder, o
     const upiLink = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(business.upiName || business.name || '')}&am=${done.total}&cu=INR` : '';
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto" onClick={onClose}>
-        <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 text-center my-auto max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 text-center my-auto max-h-[92vh] overflow-y-auto relative overflow-x-hidden" onClick={e => e.stopPropagation()}>
+          <div className="absolute inset-x-0 top-0 h-0 pointer-events-none" aria-hidden="true">
+            {['#caa043','#1f7a4d','#185fa5','#d4537e','#caa043','#e0533a','#185fa5','#1f7a4d','#caa043','#d4537e'].map((c, i) => (
+              <span key={i} className="ws-conf" style={{ left: `${6 + i * 9}%`, background: c, animationDelay: `${(i % 5) * 0.12}s` }}></span>
+            ))}
+          </div>
           <div className="w-14 h-14 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3"><CheckCircle className="text-green-600" size={32} /></div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">Order placed! 🎉</h2>
           <div className="inline-block bg-amber-50 border border-amber-200 text-amber-700 font-mono font-bold px-4 py-1.5 rounded-full mb-3">{done.orderNo}</div>
@@ -3668,7 +3673,7 @@ export default function App() {
     return (
       <>
         <AdminPanel business={business} saveBusiness={saveBusiness} products={products} saveProducts={saveProducts} categories={categories} saveCategories={saveCategories} faqs={faqs} saveFaqs={saveFaqs} testimonials={testimonials} saveTestimonials={saveTestimonials} features={features} saveFeatures={saveFeatures} steps={steps} saveSteps={saveSteps} inquiries={inquiries} saveInquiries={saveInquiries} updateInquiry={updateInquiry} adminToken={adminToken} navigate={navigate} showToast={showToast} setAdminAuth={setAdminAuth} logout={logout} />
-        {toast && <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-2xl z-50">{toast}</div>}
+        {toast && <div className="ws-toast fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2.5"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /><span className="text-sm">{toast}</span></div>}
       </>
     );
   }
@@ -3676,11 +3681,12 @@ export default function App() {
   return (
     <div className={`min-h-screen bg-white app-root pb-16 lg:pb-0 overflow-x-hidden${dark ? ' theme-dark' : ''}`}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap');
 
-        /* ---- Typography: friendly rounded headings, crisp body ---- */
+        /* ---- Typography: elegant serif display headings, crisp body ---- */
         .app-root, .app-root input, .app-root textarea, .app-root select, .app-root button, .app-root a { font-family:'Inter', system-ui, sans-serif; }
-        .app-root h1, .app-root h2, .app-root h3, .app-root h4 { font-family:'Nunito', system-ui, sans-serif; font-weight:800; letter-spacing:-0.01em; }
+        .app-root h1, .app-root h2 { font-family:'Playfair Display', Georgia, serif; font-weight:700; letter-spacing:-0.01em; }
+        .app-root h3, .app-root h4 { font-family:'Nunito', system-ui, sans-serif; font-weight:800; letter-spacing:-0.01em; }
 
         /* ===== Motion & polish (lightweight, GPU-friendly) ===== */
         /* 1) Scroll reveal: elements fade-and-rise when they enter the viewport.
@@ -3706,12 +3712,30 @@ export default function App() {
         .ws-ken { animation:wsKen 18s ease-in-out infinite alternate; }
         @keyframes wsHeroIn { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
         .ws-hero-in { animation:wsHeroIn .8s cubic-bezier(.22,.61,.36,1) both; }
+        /* E) Animated hero gradient overlay (subtle navy↔gold drift) */
+        @keyframes wsHeroGrad { 0%{transform:translate(0,0) scale(1)} 50%{transform:translate(6%,4%) scale(1.15)} 100%{transform:translate(0,0) scale(1)} }
+        .ws-hero-grad { animation:wsHeroGrad 16s ease-in-out infinite; }
+        /* C) Polished toast slide-in */
+        @keyframes wsToastIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+        .ws-toast { animation:wsToastIn .4s cubic-bezier(.22,.61,.36,1) both; }
+        /* G) Confetti burst (order success) */
+        @keyframes wsConfFall { 0%{transform:translateY(-10px) rotate(0);opacity:0} 12%{opacity:1} 100%{transform:translateY(220px) rotate(340deg);opacity:0} }
+        .ws-conf { position:absolute; top:0; width:8px; height:8px; border-radius:1px; animation:wsConfFall 2.4s ease-in forwards; pointer-events:none; }
+        /* B) Skeleton shimmer */
+        @keyframes wsShimmer { 0%{background-position:-260px 0} 100%{background-position:260px 0} }
+        .ws-sk { background:linear-gradient(90deg,#eef1f5 25%,#f7f9fb 37%,#eef1f5 63%); background-size:360px 100%; animation:wsShimmer 1.3s linear infinite; border-radius:6px; }
+        /* I) Accent polish: softer card shadows + gold focus rings */
+        .app-root .shadow-sm { box-shadow:0 1px 3px rgba(15,32,56,.06), 0 1px 2px rgba(15,32,56,.04) !important; }
+        .app-root .shadow-xl { box-shadow:0 18px 40px rgba(15,32,56,.14) !important; }
+        /* A) Sticky mobile buy bar */
+        @keyframes wsBarUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        .ws-buybar { animation:wsBarUp .3s ease both; }
         /* Respect users who prefer reduced motion — turn everything off */
         @media (prefers-reduced-motion: reduce){
           .ws-reveal,.ws-card,.ws-zoom img,.ws-fade { transition:none !important; }
           .ws-reveal { opacity:1 !important; transform:none !important; }
           .ws-fade { opacity:1 !important; }
-          .ws-ken,.ws-hero-in,.ws-cart-pop { animation:none !important; }
+          .ws-ken,.ws-hero-in,.ws-cart-pop,.ws-hero-grad,.ws-toast,.ws-conf,.ws-sk,.ws-buybar { animation:none !important; }
         }
 
         /* ===== NAVY & GOLD PALETTE (light / base) ===== */
@@ -3875,7 +3899,7 @@ export default function App() {
         {page === 'home' && (
           <>
             <section className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 25% 25%, #f59e0b 0%, transparent 50%), radial-gradient(circle at 75% 75%, #f59e0b 0%, transparent 50%)' }}></div>
+              <div className="absolute inset-0 opacity-10 ws-hero-grad" style={{ backgroundImage: 'radial-gradient(circle at 25% 25%, #f59e0b 0%, transparent 50%), radial-gradient(circle at 75% 75%, #f59e0b 0%, transparent 50%)' }}></div>
               <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
                 <div className="ws-hero-in">
                   <div className="inline-block px-4 py-1 bg-amber-500/20 border border-amber-500/30 rounded-full text-amber-400 text-sm font-medium mb-6">⭐ {(business.heroBadge || '{years} Years of Excellence').replace('{years}', yearsInBusiness)}</div>
@@ -3990,7 +4014,23 @@ export default function App() {
               </div>
             </div>
             <div className="text-sm text-slate-600 mb-4">Showing {Math.min(visibleCount, filtered.length)} of {filtered.length}{filtered.length !== visibleProducts.length ? ` (filtered from ${visibleProducts.length})` : ''} products</div>
+            {loading && products.length === 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl overflow-hidden border border-gray-100">
+                    <div className="ws-sk" style={{ aspectRatio: '1 / 1', borderRadius: 0 }}></div>
+                    <div className="p-4">
+                      <div className="ws-sk" style={{ height: 10, width: '40%', marginBottom: 10 }}></div>
+                      <div className="ws-sk" style={{ height: 12, width: '80%', marginBottom: 10 }}></div>
+                      <div className="ws-sk" style={{ height: 10, width: '55%', marginBottom: 16 }}></div>
+                      <div className="ws-sk" style={{ height: 36, width: '100%', borderRadius: 8 }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{filtered.slice(0, visibleCount).map(p => <ProductCard key={p.id} product={p} categories={categories} onView={viewProduct} onAddToInquiry={addToInquiry} isWished={wishlist.includes(p.id)} onToggleWish={toggleWish} />)}</div>
+            )}
             {filtered.length > visibleCount && <div className="text-center mt-8"><button onClick={() => setVisibleCount(c => c + 24)} className="bg-slate-900 hover:bg-amber-500 text-white px-8 py-3 rounded-lg font-semibold transition-colors">Load more products</button></div>}
             {filtered.length === 0 && showWishlistOnly && <div className="text-center py-16 text-slate-500"><Heart size={48} className="mx-auto mb-3 opacity-50" />No saved items yet<div className="mt-2"><button onClick={() => setShowWishlistOnly(false)} className="text-amber-600 hover:underline">Browse products</button></div></div>}
             {filtered.length === 0 && !showWishlistOnly && <div className="text-center py-16 text-slate-500"><Package size={48} className="mx-auto mb-3 opacity-50" />No products match your search<div className="mt-2"><button onClick={() => { setSearch(''); setCatFilter('all'); setSizeFilter('all'); setColorFilter('all'); }} className="text-amber-600 hover:underline">Clear filters</button></div></div>}
@@ -4037,6 +4077,7 @@ export default function App() {
                   const dBase = dPct > 0 ? Math.round(base * (1 - dPct / 100)) : base;
                   const canBuy = !p.outOfStock && sel.size && sel.color && comboStock > 0;
                   return (
+                    <>
                     <div className="mb-6">
                       {base > 0 && (
                         <div className="mb-4">
@@ -4072,7 +4113,23 @@ export default function App() {
                           : <button onClick={() => { const hasOpts = ((p.sizes || []).filter(Boolean).length > 0 || (p.colors || []).filter(Boolean).length > 0); if (base > 0 && hasOpts && (!sel.size || !sel.color)) { showToast('Please select size and colour first'); return; } addToInquiry(p, sel.size, sel.color, (sel.size && sel.color) ? (sel.qty || 1) : 1); }} className="w-full sm:flex-1 bg-slate-900 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-colors">Add to Inquiry</button>}
                         <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(`Hi, I'm interested in ${p.code} - ${p.name}`)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold text-center flex items-center justify-center gap-2"><WhatsAppIcon size={18} /> WhatsApp</a>
                       </div>
+                      <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-2 gap-x-4 gap-y-3">
+                        <div className="flex items-center gap-2 text-xs text-slate-600"><Shield size={16} className="text-emerald-600 flex-shrink-0" /> Secure checkout</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-600"><FileText size={16} className="text-blue-600 flex-shrink-0" /> GST invoice</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-600"><Truck size={16} className="text-amber-600 flex-shrink-0" /> {business.shippingCoverage || 'Pan-India'} delivery</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-600"><RefreshCw size={16} className="text-rose-600 flex-shrink-0" /> Easy returns</div>
+                      </div>
                     </div>
+                    {base > 0 && !p.outOfStock && (
+                      <div className="ws-buybar sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl px-4 py-3 flex items-center gap-3" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
+                        <div className="flex-shrink-0">
+                          <div className="text-lg font-bold text-slate-900 leading-tight">₹{(canBuy ? dUnit : dBase).toLocaleString('en-IN')}</div>
+                          <div className="text-xs text-slate-500 leading-tight">per pair</div>
+                        </div>
+                        <button onClick={() => { if (!canBuy) { showToast('Please select size and colour first'); return; } addToShopCart(p, sel.size, sel.color, sel.qty || 1); }} className="ml-auto flex-1 max-w-[60%] bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><ShoppingBag size={18} /> Add to Cart</button>
+                      </div>
+                    )}
+                    </>
                   );
                 })()}
               </div>
@@ -4337,7 +4394,7 @@ export default function App() {
         </div>
       )}
 
-      {toast && <div className="fixed bottom-40 right-6 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-2xl z-50">{toast}</div>}
+      {toast && <div className="ws-toast fixed bottom-40 right-6 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2.5"><CheckCircle size={18} className="text-green-400 flex-shrink-0" /><span className="text-sm">{toast}</span></div>}
     </div>
   );
 }
