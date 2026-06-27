@@ -878,9 +878,19 @@ function directImageUrl(url) {
 function SafeImage({ src, alt, className }) {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => { setError(false); setLoaded(false); }, [src]);
+  const ref = useRef(null);
   const real = directImageUrl(src);
-  return <img src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={`${className || ''} ws-fade ${loaded ? 'ws-loaded' : ''}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} onError={() => { setError(true); setLoaded(true); }} />;
+  useEffect(() => {
+    setError(false); setLoaded(false);
+    // If the image is already cached/complete, reveal it immediately (the onLoad
+    // event may have fired before React attached its handler).
+    const img = ref.current;
+    if (img && img.complete && img.naturalWidth > 0) { setLoaded(true); return; }
+    // Safety: never let an image stay invisible if the load event is missed.
+    const t = setTimeout(() => setLoaded(true), 1200);
+    return () => clearTimeout(t);
+  }, [src]);
+  return <img ref={ref} src={error || !real ? PLACEHOLDER_IMG : real} alt={alt} className={`${className || ''} ws-fade ${loaded ? 'ws-loaded' : ''}`} loading="lazy" decoding="async" onLoad={() => setLoaded(true)} onError={() => { setError(true); setLoaded(true); }} />;
 }
 // Inline heritage crest (navy shield + gold border + interlocking AF).
 // The filled navy shield makes it visible on ANY background and identical everywhere.
