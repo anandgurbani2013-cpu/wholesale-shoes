@@ -217,17 +217,18 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
     setReqBusy(true);
     const prof = (customer && customer.profile) || {};
     const reasonText = reqReason.trim();
+    const raisedAt = new Date().toISOString();
     try {
       await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         type: 'orderRequest', requestType: type, orderId: order.orderNo || order.id, status: order.status || '',
         name: prof.name || order.name || '', phone: prof.phone || order.phone || '', email: prof.email || order.email || '',
-        reason: reasonText, total: order.total || '', date: new Date().toISOString()
+        reason: reasonText, total: order.total || '', date: raisedAt
       }) });
     } catch (e) {}
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/order_requests`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([{ id: 'req_' + order.id, order_id: order.id, user_id: prof.id, data: { type, reason: reasonText, orderNo: order.orderNo || order.id, status: order.status || '', handled: false } }]) });
+      await fetch(`${SUPABASE_URL}/rest/v1/order_requests`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([{ id: 'req_' + order.id, order_id: order.id, user_id: prof.id, data: { type, reason: reasonText, orderNo: order.orderNo || order.id, status: order.status || '', handled: false, raisedAt } }]) });
     } catch (e) {}
-    setOrderReqMap(m => ({ ...m, [order.id]: { type, reason: reasonText, handled: false } }));
+    setOrderReqMap(m => ({ ...m, [order.id]: { type, reason: reasonText, handled: false, raisedAt } }));
     setReqDoneReason(m => ({ ...m, [order.id]: reasonText }));
     setReqDoneIds(ids => [...ids, order.id]);
     setReqFor(null); setReqReason(''); setReqBusy(false);
@@ -443,14 +444,21 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                       const waMsg = `Hi, I'd like to request a ${doneType} for order ${o.orderNo || o.id}.${savedReason ? ` Reason: ${savedReason}` : ''}`;
                       return (
                         <div className={`mt-3 rounded-lg px-3 py-3 ${existing.handled ? 'bg-green-50' : 'bg-amber-50'}`}>
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-2">
                             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${existing.handled ? 'bg-green-100 text-green-700' : 'bg-amber-200 text-amber-800'}`}>{doneType} {existing.handled ? 'handled' : 'requested'}</span>
                           </div>
-                          {savedReason && <div className="text-xs text-slate-600 mb-2">Reason: {savedReason}</div>}
+                          {savedReason && (
+                            <div className="mb-2">
+                              <div className="text-xs font-semibold text-slate-500">Reason from customer</div>
+                              <div className="text-sm text-slate-700">{savedReason}</div>
+                              {existing.raisedAt && <div className="text-xs text-slate-400 mt-0.5">Raised {new Date(existing.raisedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
+                            </div>
+                          )}
                           {existing.handled ? (
                             <div className="mb-2">
-                              {existing.handledNote && <div className="text-sm text-green-800">{existing.handledNote}</div>}
-                              {existing.handledAt && <div className="text-xs text-slate-500 mt-0.5">{new Date(existing.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
+                              <div className="text-xs font-semibold text-green-700">Message from us</div>
+                              <div className="text-sm text-slate-700">{existing.handledNote || 'Your request has been handled.'}</div>
+                              {existing.handledAt && <div className="text-xs text-slate-400 mt-0.5">{new Date(existing.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
                             </div>
                           ) : (
                             <div className="text-sm text-slate-600 mb-2">We've received your request and will contact you shortly.</div>
@@ -1018,9 +1026,20 @@ function AdminRequestBadge({ req, onHandle }) {
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${req.handled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{req.handled ? '✓ ' : '⚠ '}{req.type || 'request'} {req.handled ? 'handled' : 'requested'}</span>
         {!req.handled && !open && <button onClick={() => setOpen(true)} className="ml-auto text-xs bg-slate-900 hover:bg-slate-700 text-white px-3 py-1 rounded">Mark handled</button>}
       </div>
-      {req.reason && <div className="text-sm text-slate-700 mt-1">Reason: {req.reason}</div>}
-      {req.handled && req.handledNote && <div className="text-sm text-green-800 mt-1">Note: {req.handledNote}</div>}
-      {req.handled && req.handledAt && <div className="text-xs text-slate-500 mt-0.5">{new Date(req.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
+      {req.reason && (
+        <div className="mt-1">
+          <div className="text-xs font-semibold text-slate-500">Reason from customer</div>
+          <div className="text-sm text-slate-700">{req.reason}</div>
+          {req.raisedAt && <div className="text-xs text-slate-400 mt-0.5">Raised {new Date(req.raisedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
+        </div>
+      )}
+      {req.handled && (
+        <div className="mt-2">
+          <div className="text-xs font-semibold text-green-700">Message from us</div>
+          <div className="text-sm text-slate-700">{req.handledNote || 'Handled.'}</div>
+          {req.handledAt && <div className="text-xs text-slate-400 mt-0.5">{new Date(req.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
+        </div>
+      )}
       {!req.handled && open && (
         <div className="mt-2">
           <textarea value={note} onChange={e => setNote(e.target.value)} rows="2" placeholder="Note for the customer — e.g., Refunded ₹1,800 via UPI on 27 Jun" className="w-full px-3 py-2 border rounded-lg text-sm mb-2" />
@@ -2446,7 +2465,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     const req = adminOrderReqs[orderId];
     if (!req) return;
     const handledAt = new Date().toISOString();
-    const newData = { type: req.type, reason: req.reason, orderNo: req.orderNo, status: req.status, handled: true, handledNote: (note || '').trim(), handledAt };
+    const newData = { type: req.type, reason: req.reason, orderNo: req.orderNo, status: req.status, raisedAt: req.raisedAt || '', handled: true, handledNote: (note || '').trim(), handledAt };
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/order_requests?id=eq.${encodeURIComponent(req.id)}`, { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ data: newData }) });
       setAdminOrderReqs(m => ({ ...m, [orderId]: { ...req, handled: true, handledNote: newData.handledNote, handledAt } }));
