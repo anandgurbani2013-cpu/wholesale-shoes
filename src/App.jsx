@@ -447,7 +447,14 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${existing.handled ? 'bg-green-100 text-green-700' : 'bg-amber-200 text-amber-800'}`}>{doneType} {existing.handled ? 'handled' : 'requested'}</span>
                           </div>
                           {savedReason && <div className="text-xs text-slate-600 mb-2">Reason: {savedReason}</div>}
-                          {!existing.handled && <div className="text-sm text-slate-600 mb-2">We've received your request and will contact you shortly.</div>}
+                          {existing.handled ? (
+                            <div className="mb-2">
+                              {existing.handledNote && <div className="text-sm text-green-800">{existing.handledNote}</div>}
+                              {existing.handledAt && <div className="text-xs text-slate-500 mt-0.5">{new Date(existing.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-slate-600 mb-2">We've received your request and will contact you shortly.</div>
+                          )}
                           {business && business.whatsapp && <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(waMsg)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"><WhatsAppIcon size={16} /> Message us on WhatsApp</a>}
                         </div>
                       );
@@ -997,6 +1004,34 @@ function WhatsAppIcon({ size = 24 }) {
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
     </svg>
+  );
+}
+
+function AdminRequestBadge({ req, onHandle }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = async () => { setBusy(true); await onHandle(note); setBusy(false); setOpen(false); };
+  return (
+    <div className={`mb-3 rounded-lg px-3 py-2 border ${req.handled ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${req.handled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{req.handled ? '✓ ' : '⚠ '}{req.type || 'request'} {req.handled ? 'handled' : 'requested'}</span>
+        {!req.handled && !open && <button onClick={() => setOpen(true)} className="ml-auto text-xs bg-slate-900 hover:bg-slate-700 text-white px-3 py-1 rounded">Mark handled</button>}
+      </div>
+      {req.reason && <div className="text-sm text-slate-700 mt-1">Reason: {req.reason}</div>}
+      {req.handled && req.handledNote && <div className="text-sm text-green-800 mt-1">Note: {req.handledNote}</div>}
+      {req.handled && req.handledAt && <div className="text-xs text-slate-500 mt-0.5">{new Date(req.handledAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}
+      {!req.handled && open && (
+        <div className="mt-2">
+          <textarea value={note} onChange={e => setNote(e.target.value)} rows="2" placeholder="Note for the customer — e.g., Refunded ₹1,800 via UPI on 27 Jun" className="w-full px-3 py-2 border rounded-lg text-sm mb-2" />
+          <div className="flex gap-2">
+            <button onClick={save} disabled={busy} className="text-xs bg-slate-900 hover:bg-slate-700 disabled:bg-slate-300 text-white px-3 py-1.5 rounded">{busy ? 'Saving…' : 'Save & mark handled'}</button>
+            <button onClick={() => { setOpen(false); setNote(''); }} className="text-xs border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded">Cancel</button>
+          </div>
+          <div className="text-xs text-slate-400 mt-1">This note is shown to the customer on their order.</div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2407,12 +2442,21 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
     } catch (e) {}
   };
   useEffect(() => { if (tab === 'orders') loadAdminOrderReqs(); }, [tab]);
-  const markRequestHandled = async (orderId) => {
+  const markRequestHandled = async (orderId, note) => {
     const req = adminOrderReqs[orderId];
     if (!req) return;
+    const handledAt = new Date().toISOString();
+    const newData = { type: req.type, reason: req.reason, orderNo: req.orderNo, status: req.status, handled: true, handledNote: (note || '').trim(), handledAt };
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/order_requests?id=eq.${encodeURIComponent(req.id)}`, { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ data: { type: req.type, reason: req.reason, orderNo: req.orderNo, status: req.status, handled: true } }) });
-      setAdminOrderReqs(m => ({ ...m, [orderId]: { ...req, handled: true } }));
+      await fetch(`${SUPABASE_URL}/rest/v1/order_requests?id=eq.${encodeURIComponent(req.id)}`, { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ data: newData }) });
+      setAdminOrderReqs(m => ({ ...m, [orderId]: { ...req, handled: true, handledNote: newData.handledNote, handledAt } }));
+      // Sync to the Google Sheet's "Order Requests" tab
+      try {
+        await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          type: 'orderRequest', action: 'markHandled', orderId: req.orderNo || orderId, handled: 'Yes', handledNote: newData.handledNote, handledAt
+        }) });
+      } catch (e) {}
+      showToast('Marked handled ✓');
     } catch (e) { showToast('Could not update — try again'); }
   };
   useEffect(() => { setInqPage(1); }, [inqSearch, tab]);
@@ -2934,18 +2978,7 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                       <div className="text-xs text-slate-400">{o.date ? new Date(o.date).toLocaleString('en-IN') : ''}</div>
                     </div>
                   </div>
-                  {adminOrderReqs[row.id] && (() => {
-                    const req = adminOrderReqs[row.id];
-                    return (
-                      <div className={`mb-3 rounded-lg px-3 py-2 border ${req.handled ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${req.handled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{req.handled ? '✓ ' : '⚠ '}{req.type || 'request'} {req.handled ? 'handled' : 'requested'}</span>
-                          {!req.handled && <button onClick={() => markRequestHandled(row.id)} className="ml-auto text-xs bg-slate-900 hover:bg-slate-700 text-white px-3 py-1 rounded">Mark handled</button>}
-                        </div>
-                        {req.reason && <div className="text-sm text-slate-700 mt-1">Reason: {req.reason}</div>}
-                      </div>
-                    );
-                  })()}
+                  {adminOrderReqs[row.id] && <AdminRequestBadge req={adminOrderReqs[row.id]} onHandle={(note) => markRequestHandled(row.id, note)} />}
                   <div className="space-y-1">{(o.items || []).map((it, idx) => <div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{it.code} - {it.name} ({it.size}/{it.color})</span><span className="font-medium">×{it.qty} · ₹{Number(it.lineTotal || 0).toLocaleString('en-IN')}</span></div>)}</div>
                   <div className="text-xs text-slate-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
                     <span>Subtotal ₹{Number(o.subtotal || 0).toLocaleString('en-IN')}</span>
