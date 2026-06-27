@@ -3840,7 +3840,7 @@ export default function App() {
           </nav>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <button onClick={() => setShowSearch(s => !s)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Search products" aria-label="Search products"><Search size={22} /></button>
-            <button onClick={() => setDark(d => !d)} className="hidden sm:inline-flex p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
+            <button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => { setShowWishlistOnly(true); setCatFilter('all'); setSearch(''); navigate('catalog'); }} className="hidden sm:inline-flex relative p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Saved items" aria-label="Saved items"><Heart size={22} />{wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-bold">{wishlist.length}</span>}</button>
             <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="hidden lg:flex p-2 hover:bg-amber-50 rounded-lg text-slate-700 items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
             <button onClick={openCart} className="hidden lg:inline-flex relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className={`text-slate-700 ${cartPop ? 'ws-cart-pop' : ''}`} />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
@@ -3862,7 +3862,7 @@ export default function App() {
         {menuOpen && (
           <div className="lg:hidden fixed inset-0 bg-black/50 z-50 flex justify-end" onClick={() => setMenuOpen(false)}>
             <div className="bg-white w-72 max-w-[85%] h-full overflow-auto" onClick={e => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><span className="font-bold text-slate-900">Menu</span><div className="flex items-center gap-1"><button onClick={() => setDark(d => !d)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={20} /> : <Moon size={20} />}</button><button onClick={() => setMenuOpen(false)} aria-label="Close"><X size={22} /></button></div></div>
+              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center"><span className="font-bold text-slate-900">Menu</span><button onClick={() => setMenuOpen(false)} aria-label="Close"><X size={22} /></button></div>
               <div className="p-2">
                 {NAV_ITEMS.map(item => <button key={item.id} onClick={() => navigate(item.id)} className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium ${page === item.id ? 'bg-amber-50 text-amber-600' : 'text-slate-700 hover:bg-slate-50'}`}><item.icon size={18} /> {item.label}</button>)}
 
@@ -4089,11 +4089,11 @@ export default function App() {
                         <>
                           <div className="mb-3">
                             <div className="flex items-center justify-between mb-1"><div className="text-xs text-slate-500">Size</div>{business.sizeGuideEnabled && <button onClick={() => setShowSizeGuide(true)} className="text-xs text-amber-600 hover:text-amber-700 underline flex items-center gap-1">Size guide</button>}</div>
-                            <div className="flex gap-2 flex-wrap">{(p.sizes || []).filter(Boolean).map(s => { const st = sizeStock(s); const active = sel.size === s; return <button key={s} disabled={st === 0} onClick={() => setBuySel({ ...sel, size: s, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-slate-900 text-white border-slate-900' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{s}</button>; })}</div>
+                            <div className="flex gap-2 flex-wrap">{(p.sizes || []).filter(Boolean).map(s => { const st = sizeStock(s); const active = sel.size === s; return <button key={s} disabled={st === 0} onClick={() => setBuySel({ ...sel, size: s, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-amber-500 text-white border-amber-500' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{s}</button>; })}</div>
                           </div>
                           <div className="mb-3">
                             <div className="text-xs text-slate-500 mb-1">Colour</div>
-                            <div className="flex gap-2 flex-wrap">{(p.colors || []).filter(Boolean).map(c => { const st = colorStock(c); const active = sel.color === c; return <button key={c} disabled={st === 0} onClick={() => setBuySel({ ...sel, color: c, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-slate-900 text-white border-slate-900' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{c}</button>; })}</div>
+                            <div className="flex gap-2 flex-wrap">{(p.colors || []).filter(Boolean).map(c => { const st = colorStock(c); const active = sel.color === c; return <button key={c} disabled={st === 0} onClick={() => setBuySel({ ...sel, color: c, qty: 1 })} className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${active ? 'bg-amber-500 text-white border-amber-500' : st === 0 ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed line-through' : 'bg-white text-slate-700 border-slate-300 hover:border-amber-500'}`}>{c}</button>; })}</div>
                           </div>
                           <div className="text-sm mb-3 min-h-[20px]">{(sel.size && sel.color) ? (comboStock > 0 ? <span className="text-green-600 font-medium">{comboStock <= 4 ? `Only ${comboStock} left` : 'In stock'}</span> : <span className="text-red-500 font-medium">Out of stock in this size/colour</span>) : <span className="text-slate-400">Select size and colour</span>}</div>
                           {canBuy && (
@@ -4120,15 +4120,6 @@ export default function App() {
                         <div className="flex items-center gap-2 text-xs text-slate-600"><RefreshCw size={16} className="text-rose-600 flex-shrink-0" /> Easy returns</div>
                       </div>
                     </div>
-                    {base > 0 && !p.outOfStock && (
-                      <div className="ws-buybar sm:hidden fixed bottom-[56px] left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl px-4 py-3 flex items-center gap-3">
-                        <div className="flex-shrink-0">
-                          <div className="text-lg font-bold text-slate-900 leading-tight">₹{(canBuy ? dUnit : dBase).toLocaleString('en-IN')}</div>
-                          <div className="text-xs text-slate-500 leading-tight">per pair</div>
-                        </div>
-                        <button onClick={() => { if (!canBuy) { showToast('Please select size and colour first'); return; } addToShopCart(p, sel.size, sel.color, sel.qty || 1); }} className="ml-auto flex-1 max-w-[60%] bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"><ShoppingBag size={18} /> Add to Cart</button>
-                      </div>
-                    )}
                     </>
                   );
                 })()}
@@ -4155,7 +4146,6 @@ export default function App() {
                 </div>
               ) : null;
             })()}
-            <div className="sm:hidden" style={{ height: '76px' }} aria-hidden="true"></div>
           </div>
         )}
 
