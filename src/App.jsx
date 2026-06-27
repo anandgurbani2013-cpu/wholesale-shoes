@@ -202,6 +202,16 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   const [reqBusy, setReqBusy] = useState(false);
   const [reqDoneIds, setReqDoneIds] = useState([]);
   const [reqDoneReason, setReqDoneReason] = useState({});
+  const [orderReqMap, setOrderReqMap] = useState({}); // orderId -> { type, reason, status, handled }
+  useEffect(() => {
+    if (!customer || !customer.access_token || !customer.profile.id) return;
+    (async () => {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/order_requests?select=*&user_id=eq.${encodeURIComponent(customer.profile.id)}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}` } });
+        if (r.ok) { const rows = await r.json(); const m = {}; (Array.isArray(rows) ? rows : []).forEach(row => { m[row.order_id] = row.data || {}; }); setOrderReqMap(m); }
+      } catch (e) {}
+    })();
+  }, [customer]);
   const submitOrderRequest = async (order, type) => {
     if (!reqReason.trim()) return;
     setReqBusy(true);
@@ -214,6 +224,10 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
         reason: reasonText, total: order.total || '', date: new Date().toISOString()
       }) });
     } catch (e) {}
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/order_requests`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${customer.access_token}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([{ id: 'req_' + order.id, order_id: order.id, user_id: prof.id, data: { type, reason: reasonText, orderNo: order.orderNo || order.id, status: order.status || '', handled: false } }]) });
+    } catch (e) {}
+    setOrderReqMap(m => ({ ...m, [order.id]: { type, reason: reasonText, handled: false } }));
     setReqDoneReason(m => ({ ...m, [order.id]: reasonText }));
     setReqDoneIds(ids => [...ids, order.id]);
     setReqFor(null); setReqReason(''); setReqBusy(false);
@@ -422,13 +436,18 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                     const st = (o.status || 'new').toLowerCase();
                     const canCancel = st === 'new' || st === 'confirmed';
                     const canReturn = st === 'delivered';
-                    if (reqDoneIds.includes(o.id)) {
-                      const doneType = ((o.status || 'new').toLowerCase() === 'delivered') ? 'return / refund' : 'cancellation';
-                      const savedReason = reqDoneReason[o.id];
+                    const existing = orderReqMap[o.id];
+                    if (existing) {
+                      const doneType = existing.type || (st === 'delivered' ? 'return / refund' : 'cancellation');
+                      const savedReason = existing.reason || reqDoneReason[o.id] || '';
                       const waMsg = `Hi, I'd like to request a ${doneType} for order ${o.orderNo || o.id}.${savedReason ? ` Reason: ${savedReason}` : ''}`;
                       return (
-                        <div className="mt-3 bg-green-50 rounded-lg px-3 py-3">
-                          <div className="text-sm text-green-700 mb-2">Request received ✓ — we'll contact you shortly.</div>
+                        <div className={`mt-3 rounded-lg px-3 py-3 ${existing.handled ? 'bg-green-50' : 'bg-amber-50'}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${existing.handled ? 'bg-green-100 text-green-700' : 'bg-amber-200 text-amber-800'}`}>{doneType} {existing.handled ? 'handled' : 'requested'}</span>
+                          </div>
+                          {savedReason && <div className="text-xs text-slate-600 mb-2">Reason: {savedReason}</div>}
+                          {!existing.handled && <div className="text-sm text-slate-600 mb-2">We've received your request and will contact you shortly.</div>}
                           {business && business.whatsapp && <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(waMsg)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"><WhatsAppIcon size={16} /> Message us on WhatsApp</a>}
                         </div>
                       );
@@ -2379,6 +2398,23 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
   const [inqPage, setInqPage] = useState(1);
   const [orderPage, setOrderPage] = useState(1);
   const ADMIN_PAGE_SIZE = 25;
+  const [adminOrderReqs, setAdminOrderReqs] = useState({}); // order_id -> { id, data }
+  const loadAdminOrderReqs = async () => {
+    if (!adminToken) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/order_requests?select=*&order=created_at.desc`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}` } });
+      if (r.ok) { const rows = await r.json(); const m = {}; (Array.isArray(rows) ? rows : []).forEach(row => { m[row.order_id] = { id: row.id, ...(row.data || {}) }; }); setAdminOrderReqs(m); }
+    } catch (e) {}
+  };
+  useEffect(() => { if (tab === 'orders') loadAdminOrderReqs(); }, [tab]);
+  const markRequestHandled = async (orderId) => {
+    const req = adminOrderReqs[orderId];
+    if (!req) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/order_requests?id=eq.${encodeURIComponent(req.id)}`, { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ data: { type: req.type, reason: req.reason, orderNo: req.orderNo, status: req.status, handled: true } }) });
+      setAdminOrderReqs(m => ({ ...m, [orderId]: { ...req, handled: true } }));
+    } catch (e) { showToast('Could not update — try again'); }
+  };
   useEffect(() => { setInqPage(1); }, [inqSearch, tab]);
   useEffect(() => { setOrderPage(1); }, [orderSearch, tab]);
   const [inqSort, setInqSort] = useState('oldest');
@@ -2898,6 +2934,18 @@ function AdminPanel({ business, saveBusiness, products, saveProducts, categories
                       <div className="text-xs text-slate-400">{o.date ? new Date(o.date).toLocaleString('en-IN') : ''}</div>
                     </div>
                   </div>
+                  {adminOrderReqs[row.id] && (() => {
+                    const req = adminOrderReqs[row.id];
+                    return (
+                      <div className={`mb-3 rounded-lg px-3 py-2 border ${req.handled ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${req.handled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{req.handled ? '✓ ' : '⚠ '}{req.type || 'request'} {req.handled ? 'handled' : 'requested'}</span>
+                          {!req.handled && <button onClick={() => markRequestHandled(row.id)} className="ml-auto text-xs bg-slate-900 hover:bg-slate-700 text-white px-3 py-1 rounded">Mark handled</button>}
+                        </div>
+                        {req.reason && <div className="text-sm text-slate-700 mt-1">Reason: {req.reason}</div>}
+                      </div>
+                    );
+                  })()}
                   <div className="space-y-1">{(o.items || []).map((it, idx) => <div key={idx} className="text-sm text-slate-600 flex justify-between bg-slate-50 px-3 py-2 rounded"><span>{it.code} - {it.name} ({it.size}/{it.color})</span><span className="font-medium">×{it.qty} · ₹{Number(it.lineTotal || 0).toLocaleString('en-IN')}</span></div>)}</div>
                   <div className="text-xs text-slate-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
                     <span>Subtotal ₹{Number(o.subtotal || 0).toLocaleString('en-IN')}</span>
