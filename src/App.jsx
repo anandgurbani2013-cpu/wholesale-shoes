@@ -3842,8 +3842,8 @@ export default function App() {
             <button onClick={() => setShowSearch(s => !s)} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Search products" aria-label="Search products"><Search size={22} /></button>
             <button onClick={() => setDark(d => !d)} className="hidden sm:inline-flex p-2 hover:bg-amber-50 rounded-lg text-slate-700" title={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode">{dark ? <Sun size={22} /> : <Moon size={22} />}</button>
             <button onClick={() => { setShowWishlistOnly(true); setCatFilter('all'); setSearch(''); navigate('catalog'); }} className="hidden sm:inline-flex relative p-2 hover:bg-amber-50 rounded-lg text-slate-700" title="Saved items" aria-label="Saved items"><Heart size={22} />{wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-bold">{wishlist.length}</span>}</button>
-            <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="p-2 hover:bg-amber-50 rounded-lg text-slate-700 flex items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
-            <button onClick={openCart} className="relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className={`text-slate-700 ${cartPop ? 'ws-cart-pop' : ''}`} />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
+            <button onClick={() => { setAccountTab('profile'); setShowAccount(true); }} className="hidden lg:flex p-2 hover:bg-amber-50 rounded-lg text-slate-700 items-center gap-1.5 text-sm font-medium" title={customer ? 'My Account' : 'Login'}><Users size={20} />{customer && <span className="hidden sm:inline max-w-[90px] truncate">{customer.profile.name || 'Account'}</span>}</button>
+            <button onClick={openCart} className="hidden lg:inline-flex relative p-2 hover:bg-amber-50 rounded-lg" title="Cart & Inquiry"><ShoppingBag size={22} className={`text-slate-700 ${cartPop ? 'ws-cart-pop' : ''}`} />{(shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length) > 0 && <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">{shopCart.reduce((a, it) => a + it.qty, 0) + inquiryList.length}</span>}</button>
             <button onClick={() => navigate('contact')} className="hidden md:block bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold">Get Quote</button>
             <button className="lg:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
@@ -4121,7 +4121,7 @@ export default function App() {
                       </div>
                     </div>
                     {base > 0 && !p.outOfStock && (
-                      <div className="ws-buybar sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl px-4 py-3 flex items-center gap-3" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
+                      <div className="ws-buybar sm:hidden fixed bottom-[56px] left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl px-4 py-3 flex items-center gap-3">
                         <div className="flex-shrink-0">
                           <div className="text-lg font-bold text-slate-900 leading-tight">₹{(canBuy ? dUnit : dBase).toLocaleString('en-IN')}</div>
                           <div className="text-xs text-slate-500 leading-tight">per pair</div>
@@ -4155,6 +4155,7 @@ export default function App() {
                 </div>
               ) : null;
             })()}
+            <div className="sm:hidden" style={{ height: '76px' }} aria-hidden="true"></div>
           </div>
         )}
 
