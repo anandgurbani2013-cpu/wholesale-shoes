@@ -197,6 +197,27 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
   const [acctTab, setAcctTab] = useState(initialTab || 'profile');
   const [openInq, setOpenInq] = useState(null);
   const [openOrd, setOpenOrd] = useState(null);
+  const [reqFor, setReqFor] = useState(null); // { id, type }
+  const [reqReason, setReqReason] = useState('');
+  const [reqBusy, setReqBusy] = useState(false);
+  const [reqDoneIds, setReqDoneIds] = useState([]);
+  const [reqDoneReason, setReqDoneReason] = useState({});
+  const submitOrderRequest = async (order, type) => {
+    if (!reqReason.trim()) return;
+    setReqBusy(true);
+    const prof = (customer && customer.profile) || {};
+    const reasonText = reqReason.trim();
+    try {
+      await fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        type: 'orderRequest', requestType: type, orderId: order.orderNo || order.id, status: order.status || '',
+        name: prof.name || order.name || '', phone: prof.phone || order.phone || '', email: prof.email || order.email || '',
+        reason: reasonText, total: order.total || '', date: new Date().toISOString()
+      }) });
+    } catch (e) {}
+    setReqDoneReason(m => ({ ...m, [order.id]: reasonText }));
+    setReqDoneIds(ids => [...ids, order.id]);
+    setReqFor(null); setReqReason(''); setReqBusy(false);
+  };
   const [addresses, setAddresses] = useState(() => (customer && Array.isArray(customer.profile.addresses)) ? customer.profile.addresses : []);
   const [addrForm, setAddrForm] = useState({ recipient: '', label: '', address: '', city: '', pincode: '', phone: '' });
   const [editingAddrId, setEditingAddrId] = useState(null);
@@ -397,6 +418,42 @@ function AccountModal({ customer, business, inquiryHistory, orderHistory, initia
                   {o.items && o.items.length > 0 && <div className="flex flex-wrap gap-1.5 mb-2">{o.items.map((it, idx) => <span key={idx} className="text-xs bg-amber-50 text-amber-800 border border-amber-100 px-2 py-1 rounded-md">{it.name}{(it.size || it.color) ? ` (${[it.size, it.color].filter(Boolean).join('/')})` : ''} ×{it.qty}</span>)}</div>}
                   <div className="flex justify-between items-center text-sm border-t pt-2 mt-1"><span className="text-slate-500">{o.payment}</span><span className="font-bold text-slate-900">₹{Number(o.total).toLocaleString('en-IN')}</span></div>
                   <button onClick={() => openOrderInvoice(o, business || {})} className="mt-3 text-sm text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1.5"><Download size={15} /> Download invoice (PDF)</button>
+                  {(() => {
+                    const st = (o.status || 'new').toLowerCase();
+                    const canCancel = st === 'new' || st === 'confirmed';
+                    const canReturn = st === 'delivered';
+                    if (reqDoneIds.includes(o.id)) {
+                      const doneType = ((o.status || 'new').toLowerCase() === 'delivered') ? 'return / refund' : 'cancellation';
+                      const savedReason = reqDoneReason[o.id];
+                      const waMsg = `Hi, I'd like to request a ${doneType} for order ${o.orderNo || o.id}.${savedReason ? ` Reason: ${savedReason}` : ''}`;
+                      return (
+                        <div className="mt-3 bg-green-50 rounded-lg px-3 py-3">
+                          <div className="text-sm text-green-700 mb-2">Request received ✓ — we'll contact you shortly.</div>
+                          {business && business.whatsapp && <a href={`https://wa.me/${business.whatsapp}?text=${encodeURIComponent(waMsg)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"><WhatsAppIcon size={16} /> Message us on WhatsApp</a>}
+                        </div>
+                      );
+                    }
+                    if (!canCancel && !canReturn) return null;
+                    const reqType = canCancel ? 'cancellation' : 'return / refund';
+                    const isFormOpen = reqFor && reqFor.id === o.id;
+                    return (
+                      <div className="mt-3">
+                        {!isFormOpen ? (
+                          <button onClick={() => { setReqFor({ id: o.id, type: reqType }); setReqReason(''); }} className="text-sm text-slate-600 hover:text-red-600 font-medium underline">Request {reqType}</button>
+                        ) : (
+                          <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                            <div className="text-sm font-medium text-slate-800 mb-2">Request {reqType}</div>
+                            <textarea value={reqReason} onChange={e => setReqReason(e.target.value)} rows="2" placeholder="Tell us the reason (e.g., wrong size, changed my mind)…" className="w-full px-3 py-2 border rounded-lg text-sm mb-2" />
+                            <div className="flex gap-2">
+                              <button onClick={() => submitOrderRequest(o, reqType)} disabled={reqBusy || !reqReason.trim()} className="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white text-sm font-medium px-4 py-2 rounded-lg">{reqBusy ? 'Sending…' : 'Send request'}</button>
+                              <button onClick={() => { setReqFor(null); setReqReason(''); }} className="border border-slate-300 hover:bg-slate-100 text-slate-700 text-sm px-4 py-2 rounded-lg">Cancel</button>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-2">We'll review and contact you. Refunds (if any) are processed manually.</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
