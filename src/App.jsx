@@ -3484,9 +3484,15 @@ export default function App() {
     if (!('IntersectionObserver' in window)) { document.querySelectorAll('.ws-reveal').forEach(el => el.classList.add('ws-in')); return; }
     const io = new IntersectionObserver((entries) => {
       entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('ws-in'); io.unobserve(e.target); } });
-    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
-    const t = setTimeout(() => { document.querySelectorAll('.ws-reveal:not(.ws-in)').forEach(el => io.observe(el)); }, 50);
-    return () => { clearTimeout(t); io.disconnect(); };
+    }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
+    document.documentElement.classList.add('ws-anim');
+    const observeAll = () => { document.querySelectorAll('.ws-reveal:not(.ws-in)').forEach(el => io.observe(el)); };
+    observeAll();
+    const timers = [setTimeout(observeAll, 100), setTimeout(observeAll, 400), setTimeout(observeAll, 1000), setTimeout(observeAll, 2000)];
+    let mo;
+    try { mo = new MutationObserver(() => observeAll()); mo.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    const safety = setTimeout(() => { document.querySelectorAll('.ws-reveal:not(.ws-in)').forEach(el => { const r = el.getBoundingClientRect(); if (r.top < window.innerHeight) el.classList.add('ws-in'); }); }, 3000);
+    return () => { timers.forEach(clearTimeout); clearTimeout(safety); io.disconnect(); if (mo) mo.disconnect(); };
   }, [page]);
 
   // Handle browser Back/Forward
@@ -3667,9 +3673,10 @@ export default function App() {
         .app-root h1, .app-root h2, .app-root h3, .app-root h4 { font-family:'Nunito', system-ui, sans-serif; font-weight:800; letter-spacing:-0.01em; }
 
         /* ===== Motion & polish (lightweight, GPU-friendly) ===== */
-        /* 1) Scroll reveal: elements fade-and-rise when they enter the viewport */
-        .ws-reveal { opacity:0; transform:translateY(20px); transition:opacity .6s cubic-bezier(.22,.61,.36,1), transform .6s cubic-bezier(.22,.61,.36,1); will-change:opacity,transform; }
-        .ws-reveal.ws-in { opacity:1; transform:none; }
+        /* 1) Scroll reveal: elements fade-and-rise when they enter the viewport.
+           The hidden state only applies once JS adds .ws-anim, so if JS never runs, content stays visible. */
+        .ws-reveal { transition:opacity .6s cubic-bezier(.22,.61,.36,1), transform .6s cubic-bezier(.22,.61,.36,1); will-change:opacity,transform; }
+        .ws-anim .ws-reveal:not(.ws-in) { opacity:0; transform:translateY(20px); }
         /* 2) Product card hover: lift + soft shadow; inner image zoom */
         .ws-card { transition:transform .35s ease, box-shadow .35s ease; }
         @media (hover:hover){ .ws-card:hover { transform:translateY(-6px); box-shadow:0 14px 30px rgba(15,32,56,.16); } }
